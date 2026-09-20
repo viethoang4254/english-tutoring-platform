@@ -58,7 +58,7 @@ Backend:
 
 Database:
 
-- PostgreSQL
+- Supabase-hosted PostgreSQL (managed database hosting)
 
 Authentication:
 
@@ -214,12 +214,16 @@ The intended conceptual Spring Boot package structure is:
 ```text
 com.englishlearning
 │
-├── auth/
+├── features/auth/
 │   ├── controller/
 │   ├── service/
 │   ├── dto/
 │   │   ├── request/
 │   │   └── response/
+│   ├── repository/
+│   ├── security/
+│   │   ├── JwtAuthenticationFilter
+│   │   └── JwtTokenProvider
 │   └── exception/
 │
 ├── user/
@@ -307,11 +311,6 @@ com.englishlearning
 │   ├── controller/
 │   ├── service/
 │   └── dto/
-│
-├── security/
-│   ├── config/
-│   ├── jwt/
-│   └── filter/
 │
 └── common/
     ├── exception/
@@ -507,13 +506,10 @@ subscription/SubscriptionUserRepository
 
 when all represent the same User persistence concept.
 
-Cross-cutting infrastructure belongs in shared modules such as:
-
-```text
-security/
-```
-
-and:
+Authentication-specific security belongs in `features/auth/security/`.
+Only genuinely application-wide security components explicitly required by the
+architecture may remain outside `auth`; do not move components merely for naming.
+Other shared infrastructure may remain in:
 
 ```text
 common/
@@ -672,6 +668,18 @@ Do not trust frontend claims for protected business state.
 ---
 
 # Database Responsibilities
+
+Supabase hosts PostgreSQL; Spring Boot remains the authoritative application backend.
+Next.js uses the Spring Boot REST API for core data; Spring Boot accesses the database
+through Spring Data JPA / Hibernate. PostgreSQL nodes in diagrams refer to this database.
+Keep the schema portable PostgreSQL where practical and domain concepts application-owned.
+
+Follow `docs/ARCHITECTURE.md` section 50 for Supabase service boundaries: retain Spring
+Security + JWT in `features/auth/security/`; do not introduce Supabase Auth, duplicate
+application users into it, or add direct frontend database access or other Supabase
+services without explicit approval and documented requirements. RLS does not replace
+Spring Boot authorization. Use secure environment-based connections, never hardcoded
+secrets. Local PostgreSQL remains possible for development/testing.
 
 PostgreSQL should persist approved platform data such as:
 
@@ -837,7 +845,7 @@ Refresh Tokens should:
 - live longer than Access Tokens
 - expire
 - support revocation
-- support rotation where practical
+- support rotation according to the approved security design
 - become invalid when required by security-sensitive account events
 
 The exact Refresh Token persistence model belongs to detailed Auth and
@@ -887,12 +895,12 @@ Final cookie configuration depends on frontend/backend deployment architecture.
 
 # Authentication Feature Boundary
 
-Authentication-related use cases belong primarily to the `auth` feature.
+Authentication and authentication-related security belong to `features/auth/`.
 
 Conceptually:
 
 ```text
-auth/
+features/auth/
 ├── controller/
 │   └── AuthController
 │
@@ -910,25 +918,15 @@ auth/
 │   └── response/
 │       └── AuthResponse
 │
-└── exception/
+├── repository/
+├── exception/
+└── security/
+    ├── JwtAuthenticationFilter
+    ├── JwtTokenProvider
+    └── other authentication-specific security components
 ```
 
-JWT infrastructure belongs to the shared `security` module rather than being
-duplicated inside Auth.
-
-Conceptually:
-
-```text
-security/
-├── config/
-│   └── SecurityConfig
-│
-├── jwt/
-│   └── JwtService
-│
-└── filter/
-    └── JwtAuthenticationFilter
-```
+Do not place JWT/authentication-specific components in a root-level security package.
 
 User persistence remains owned by the User domain.
 
@@ -1939,7 +1937,7 @@ Do not add infrastructure or features merely because they might be useful later.
 Do not finalize the following until the project reaches the relevant design stage:
 
 - exact database schema
-- exact cloud provider
+- exact hosting providers for Next.js and Spring Boot
 - exact deployment topology
 - exact Dictionary Provider
 - exact Text-to-Speech Provider

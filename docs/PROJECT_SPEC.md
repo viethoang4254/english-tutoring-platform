@@ -166,6 +166,12 @@ Teachers do not receive direct Student payments in the current project scope.
 
 Admins manage the platform and business operations.
 
+The Admin Overview Dashboard provides operational platform statistics.
+This scope excludes expense management, salaries, bookkeeping and profit/loss;
+it does not expand approved account or Course management permissions.
+Teachers are users filtered by TEACHER role; Admins may inspect permitted
+Teacher information and their Courses without a separate Teacher identity.
+
 Admin functionality includes:
 
 - manage Students
@@ -651,7 +657,9 @@ The exact payment provider has not yet been selected.
 
 # 29. Admin Revenue Analytics
 
-Admin should be able to view revenue information over time.
+Admin should be able to view total verified successful-payment revenue and
+revenue over a selected time range, separately by currency. Revenue grouping
+uses stored plan identity or purchased Monthly/Yearly evidence, not current prices.
 
 Potential metrics include:
 
@@ -683,7 +691,12 @@ Teachers should not have access to platform-wide revenue information.
 
 # 31. Admin System Analytics
 
-Admin analytics may include:
+The operational Overview Dashboard shall include total Students, Teachers and
+Courses, distinct currently entitled Premium Students, total and selected-range
+verified revenue, new subscriptions, renewals, successful and confirmed-failed
+payment counts, and revenue by plan where historical data supports it.
+
+Other Admin analytics may include:
 
 ## Users
 

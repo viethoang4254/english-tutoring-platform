@@ -16,7 +16,7 @@ The project is a graduation project and should prioritize clear requirements, ma
 
 ## 2. Development Stage
 
-The project is currently in the requirements and system-design stage.
+The project is currently in the Task Breakdown and Feature Status planning phase. Database and API design baselines are documented; application implementation has not begun.
 
 Do not begin feature implementation until the relevant requirements and business rules have been defined.
 
@@ -601,3 +601,15 @@ course/
 ├── dto/
 └── mapper/
 ```
+
+---
+
+## 20. Feature and Task Status Tracking
+
+- Before implementing or modifying a feature, read `docs/FEATURE_STATUS.md` and the corresponding task in `docs/TASK_BREAKDOWN.md`; inspect existing implementation and evidence first.
+- `docs/FEATURE_STATUS.md` is the authoritative feature/task implementation-status source. Do not duplicate live status in `docs/TASK_BREAKDOWN.md`.
+- Do not reimplement a feature marked DONE unless the user explicitly requests a change, bug fix, extension or refactor.
+- Use only TODO, IN_PROGRESS, BLOCKED and DONE. Set feature/task status to IN_PROGRESS when implementation genuinely starts; leave partial work IN_PROGRESS unless a concrete unresolved dependency prevents further meaningful work, in which case record BLOCKED and its reason.
+- Mark DONE only after completion criteria and required verification pass. Record actual implementation files, verification results, remaining work and commit references when available.
+- Keep status synchronized with the actual codebase; documentation completion is not implementation completion. Never change status merely to make progress appear complete.
+- Preserve approval-first behavior for material design or scope changes.
