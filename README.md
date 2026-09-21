@@ -58,3 +58,53 @@ artifacts; placeholder-only .env.example files remain eligible for tracking.
 No environment example or profile is needed by TASK-001. Database, JWT, provider
 and frontend configuration are deferred to their owning tasks. Backend secrets
 must never be exposed through frontend NEXT_PUBLIC_* variables.
+
+## Frontend technical foundation
+
+The frontend/ application uses Node 24.21.0 and npm 11.19.0. Its exact Node
+version is recorded in frontend/.node-version; direct packages and package-lock.json
+pin the approved dependency baseline. Select that Node installation in the shell
+before running commands. No global npm upgrade or machine PATH change is required.
+
+From frontend/:
+
+```powershell
+node --version
+npm --version
+npm ci
+npm run typecheck
+npm run lint
+npm run build
+npx playwright install chromium
+npm run test:e2e
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Stop the development server with Ctrl+C. To run a previously built production
+application manually, use `npm run start -- --hostname 127.0.0.1 --port 3000`.
+The E2E command starts its own production server on port 3000; stop a manually
+started server first. It refuses to reuse an unrelated server. Initial dependency
+resolution uses npm install; subsequent reproducible installs use npm ci.
+
+The App Router layout/page are Server Components; providers.tsx is the React Query
+Client Component boundary with a stable QueryClient and unchanged library defaults.
+Zustand is installed only: no store or application query/API call is implemented.
+Future feature implementations belong under src/features/ when their tasks begin.
+No placeholder feature directories or generic API client are created here.
+
+The sole page is neutral technical startup content, not approved product UI/UX.
+Global CSS provides basic sizing and wrapping only. The Playwright smoke test uses
+Chromium at 390x844 and 1440x900 to verify rendering, no horizontal overflow and no
+uncaught browser page errors. It does not establish product flows or replace
+backend tests; cross-feature E2E remains TASK-028. Chromium installation downloads
+browser artifacts to Playwright's user cache outside this repository.
+
+No frontend environment variables or .env files are required. Backend/API-origin
+integration belongs to later tasks. No authentication, database/Supabase client,
+product navigation, deployment or CI configuration is included.
+
+Track package-lock.json. node_modules/, .next/, next-env.d.ts, TypeScript build
+cache and Playwright output are generated and ignored. next typegen (included in
+typecheck) regenerates Next.js types before the TypeScript check.
+Next.js may also generate frontend/AGENTS.md and frontend/CLAUDE.md in an AI-agent
+session; these generated guidance files are ignored, leaving root AGENTS.md unchanged.
