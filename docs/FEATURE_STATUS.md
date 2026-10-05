@@ -23,7 +23,7 @@ The planning-readiness column is a reference snapshot of TASK_BREAKDOWN. Complet
 
 The repository contains the Spring Boot technical foundation, Next.js technical foundation, environment-bound datasource/JPA/PostgreSQL connectivity setup, foundation tests and a neutral frontend shell. Completed connectivity includes recorded local and Supabase development verification.
 
-Flyway and the approved 22-table Physical V1 migration are implemented and verified on disposable local PostgreSQL under TASK-004. No Supabase schema deployment is claimed. Tutoring business controllers, entities/repositories, authentication, production deployment and CI remain unimplemented.
+Flyway and the approved 22-table Physical V1 migration are implemented and verified on disposable local PostgreSQL under TASK-004. Supabase development V1 is deployed, independently verified read-only and accepted as the development database baseline; see Section 8, TASK-004. Tutoring business controllers, entities/repositories, authentication, production deployment and CI remain unimplemented.
 
 | Active task status | Count |
 |---|---:|
@@ -256,6 +256,9 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - Earlier verification exposed two test-only issues (RESTRICT SQLSTATE expectation and an explicit-ID/identity fixture collision); both were corrected without changing the migration. Final verification passed and the temporary server shut down normally. Temporary diagnostic clusters/logs remain outside the repository; initialization password files were removed.
 - DatabaseConnectivityTests explicitly disables Flyway to preserve its read-only SELECT 1 contract. Repeat migration testing uses a fresh empty disposable database; never Flyway clean or a shared database. Supply credentials privately through the existing environment variables.
 - Scope: No entities/repositories/services/controllers or payment/Calendar/Storage integration; no Supabase access/migration, no schema redesign, and no commit/staging. Generated build/test output is ignored. There is no remaining TASK-004 completion blocker; later business/integration gates and Supabase rollout remain separate work.
+
+- Supabase development baseline (2026-10-05, agent-observed deployment/read-only verification; user-accepted): V1 is deployed through the Session Pooler. Independent catalog queries in BEGIN READ ONLY confirmed exactly the expected 22 application tables, no missing/unexpected tables, and exactly one flyway_schema_history entry: version 1 / V1__initial_schema.sql / success=true.
+- Supabase catalog verification: 22 PKs, 28 FKs, 14 UNIQUE constraints, 51 CHECKs and 59 valid/ready indexes (23 explicit plus 36 PK/UNIQUE backing indexes). Required Session, Submission, Feedback, Calendar, canonical-email, payment relationships and partial-unique constraints matched V1; no replacement-session column or Session self-FK, and no catalog mismatch. This completes the separate development database rollout noted above, not production deployment or business implementation. Existing task/feature statuses remain unchanged.
 
 ## 9. Decision-Gate Relationship
 
