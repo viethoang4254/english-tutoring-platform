@@ -23,12 +23,12 @@ The planning-readiness column is a reference snapshot of TASK_BREAKDOWN. Complet
 
 The repository contains the Spring Boot technical foundation, Next.js technical foundation, environment-bound datasource/JPA/PostgreSQL connectivity setup, foundation tests and a neutral frontend shell. Completed connectivity includes recorded local and Supabase development verification.
 
-Current tutoring business capabilities are not implemented. No business controllers, domain entities/repositories, Spring Security/JWT implementation, Flyway migrations, tutoring schema, production deployment or CI pipeline are established by the evidence.
+Flyway and the approved 22-table Physical V1 migration are implemented and verified on disposable local PostgreSQL under TASK-004. No Supabase schema deployment is claimed. Tutoring business controllers, entities/repositories, authentication, production deployment and CI remain unimplemented.
 
 | Active task status | Count |
 |---|---:|
-| DONE | 4 |
-| TODO | 25 |
+| DONE | 5 |
+| TODO | 24 |
 | BLOCKED | 8 |
 | IN_PROGRESS | 0 |
 | Total | 37 |
@@ -44,7 +44,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-001 | Backend technical foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-001. |
 | TASK-002 | Frontend technical foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-002. |
 | TASK-003 | PostgreSQL connectivity foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-003. |
-| TASK-004 | Physical Database V1 migration and persistence integrity | TODO | TODO | G-PHYSICAL resolved; awaiting implementation approval. No implementation evidence. |
+| TASK-004 | Physical Database V1 migration and persistence integrity | DONE | TODO | Flyway V1 and isolated PostgreSQL verification passed; see Section 8, TASK-004. |
 | TASK-005 | Shared API and client boundary conventions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-006 | Authentication and backend authorization foundation | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-007 | Student registration and shared authentication sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -102,7 +102,7 @@ Compatible existing feature IDs retain their current meaning below. Their scope 
 
 | Feature | Current responsibility | Overall status | Related current tasks |
 |---|---|---|---|
-| FEAT-002 | Physical Database V1 migration/persistence foundation | TODO | TASK-004 |
+| FEAT-002 | Physical Database V1 migration/persistence foundation | DONE | TASK-004 |
 | FEAT-003 | Authentication/authorization foundation | TODO | TASK-006 |
 | FEAT-004 | Student registration, shared sessions and password security | TODO | TASK-007, TASK-008 |
 | FEAT-005 | Current account and own personal profile | TODO | TASK-009 |
@@ -245,12 +245,24 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - Acceptance review checked the saved README against TASK-031, source mappings and identifiers, documentation links, the documentation diff and preserved TASK-001/002/003 evidence and unfinished foundation components. The preceding README verification statically checked commands and links; no commands were treated as newly executed runtime evidence. Technical package/artifact/database names remain unchanged. Documentation git diff --check passed.
 - Completion is documentation/operational guidance only. All business implementation and open decision gates remain outstanding under their own tasks. No build, test, database connection, implementation or deployment was performed for this completion; no completion commit is claimed. No completion evidence exists for active tasks other than TASK-001/002/003 and TASK-031.
 
+### TASK-004 — Physical Database V1 migration and persistence integrity
+
+- Status: DONE (2026-10-05, agent-observed). FEAT-002 is DONE for migration/persistence integrity only; FEAT-001 and its component statuses are unchanged.
+- Implementation: backend/pom.xml adds spring-boot-starter-flyway 4.1.1 and Boot-managed flyway-database-postgresql 12.4.0 (flyway-core 12.4.0 transitively). application.yml reuses DATABASE_URL/DATABASE_USERNAME/DATABASE_PASSWORD, disables Flyway clean and uses public; ddl-auto=none and SQL init=never remain unchanged.
+- Migration: backend/src/main/resources/db/migration/V1__initial_schema.sql matches the canonical DATABASE_DESIGN Section 17 SQL byte-for-byte: 22 application tables, 22 PKs, 28 FKs, 51 CHECKs and 23 explicitly declared indexes. Static verification checked creation order, names/references, lifecycle evidence, NaN/canonical-email checks, Session numbering and absence of retired/provider-placeholder schema; git diff --check passed.
+- Verification: Maven 3.9.16 / Oracle Java 17.0.12; Java release 17. Default clean verify passed with the context test passing and two opt-in database tests skipped. Final mvnw.cmd -B -ntp -DdatabaseMigration=true -DdatabaseConnectivity=true verify passed: 3 tests, 0 failures/errors/skips; executable JAR packaged.
+- Runtime: Installed PostgreSQL 18.6 binaries created an isolated temporary SCRAM-authenticated cluster on 127.0.0.1:55432, database task004_migration, with a generated ephemeral password. No shared/local development or Supabase credentials were used. DatabaseMigrationTests rejects non-loopback/non-task004_* targets and nonempty databases before starting Spring/Flyway.
+- Flyway applied V1 from empty public schema, recorded version 1 successful, and a second Spring application-context startup plus repeated validate/migrate reported no migration necessary. SQL metadata independently confirmed 22 application tables excluding flyway_schema_history. Tests checked PK/FK deletion counts and representative indexes; rollback-only fixtures verified canonical email, uniqueness, VND/ranges/NaN, lifecycle evidence, RESTRICT and Session numbering. GRADED with null score remains permitted. No application/transactional business invariants are claimed implemented.
+- Earlier verification exposed two test-only issues (RESTRICT SQLSTATE expectation and an explicit-ID/identity fixture collision); both were corrected without changing the migration. Final verification passed and the temporary server shut down normally. Temporary diagnostic clusters/logs remain outside the repository; initialization password files were removed.
+- DatabaseConnectivityTests explicitly disables Flyway to preserve its read-only SELECT 1 contract. Repeat migration testing uses a fresh empty disposable database; never Flyway clean or a shared database. Supply credentials privately through the existing environment variables.
+- Scope: No entities/repositories/services/controllers or payment/Calendar/Storage integration; no Supabase access/migration, no schema redesign, and no commit/staging. Generated build/test output is ignored. There is no remaining TASK-004 completion blocker; later business/integration gates and Supabase rollout remain separate work.
+
 ## 9. Decision-Gate Relationship
 
-Final Physical V1 reconciliation is documentation only. G-PHYSICAL is RESOLVED
-for the approved 22-table design. TASK-004 and FEAT-002 move from BLOCKED to TODO;
-implementation requires separate approval. No implementation completion is claimed
-and completed foundation evidence remains unchanged.
+G-PHYSICAL remains RESOLVED for the approved 22-table design. Separately authorized
+TASK-004 implementation and isolated verification are now complete; FEAT-002 is DONE.
+This does not complete business persistence/JPA, APIs or external integrations.
+Completed TASK-001/002/003 evidence remains unchanged.
 Approved Calendar/Storage/payment directions are not implemented integrations.
 
 TASK_BREAKDOWN Section 23 owns the 33 gate definitions and dependency graph. This ledger records only relevant current blockers and points to task scope; it does not maintain a competing gate catalogue.
@@ -274,4 +286,4 @@ Removing a blocker requires the appropriate approved decision and reassessment o
 
 README.md reconciliation is complete under TASK-031. It uses the English Tutoring Platform identity, separates planned tutoring scope from completed foundations, documents current dependencies and datasource prerequisites for startup, and links authoritative scope/design/planning/status documents.
 
-Preserve its valid boundaries: business APIs/authentication are absent, the frontend is neutral, Flyway is absent and automatic schema mutation is disabled. Do not rename existing Java packages, Maven artifacts, directories or database names merely to match the product title.
+Preserve its valid boundaries: business APIs/authentication are absent and the frontend is neutral. TASK-004 now installs Flyway as migration owner; Hibernate generation and Spring SQL initialization remain disabled. README's earlier Flyway-absent wording is historical and needs a separately scoped onboarding update. Do not rename existing Java packages, Maven artifacts, directories or database names merely to match the product title.
