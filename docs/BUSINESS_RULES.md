@@ -1,1586 +1,733 @@
-# English Learning Platform --- Business Rules\*\*
+# English Tutoring Platform — Business Rules
 
-**Version:** 0.2
-
-**Status:** Draft
-
+**Version:** 0.3
+**Status:** Reconciled tutoring invariants with explicit open decision gates
 **Project Type:** Graduation Project
 
-**---**
+# 1. Authority, Rule Conventions and Scope
 
-# 1. Purpose\*\*
+These rules constrain the approved Development of an English Tutoring Platform.
+Authority follows AGENTS.md, PROJECT_SPEC.md and current REQUIREMENTS.md,
+in that order. Conflicting legacy business/design content
+does not establish current policy.
 
-This document defines the core business rules of the English Learning
-Platform.
+Project-local skills provide subordinate working guidance for applying the canonical
+documentation. They do not override or redefine the canonical project documents.
 
-Business Rules describe how the system behaves independently from
-implementation technology.
+Sections 2–14 contain active BR definitions. Each states a governing constraint,
+not an implementation task or a repetition of every functional capability.
+Requirement references identify supporting active requirements; they do not
+authorize missing policy. Sections 15–16 record open decisions and historical
+disposition. Deferred/retired IDs do not count as active rules.
 
-Requirement IDs from `REQUIREMENTS.md` should be referenced where
-appropriate.
+A role, client claim or public discovery response does not establish ownership,
+payment success or participation eligibility. Apply all relevant approved checks.
+An unresolved mechanism never weakens an approved trust/access invariant.
 
-**---**
-
-# 2. Role Rules\*\*
-
-## BR-ROLE-001 --- Primary Roles\*\*
-
-The system contains three primary roles:
-
-- STUDENT
-
-- TEACHER
-
-- ADMIN
-
-A user's authorization shall be determined by their assigned role.
-
-**---**
-
-## BR-ROLE-002 --- Student Access Tier\*\*
-
-STANDARD and PREMIUM are Student access tiers, not system roles.
-
-A Student remains a STUDENT regardless of subscription status.
-
-**---**
-
-## BR-ROLE-003 --- Teacher Access\*\*
-
-Teachers do not require a Premium subscription to perform Teacher
-functions.
-
-**---**
-
-## BR-ROLE-004 --- Admin Access\*\*
-
-Admins do not require a Premium subscription to perform Admin functions.
-
-**---**
-
-# 3. Authentication and Account Rules
-
-## BR-AUTHN-001 --- Public Registration
-
-Public self-registration is available only for Student accounts.
-
-Registration requires fullName according to `BR-PROFILE-001`.
-
-A public user shall not be able to register directly as TEACHER or
-ADMIN.
+This document prescribes no schema, API, UI layout, provider protocol or integration
+implementation. Preserve the approved technical foundations and TASK-001/002/003
+evidence. This reconciliation authorizes no implementation or downstream edits.
 
 ---
 
-## BR-AUTHN-002 --- Default Student Role
+# 2. Roles, Account Security and Onboarding Boundaries
 
-A successfully registered public account shall receive the STUDENT role.
+## BR-ROLE-001 — Roles and Conditional Authorization
 
-Role assignment shall originate from trusted backend logic and shall not
-be accepted from an untrusted client request.
+The primary roles are STUDENT, TEACHER and ADMIN. Role membership does not by itself authorize arbitrary resource access: applicable account eligibility, ownership, Enrollment and approved operation permissions must also hold.
 
----
+**Requirements:** FR-AUTH-001, FR-AUTH-007, FR-AUTH-011, FR-AUTH-013.
 
-## BR-AUTHN-003 --- Default Student Access Tier
+## BR-AUTHN-002 — Student Role Authority
 
-A newly registered Student starts with STANDARD access.
+Student registration assigns the STUDENT role through trusted backend logic. A client cannot select privileged roles through that registration. This rule is limited to Student registration and does not define Teacher onboarding.
 
-PREMIUM access is obtained only through an active Premium entitlement.
+**Requirements:** FR-STU-001, FR-ACC-016.
 
----
+## BR-AUTHN-006 — Verification Credential
 
-## BR-AUTHN-004 --- Initial Account Status
+Email canonicalization is lowercase(trim(inputEmail)) for registration, login,
+verification, email change and password-reset/account lookup. Persist users.email and
+verification target_email canonically; do not remove dots/+tags or apply provider-specific
+normalization. users.email is UNIQUE; target_email is not unique.
 
-A newly registered Student account starts as PENDING_VERIFICATION.
+Verification credentials are purpose-specific, hashed, expiring and single-use.
+INITIAL_VERIFICATION and EMAIL_CHANGE are distinct purposes. Canonicalize the target email;
+retain the old effective email until the new email is successfully verified. Verification
+alone does not override a lock or approve Teacher onboarding. Exact lifetime/resend controls
+remain open.
 
-After successful email verification, the account becomes ACTIVE unless
-an authorized account-management rule prevents activation.
+**Requirements:** FR-ACC-008, FR-ACC-009, NFR-SEC-015.
 
----
+## BR-AUTHN-007 — Access Token
 
-## BR-AUTHN-005 --- Email Verification Requirement
+Successful authentication uses a short-lived JWT Access Token. The retained configurable default lifetime is 15 minutes.
 
-Email verification is required before a Student may use authenticated
-learning functionality that creates or updates persistent learning data.
+**Requirements:** FR-ACC-001, FR-ACC-002, NFR-SEC-007.
 
-A PENDING_VERIFICATION Student may authenticate only to the extent
-required to:
+## BR-AUTHN-008 — Refresh Token
 
-- view the verification-required state
-- request or resend email verification
-- log out
-- perform other explicitly approved account-verification actions
+A valid Refresh Token permits obtaining a new Access Token without resubmitting account credentials, subject to current eligibility checks. The retained configurable default lifetime is 7 days.
 
----
+**Requirements:** FR-ACC-003, FR-ACC-004, NFR-SEC-008.
 
-## BR-AUTHN-006 --- Email Verification Credential
+## BR-AUTHN-009 — Refresh Validation
 
-An email-verification credential shall:
+A new Access Token may be issued from a Refresh Token only if it is valid, unexpired, unrevoked, associated with an eligible account/session and accepted by approved security rules. Invalid or unusable refresh credentials cannot mint an Access Token.
 
-- be purpose-specific
-- be associated with the intended account
-- expire
-- become unusable after successful verification where appropriate
+**Requirements:** FR-ACC-004, FR-ACC-005.
 
-The exact verification-token lifetime may be configured during
-implementation and shall not be hardcoded into business logic.
+## BR-AUTHN-010 — Refresh Rotation
 
----
+Refresh Token rotation must be supported according to the approved security design. When a replacement is issued under that design, replaced credentials must be invalidated accordingly. Client state is not authoritative. Timing, replay, concurrency and session-limit policies remain open.
 
-## BR-AUTHN-007 --- Access Token
+**Requirements:** FR-ACC-006, NFR-SEC-009.
 
-Successful authentication uses a short-lived JWT Access Token.
+## BR-AUTHN-011 — Logout
 
-The initial project default Access Token lifetime is 15 minutes.
+Logout invalidates applicable Refresh Token/session state. Frontend deletion alone is not authoritative logout. This does not imply immediate revocation of all previously issued Access Tokens.
 
-The lifetime shall be configurable.
+**Requirements:** FR-STU-003, FR-ACC-006.
 
----
+## BR-AUTHN-012 — Current Identity
 
-## BR-AUTHN-008 --- Refresh Token
+Current-user information comes from authenticated backend identity and authoritative account information. Changing a client-supplied user identifier cannot select another user's identity.
 
-The system uses a Refresh Token to obtain a new Access Token without
-requiring the user to enter credentials again while the Refresh Token
-remains valid.
+**Requirements:** FR-ACC-007, FR-AUTH-013.
 
-The initial project default Refresh Token lifetime is 7 days.
+## BR-AUTHN-013 — Password Change
 
-The lifetime shall be configurable.
+An authenticated eligible User may change their password through the dedicated security
+operation. Revoke other refresh sessions while preserving the current session. Never expose
+plaintext passwords in logs/responses.
 
----
+**Requirements:** FR-ACC-010, NFR-SEC-013.
 
-## BR-AUTHN-009 --- Refresh Token Validation
+## BR-AUTHN-014 — Password Recovery Privacy
 
-A new Access Token may be issued only when the submitted Refresh Token
-is:
+Password recovery uses an account's supported recovery identifier. Responses must avoid unnecessary disclosure of account existence; recovery must not bypass the credential safeguards in BR-AUTHN-015.
 
-- valid
-- unexpired
-- unrevoked
-- associated with an eligible account/session
-- accepted by the current security rules
+**Requirements:** FR-ACC-011, FR-ACC-012.
 
-An invalid, expired, revoked, or otherwise unusable Refresh Token shall
-not produce a valid Access Token.
+## BR-AUTHN-015 — Password Reset
 
----
+Password reset requires a valid, purpose-specific, unexpired, unused hashed credential for
+the intended account. Consume it once and revoke all refresh sessions on success.
 
-## BR-AUTHN-010 --- Refresh Token Rotation
+**Requirements:** FR-ACC-012, FR-ACC-013, NFR-SEC-014.
 
-The initial authentication design shall support Refresh Token rotation.
+## BR-AUTHN-016 — Password Reset Lifetime
 
-When a Refresh Token is successfully used, the backend may replace it
-with a new Refresh Token and invalidate the previous token according to
-the approved security design.
+The retained configurable default password-reset credential lifetime is 15 minutes.
 
-The client shall not be authoritative for rotation state.
+**Requirements:** FR-ACC-013, NFR-SEC-014.
 
----
+## BR-AUTHN-017 — Account Eligibility
 
-## BR-AUTHN-011 --- Logout
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
 
-Logout shall invalidate the applicable Refresh Token or
-authentication-session state.
+**Requirements:** FR-ACC-014, FR-AUTH-007.
 
-Removing frontend state alone is not sufficient to represent
-authoritative logout.
+## BR-AUTHN-018 — Locked Account
 
----
+users.locked is the sole V1 account-blocking mechanism. A locked account cannot authenticate
+or perform normal account use until an authorized unlock. Locking is not deletion and does
+not erase history; automatic lockout policy is not implied.
 
-## BR-AUTHN-012 --- Current User
+**Requirements:** FR-ACC-014, FR-ADM-006.
 
-Current-user information shall be derived from authenticated backend
-identity and authoritative account data.
+## BR-AUTHN-019 — Single Account-Blocking Mechanism
 
-The client shall not be able to select another user merely by changing a
-user identifier in the request.
+No separate disabled/enabled/account_status lifecycle exists in V1. This retained rule ID
+refers to the locked-account restriction in BR-AUTHN-018 and protection of historical data,
+not a second blocking state.
 
----
+**Requirements:** FR-ACC-015, NFR-DATA-001, NFR-DATA-007.
 
-## BR-AUTHN-013 --- Change Password
+## BR-AUTHN-020 — Role Authority
 
-An authenticated eligible user may change their password after
-satisfying the required security checks.
+Only trusted backend state establishes role authority. A client cannot assign, modify or elevate its own role.
 
-A password change shall not expose the old or new plaintext password
-through logs or API responses.
+**Requirements:** FR-ACC-016, FR-AUTH-009.
 
-Security-sensitive session invalidation after a password change shall
-follow the approved authentication design.
+## BR-AUTHN-023 — Admin Provisioning Boundary
 
----
+Admin accounts are not publicly self-registered. Provisioning requires an authorized administrative or system-setup workflow; Students and Teachers cannot promote themselves to ADMIN. This is not a Teacher onboarding rule.
 
-## BR-AUTHN-014 --- Forgot Password
+**Requirements:** FR-ACC-016, FR-ADM-001.
 
-A user may initiate password recovery using the account's supported
-recovery identifier.
+## BR-AUTHN-024 — Teacher Onboarding Boundary
 
-Forgot-password responses should avoid unnecessary disclosure of whether
-a specific account exists.
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots. Review snapshots are immutable historical evidence after review. PENDING
+applications are unreviewed; APPROVED/REJECTED applications identify reviewer/time, and
+rejection records a reason. Detailed review-operation contracts remain open.
+
+**Requirements:** FR-TEA-005, FR-ACC-016.
 
 ---
 
-## BR-AUTHN-015 --- Password Reset
+# 3. Profile Identity and Permitted Changes
 
-Password reset requires a valid, purpose-specific, unexpired
-password-reset credential associated with the intended account.
+## BR-PROFILE-002 — Own-Profile and Privilege Boundary
 
-A successfully used password-reset credential shall not be reusable.
+Students and Teachers edit only authorized own-profile information using authenticated
+identity. Ordinary profile editing cannot change role, locked/verified state, onboarding
+approval or participation/payment authority. User profile data and the current public
+Teacher profile do not create separate login identities. Teacher application snapshots must
+not change with profile edits. Email changes require verified new email before replacement;
+password changes use dedicated security operations. Required text is validated as nonblank
+by the backend; unspecified field limits are not invented.
 
----
-
-## BR-AUTHN-016 --- Password Reset Lifetime
-
-The initial project default password-reset credential lifetime is 15
-minutes.
-
-The lifetime shall be configurable.
+**Requirements:** FR-STU-004, FR-STU-005, FR-TEA-002, FR-TEA-003, FR-AUTH-013.
 
 ---
 
-## BR-AUTHN-017 --- Account Status
+# 4. Teacher and Course Ownership
 
-The initial account states are:
+## BR-COURSE-001 — Single Course Owner
 
-- PENDING_VERIFICATION
-- ACTIVE
-- LOCKED
-- DISABLED
+Every Course belongs to exactly one owning Teacher. Ownership comes from authoritative
+backend state and cannot be transferred in V1.
 
-Only account states permitted by the applicable authentication rule may
-access protected functionality.
+**Requirements:** FR-TCR-003.
 
----
+## BR-COURSE-002 — Multiple Courses
 
-## BR-AUTHN-018 --- Locked Account
+A Teacher may own multiple Courses; owning one Course does not grant authority over another Teacher's Course.
 
-A LOCKED account shall not access protected application functionality
-until the lock is removed through an authorized workflow.
+**Requirements:** FR-TCR-001, FR-TCR-006.
 
-The exact automatic lockout policy is not required for the initial
-version unless separately approved.
+## BR-COURSE-003 — Multiple Teachers
 
----
+The platform supports multiple Teachers. Teacher identity alone grants no authority over another Teacher's resources.
 
-## BR-AUTHN-019 --- Disabled Account
+**Requirements:** FR-DIS-005, FR-TCR-006.
 
-A DISABLED account shall not authenticate or access protected
-application functionality.
+## BR-COURSE-004 — Owned-Course Management
 
-Disabling an account shall not automatically delete historical learning,
-payment, or subscription records.
+A draft Course may omit meet_url; backend publication requires a valid Teacher-provided
+Meet URL. Tuition is nonnegative and finite; zero means free. V1 currency is VND only.
+min_students is positive and max_students >= min_students. session_count is the fixed
+positive planned count and cancellation does not change it. Discount fields are all
+absent or all present, with 0 < discount_percent < 100 and start < end. A 100% discount
+is not the representation of a free Course.
 
----
+Every Course has one non-transferable owning Teacher and exactly one Category. Used
+Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,
+CANCELLED and ARCHIVED; teaching in progress remains PUBLISHED. Teacher explicitly completes
+a Course after backend validation. Cancellation and archival are distinct. Optional
+percentage-discount windows are supported; Payments retain their price snapshots. Teachers
+manage only owned Courses under applicable permissions. Admin oversight neither transfers
+ownership nor grants arbitrary mutation. Detailed publication/completion prerequisites and
+deletion/retention edges remain gated.
 
-## BR-AUTHN-020 --- Role Authority
+**Requirements:** FR-TCR-005, FR-TCR-006, FR-TCR-007, FR-ACR-002.
 
-Role information is authoritative only when obtained from trusted
-backend state.
+## BR-AUTH-003 — Teacher Resource Ownership
 
-The client shall not be allowed to assign, modify, or elevate its own
-role.
+Backend Teacher authorization must follow authoritative ownership through Course -> Teacher, Session -> Course -> Teacher, Assignment -> Session -> Course -> Teacher and Submission -> Assignment -> Session -> Course -> Teacher. The Course boundary also applies to enrolled-Student teaching information, results, progress and related transactions. Teacher role alone never permits cross-owner management. These are authorization relationships, not storage design.
 
----
+**Requirements:** FR-AUTH-008, FR-AUTH-011, FR-TCR-010, FR-PAY-011.
 
-## BR-AUTHN-021 --- Premium Authority
+## BR-TEA-001 — Owned Teaching Content
 
-PREMIUM is not a role.
+Teacher management of protected teaching content is restricted to owned Courses and their authorized child resources under BR-AUTH-003. No cross-Teacher management exception is implied.
 
-Premium entitlement shall be determined from trusted subscription state
-rather than from client-provided flags or a long-lived JWT claim alone.
-
----
-
-## BR-AUTHN-022 --- Teacher Account Provisioning
-
-Teacher accounts are not created through public self-registration.
-
-For the initial project version, an authorized Admin may create or
-provision a Teacher account.
-
-A Teacher account shall use the TEACHER role. Creation/provisioning requires a
-valid fullName according to `BR-PROFILE-001`; an existing User's valid name may be
-retained when assigning the Teacher role.
+**Requirements:** FR-TCR-006, FR-SES-002, FR-ASN-002.
 
 ---
 
-## BR-AUTHN-023 --- Admin Account Provisioning
+# 5. Course and Session Relationships
 
-Admin accounts are not created through public self-registration.
+## BR-COURSE-007 — Whole-Course Commercial Unit
 
-Admin provisioning shall occur only through an authorized administrative
-or system-setup workflow.
+Students purchase entire Courses, never individual Sessions. Enrollment is unique per
+Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A COMPLETED Enrollment is
+historical and cannot simply re-enroll into that Course instance. Free Courses activate
+participation without fake Payments. Paid participation may reserve a seat while PENDING.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired reservations; min_students
+counts ACTIVE only. Expired reservations consume no capacity. No new Enrollment or Payment
+may begin after the first Session has started. Activation, reservation and late-payment
+handling must be concurrency-safe.
 
-A normal Student or Teacher shall not be able to promote themselves to
-ADMIN.
+**Requirements:** FR-ENR-006, FR-PAY-008, FR-TCR-008, FR-TCR-009.
+
+## BR-SES-001 — Session Parent and Meaning
+
+Every Session belongs to one Course and may contain nullable protected learning content and
+Assignments. Generated Sessions need not have content yet. Public preview must not expose
+this content. All Sessions use the Course's protected manual Meet URL.
+
+**Requirements:** FR-SES-001, FR-SES-004.
+
+## BR-SES-002 — Session Management Boundary
+
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking.
+
+**Requirements:** FR-SES-002, FR-AUTH-011.
 
 ---
 
-## BR-PROFILE-001 --- Personal Profile Updates
+# 6. Scheduling Boundaries
 
-Every User has a required full_name and an optional avatar_url on the shared User
-identity. Existing authorized account-creation workflows must supply fullName.
-Spring Boot trims surrounding whitespace from fullName, rejects null/blank values,
-and permits at most 200 characters. Names are not unique or split into first/last
-name fields.
+## BR-SCH-001 — Recurrence and Occurrence Separation
 
-An avatarUrl may be null; otherwise it must be an absolute HTTPS URL of at most
-2048 characters, validated by Spring Boot without a reachability check. This is
-only an image reference: no upload API, Storage service, proxy or backend image
-download is introduced.
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking. Recurring rules use Course
+timezone/local times and concrete Sessions use absolute timestamps.
 
-Eligible Students and Teachers may update only their own fullName and avatarUrl,
-with identity resolved from authentication. In profile PATCH input, omission means
-unchanged; null fullName is rejected, while null avatarUrl clears the avatar.
-Only these two fields are writable; other properties are rejected. Ordinary
-profile updates exclude id, email, password/password_hash, role, account_status,
-email_verified_at, created_at, updated_at and Premium/entitlement state.
-Password changes remain dedicated security operations. Email changes are
-unsupported until a dedicated verified workflow is approved. This rule does not
-grant Admin self-profile editing.
+Generate exactly session_count Sessions chronologically from planned_start_date
+(the earliest permitted date, not necessarily a matching weekday), using weekly rules
+with ISO weekdays 1=Monday through 7=Sunday. Number Sessions 1 through session_count,
+unique within the Course. Combine date and local times with the required backend-validated
+IANA Zone ID to persist TIMESTAMPTZ instants. Same-Course rules must not overlap;
+validate overlap transactionally. Draft inputs may change and generated Sessions may
+be regenerated only before meaningful historical/business activity. Before publication,
+Sessions exist for Teacher review and a valid Teacher-provided Meet URL is required.
+After publication, concrete timestamps are authoritative; do not blindly regenerate.
+Rescheduling updates the same row and Calendar event; cancellation preserves numbering
+and count. Each concrete Session has its own event, never one recurring Calendar event.
+Synchronization failure never rolls back core Course/Session state; retain durable
+sync status and retry. DST gap/overlap validation remains an implementation contract.
+
+**Requirements:** FR-SCH-001, FR-SCH-002.
 
 ---
 
-# 4. CEFR Rules\*\*
+# 7. Assignments, Submissions and Results
 
-## BR-CEFR-001 --- Supported Levels\*\*
+## BR-ASN-001 — Assignment Parent and Ownership
 
-The platform supports:
+Every Assignment belongs to exactly one Session. Assignment and submission authorization derives through the Session's Course and owning Teacher under BR-AUTH-003.
 
-- A1
+**Requirements:** FR-ASN-001, FR-ASN-002, FR-ASN-005.
 
-- A2
+## BR-ASN-002 — Student Submission Boundary
 
-- B1
+Student identity and Course participation access are backend-enforced. Assignments belong to
+Sessions and use ACTIVE/CANCELLED. Any Submission prevents hard deletion of its Assignment.
+There is one current Submission per Student/Assignment, using DRAFT/SUBMITTED/GRADED; no
+revision-history, result or grading table is introduced. Score, feedback and grading
+metadata remain on Submission. Only the owning Teacher grades, and a score cannot exceed
+Assignment max_score. A numeric score is not made mandatory merely by GRADED status.
+Submission/Assignment attachments use Supabase Storage references and metadata, not database
+file bytes. Deadline/late-submission and file-validation details remain open.
 
-- B2
+**Requirements:** FR-ASN-003, FR-ASN-004, FR-ENR-007, FR-AUTH-013.
 
-- C1
+## BR-ASN-003 — Submission and Result Privacy
 
-- C2
+Assignment due_at is required. max_score is finite positive NUMERIC(5,2); nullable
+Submission score is finite nonnegative NUMERIC(5,2) and must not exceed Assignment
+max_score. The cross-row comparison is transactional; there is no maximum of 100.
 
-**---**
+Students access only authorized own submissions/results; Teachers inspect and grade only
+within owned Courses. SUBMITTED requires submission time; GRADED requires submission time,
+grading time and grader. Results are the Submission's score/feedback/metadata, not a
+separate result identity. Numeric scores remain optional unless a later rule requires them.
 
-## BR-CEFR-002 --- Platform Managed Levels\*\*
+**Requirements:** FR-ASN-005, FR-ASN-006, FR-AUTH-011.
 
-CEFR Levels belong to the platform.
+---
 
-Teachers shall not create arbitrary CEFR Levels.
+# 8. Enrollment and Participation Access
 
-**---**
+## BR-ENR-001 — Enrollment Relationship
 
-## BR-CEFR-003 --- Course Level\*\*
+Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
+COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
+Free Courses activate participation without fake Payments. Paid participation may reserve a
+seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
+new Enrollment or Payment may begin after the first Session has started. Activation,
+reservation and late-payment handling must be concurrency-safe.
 
-Every published Course must belong to exactly one CEFR Level.
+**Requirements:** FR-ENR-004, FR-ENR-006.
 
-**---**
+## BR-ENR-006 — Authoritative Participation
 
-# 5. Teacher and Course Rules\*\*
+Protected Course participation requires valid authoritative Enrollment where applicable. This governs Student access to protected Session content, Assignments, submissions/results/progress, Meet information and related participation data as appropriate. Enrollment does not grant access to another Student's private information or Teacher/Admin management.
 
-## BR-COURSE-001 --- Course Ownership\*\*
+**Requirements:** FR-ENR-007, FR-ASN-006, FR-AUTH-002, FR-AUTH-013.
 
-Every Course has exactly one primary Teacher.
+## BR-ENR-007 — Discovery Is Not Participation
 
-**---**
+Public Teacher/Course discovery does not grant protected Course participation. Visibility of permitted public information is distinct from authorization for protected resources.
 
-## BR-COURSE-002 --- Multiple Courses\*\*
+**Requirements:** FR-DIS-003, FR-DIS-004, FR-AUTH-012.
 
-A Teacher may own multiple Courses.
+## BR-ENR-008 — Payment and Enrollment Separation
 
-**---**
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference. Actual provider/bank transactions may be unmatched.
+They retain receiving-account context when resolvable, independently of Payment matching; an
+unresolved receiver remains a reconciliation concern. Browser, Student and Teacher claims
+are not confirmation evidence. Confirmation requires trustworthy provider/bank evidence
+matching the intended receiver, code, amount and currency; wrong/missing codes or amounts do
+not auto-confirm, partial transfers are not summed automatically, and late transactions
+cannot cause overbooking. Payment and Enrollment transitions require one concurrency-safe
+backend workflow; a confirmed late payment never grants an over-capacity seat.
 
-## BR-COURSE-003 --- Multiple Teachers\*\*
+**Requirements:** FR-ENR-006, FR-ENR-008, FR-PAY-012.
 
-The platform may contain multiple Teachers.
+---
 
-**---**
+# 9. Teacher Payment Destinations and Direct Payment
 
-## BR-COURSE-004 --- Teacher Modification\*\*
+## BR-PAY-006 — Receiving Information Ownership
 
-A Teacher may modify Courses they own. Existing approved Course/content editing
-and authorized publish/archive capabilities remain intact; access classification
-is excluded from Teacher-controlled fields.
+Teacher receiving accounts are private owned information. Retain account history; at most
+one ACTIVE account per Teacher. Existing Payments retain their original receiving-account
+reference after account changes. Actual bank account ownership/verification and provider
+contracts remain integration gates.
 
-A Teacher shall not modify another Teacher's Course.
+**Requirements:** FR-PAY-007.
 
-Admin permissions are handled separately.
+## BR-PAY-007 — Course Determines Destination
 
-**---**
+Payment for a Course must be directed to the configured payment destination of its owning Teacher. Student/client input cannot substitute another Teacher's destination for that Course payment.
 
-## BR-COURSE-005 --- Course Access Type\*\*
+**Requirements:** FR-PAY-008, FR-AUTH-013.
 
-Spring Boot assigns STANDARD when a Teacher creates a Course.
+## BR-PAY-008 — Direct Tuition and No Custody
 
-A Course shall have one access classification:
+Tuition goes directly to the owning Teacher. Platform/Admin does not hold tuition, pay out
+funds or operate wallets, escrow, commissions or accounting. The separately approved
+full-refund workflow is governed by BR-PAY-011.
 
-- STANDARD
+**Requirements:** FR-PAY-009, FR-PAY-011.
 
-- PREMIUM
+---
 
-**---**
+# 10. Payment Trust and Enrollment Effects
 
-## BR-COURSE-006 --- Course Access Classification Authority\*\*
+## BR-PAY-002 — Untrusted Payment Claims
 
-Teachers create educational content but do not make the final business
-decision regarding whether a Course is Standard or Premium.
+A frontend success screen, browser state, Student claim or arbitrary client request alone is never sufficient authoritative evidence of payment success.
 
-Teacher create/update operations shall not expose or accept accessClassification.
-Admin controls changes between STANDARD and PREMIUM under the approved Admin rules.
+**Requirements:** FR-PAY-010, FR-PAY-012.
 
-**---**
+## BR-PAY-003 — Transaction Information
 
-# 6. Course Status Rules\*\*
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference. Actual provider/bank transactions may be unmatched.
+They retain receiving-account context when resolvable, independently of Payment matching; an
+unresolved receiver remains a reconciliation concern. Browser, Student and Teacher claims
+are not confirmation evidence. Confirmation requires trustworthy provider/bank evidence
+matching the intended receiver, code, amount and currency; wrong/missing codes or amounts do
+not auto-confirm, partial transfers are not summed automatically, and late transactions
+cannot cause overbooking. Unmatched transactions retain a nullable receiving-account
+reference independently of nullable Payment matching.
 
-Courses shall support at least the following lifecycle states:
+**Requirements:** FR-PAY-002, FR-PAY-011, NFR-DATA-007.
 
-- DRAFT
+## BR-PAY-009 — Trustworthy Confirmation Prerequisite
 
-- PUBLISHED
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking. A
+CONFIRMED Payment requires confirmation time. Amount alone is not matching evidence.
+Physical V1 omits provider_account_ref/provider_order_id and their order index.
+Provider transaction IDs carry no unverified global uniqueness guarantee; the selected
+adapter must enforce verified-context transactional idempotency before integration.
 
-- ARCHIVED
+**Requirements:** FR-PAY-010, FR-ENR-008, FR-PAY-012.
 
-**---**
+## BR-PAY-010 — Payment Data Visibility
 
-## BR-CSTATUS-001 --- Draft Course\*\*
+Course-related transaction access must respect owning-Teacher boundaries, related-Student permissions and authorized Admin access. Teacher A cannot obtain unauthorized management of Teacher B's transactions. Permission to view/monitor status grants neither unrestricted outcome modification nor payment confirmation authority.
 
-Spring Boot initializes every Teacher-created Course as DRAFT. Teachers retain
-existing authorized publish/archive operations for owned Courses after creation;
-this does not add lifecycle transitions or remove existing editing permissions.
+**Requirements:** FR-PAY-011, FR-ATR-001, FR-ATR-002, FR-AUTH-011.
 
-**---**
+---
 
-## BR-CSTATUS-002 --- Published Course\*\*
+## BR-PAY-011 — Full Refund Evidence and Authority
 
-Only PUBLISHED Courses are discoverable by Students.
+V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
+applicable full Payment amount under the approved workflow. Teacher performs the bank
+transfer back to the Student and submits proof; Admin verifies completion. Refund statuses
+are PENDING, SUBMITTED, COMPLETED and CANCELLED. Payment remains historical and has no
+REFUNDED status. This does not authorize platform custody, payouts, commissions, escrow or
+accounting. SUBMITTED requires proof and submission time; COMPLETED additionally requires
+completion time and the verifying Admin. Preserve earlier evidence through legitimate later
+transitions. Refund amount, Payment eligibility and reviewer authorization require
+transactional validation.
 
-**---**
+**Requirements:** FR-PAY-013, FR-PAY-009, NFR-DATA-007.
 
-## BR-CSTATUS-003 --- Archived Course\*\*
+---
 
-An ARCHIVED Course shall not accept new enrollments.
+# 11. Google Meet and Google Calendar Business Boundaries
 
-Existing learning records associated with the Course shall not be
-deleted merely because the Course is archived.
+## BR-MEET-001 — Single External Course Meeting
 
-**---**
+The owning Teacher creates Google Meet externally and manually supplies exactly one Meet URL for the Course. Every Session uses that same Course URL. No automatic meeting creation, Google Meet API or one-meeting-per-Session model is approved; no dedicated meeting entity is prescribed.
 
-# 7. Enrollment Rules\*\*
+**Requirements:** FR-MEET-001, FR-MEET-003.
 
-## BR-ENR-001 --- Enrollment Required\*\*
+## BR-MEET-002 — Protected Meeting Information
 
-A Student must enroll in a Course before the Course becomes part of My
-Courses and tracked Course learning.
+The Course Meet URL is protected participation information. Unauthorized users, including non-enrolled Students where Enrollment is required, must not obtain protected Meet access through discovery or another bypass.
 
-**---**
+**Requirements:** FR-MEET-002, FR-ENR-007, FR-AUTH-012.
 
-## BR-ENR-002 --- Standard Course\*\*
+## BR-AUTH-005 — Calendar Information Boundary
 
-Both Standard and Premium Students may enroll in a STANDARD Course.
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
 
-**---**
+**Requirements:** INT-CAL-001, FR-AUTH-011, FR-ENR-007.
 
-## BR-ENR-003 --- Premium Course\*\*
+---
 
-Only Students with active Premium access may enroll in a PREMIUM Course.
+# 12. Progress and Participant Feedback Boundaries
 
-**---**
+## BR-TEA-002 — Owned-Course Progress
 
-## BR-ENR-004 --- Duplicate Enrollment\*\*
+Teacher access to learning results/progress is limited to authorized Students/resources in owned Courses. It does not grant cross-Teacher access or establish a progress formula, completion threshold or grading aggregation.
 
-A Student shall not have multiple active enrollment records for the same
-Course.
+**Requirements:** FR-TAN-003, FR-ASN-005.
 
-**---**
+## BR-AUTH-006 — Personal Progress
 
-## BR-ENR-005 --- Premium Expiration\*\*
+Student progress/results access is limited to the authenticated Student's authorized information. Persisted information remains backend-authoritative; progress calculation and completion rules remain unresolved.
 
-If a Student enrolled in a Premium Course and Premium later expires:
+**Requirements:** FR-PRO-004, FR-PRO-009, FR-ASN-006, NFR-SEC-016.
 
-- the enrollment record remains
+## BR-RATE-001 — Participation-Related Feedback
 
-- previous learning history remains
+Participant feedback is unique per Enrollment, can be created only for a COMPLETED
+Enrollment and has a rating from 1 to 5. No aggregate rating column is stored.
+Editing/moderation details not supplied by these decisions remain open.
 
-- previous progress remains
+**Requirements:** FR-RATE-001.
 
-- Premium Course learning access becomes restricted
+---
 
-Access may resume if Premium becomes active again.
+# 13. Admin Authority and Monitoring
 
-**---**
+## BR-ADM-001 — Limited Platform Administration
 
-# 8. Lesson Rules\*\*
+Admin performs only approved account/profile, Category, Course and Enrollment administration
+and monitoring. Used Categories are deactivated, not deleted; each Course has exactly one
+Category. Admin verifies refund completion under BR-PAY-011 without receiving tuition or
+executing Teacher payouts. Role membership alone grants no additional override/moderation
+rights.
 
-## BR-LESSON-001 --- Course Relationship\*\*
+**Requirements:** FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-006, FR-ADM-007, FR-ADM-008, FR-AAN-008.
 
-Every Lesson belongs to exactly one Course.
+## BR-ADM-002 — Course Oversight Boundary
 
-**---**
+Admin oversight across Courses does not make Admin the Course owner or default Assignment grader. Exact override/moderation authority remains open.
 
-## BR-LESSON-002 --- Topic-Based Organization\*\*
+**Requirements:** FR-ACR-001, FR-ACR-002.
 
-Lessons should primarily represent learning topics.
+## BR-ADM-005 — Transaction Monitoring Boundary
 
-Examples:
+Authorized Admin transaction monitoring is subject to BR-PAY-010 and does not confer tuition receipt/custody, payment confirmation authority or arbitrary outcome modification. Unverified/unknown information is not automatically a verified success or confirmed failure. Detailed outcome classifications and reporting semantics remain open.
 
-- Family
+**Requirements:** FR-ATR-001, FR-ATR-002, FR-ATR-003, FR-AAN-008.
 
-- Food & Drinks
+---
 
-- Travel
+# 14. Cross-Cutting Authorization, Privacy and Data Integrity
 
-- Technology
+## BR-AUTH-001 — Backend Enforcement
 
-Part of speech shall not be the primary Lesson hierarchy.
+The backend enforces applicable role, account eligibility, ownership, nested ownership, Enrollment and specific administrative permissions before protected effects or disclosure. Frontend/client state cannot establish these authorities.
 
-**---**
+**Requirements:** FR-AUTH-006, FR-AUTH-007, FR-AUTH-013, NFR-SEC-016.
 
-## BR-LESSON-003 --- Lesson Order\*\*
+## BR-AUTH-002 — UI Is Not Authorization
 
-Lessons within a Course shall support an explicit display order.
+Hiding or disabling frontend controls does not replace backend authorization.
 
-**---**
+**Requirements:** FR-AUTH-006.
 
-## BR-LESSON-004 --- Repeat Learning\*\*
+## BR-AUTH-007 — Protected Discovery Boundary
 
-Students may repeat accessible Lesson learning activities.
+Public discovery must not disclose protected Session content, participation-restricted Assignments, submissions/results, Meet URLs, private Teacher receiving information, protected transactions or enrolled-Student information. Separate authorization is required for protected access.
 
-Repeating an activity shall not delete previous attempt history.
+**Requirements:** FR-AUTH-012, FR-DIS-003, FR-DIS-004.
 
-**---**
+## BR-TEA-003 — Student Information Privacy
 
-# 9. Lesson Completion\*\*
+Teacher access to detailed Student information is limited to legitimate authorized educational functions within owned Courses. Aggregated views cannot substitute for authorization, and a preference for aggregation must not prevent approved individual submission/result review. Exact fields remain open.
 
-For the initial project version, Lesson learning consists primarily of:
+**Requirements:** FR-TCR-010, FR-ASN-005, FR-AUTH-011.
 
-1\. Learn Vocabulary
+## BR-WEB-001 — Student Web Direction
 
-2\. Fill Word
+The Student mobile-first constraint is governed by NFR-UI-002; this retained reference adds no layout policy.
 
-3\. Listening
+**Requirements:** NFR-UI-002.
 
-4\. Quiz
+## BR-WEB-002 — Teacher Web Direction
 
-**---**
+Teacher desktop-oriented, responsive/mobile-usable behavior is governed by NFR-UI-004; no additional interface rule is introduced.
 
-## BR-LCOMP-001 --- Flexible Learning\*\*
+**Requirements:** NFR-UI-004.
 
-Students may revisit completed learning sections.
+## BR-WEB-003 — Admin Web Direction
 
-The platform shall not permanently lock earlier activities after
-completion.
+Admin desktop-oriented, responsive/mobile-usable behavior is governed by NFR-UI-005; no additional interface rule is introduced.
 
-**---**
+**Requirements:** NFR-UI-005.
 
-## BR-LCOMP-002 --- Lesson Completion Condition\*\*
+## BR-WEB-004 — No Native Application Requirement
 
-A Lesson is considered completed when the Student has completed all
-required assessment sections configured for that Lesson.
+The absence of a required native application is governed by NFR-UI-007; this rule does not introduce a separate mobile product.
 
-For the initial core design, the expected required sections are:
+**Requirements:** NFR-UI-007.
 
-- Fill Word
+---
 
-- Listening
+# 15. Open Decisions and Readiness Gates
 
-- Quiz
+| Area | Remaining clarification; approved V1 decisions above are not reopened |
+| --- | --- |
+| Provider contracts | Physical V1 omits provider_account_ref/provider_order_id and provider-order uniqueness. Adapter mapping/authenticity and transaction idempotency remain integration work, not a physical gate; no unverified provider-wide transaction-ID guarantee. |
+| Accounts/security | Canonical email is lowercase(trim(inputEmail)); password encoding/transport/rotation/replay, resend controls and operation-specific review contracts remain implementation gates. Locked is the sole account-blocking mechanism. |
+| Physical restrictions | Resolved: nullable draft Meet URL with publication validation; required deadline; NUMERIC(5,2) scores; positive minimum; fixed planned Session count and unique numbering; complete 0<discount<100 window; VND only. |
+| Calendar | One organizational account and one configured Calendar; backend-configured calendar ID, one event per Session, unique non-null (provider, external_event_id). Execution/retry/reminder details remain integration work. |
+| Storage | Fixed bucket/path mapping, upload limits and file validation/delivery contracts; no binary or signed-URL persistence. |
+| Workflow edges | Detailed publication/completion validations, first-start cutoff under schedule changes, cancellation/re-entry and late-payment reconciliation; do not invent extra lifecycle states or refund eligibility policy. |
+| Progress/reporting | Indicators, formulas, filters and time boundaries; derive from authoritative data without progress/statistics tables. |
+| Privacy/operations | Detailed retention periods, feedback editing/moderation, unrelated Admin overrides, UI/API details and deployment/production operations. |
 
-Viewing the Learn Vocabulary section alone does not complete the Lesson.
+G-PHYSICAL is RESOLVED for the final provider-neutral 22-table V1. Integration
+contracts remain separate gates. No triggers or implementation are authorized here.
 
-**---**
+---
 
-## BR-LCOMP-003 --- Reattempt\*\*
+# 16. Requirement Traceability and Legacy-ID Disposition
 
-Students may reattempt completed assessment sections.
+This register records the earlier scope migration, not today's open-decision list.
+Independent V1 approvals in active sections supersede its then-deferred choices.
 
-The system shall retain relevant attempt history.
+Each active BR lists targeted active requirement references. Capabilities such as
+searching Teachers, viewing counts or opening profile information are not duplicated
+as BRs unless an ownership, privacy or other governing invariant is needed.
 
-**---**
+## Original-ID Accounting
 
-# 10. Course Completion\*\*
+| Original-ID outcome | Count | IDs |
+|---|---:|---|
+| Active/preserved or reconciled with compatible meaning | 38 | `BR-ADM-001`, `BR-ADM-002`, `BR-ADM-005`, `BR-AUTH-001`, `BR-AUTH-002`, `BR-AUTH-003`, `BR-AUTHN-002`, `BR-AUTHN-006`, `BR-AUTHN-007`, `BR-AUTHN-008`, `BR-AUTHN-009`, `BR-AUTHN-010`, `BR-AUTHN-011`, `BR-AUTHN-012`, `BR-AUTHN-013`, `BR-AUTHN-014`, `BR-AUTHN-015`, `BR-AUTHN-016`, `BR-AUTHN-017`, `BR-AUTHN-018`, `BR-AUTHN-019`, `BR-AUTHN-020`, `BR-AUTHN-023`, `BR-COURSE-001`, `BR-COURSE-002`, `BR-COURSE-003`, `BR-COURSE-004`, `BR-ENR-001`, `BR-PAY-002`, `BR-PAY-003`, `BR-ROLE-001`, `BR-TEA-001`, `BR-TEA-002`, `BR-TEA-003`, `BR-WEB-001`, `BR-WEB-002`, `BR-WEB-003`, `BR-WEB-004` |
+| Inactive: retired/superseded/deferred | 98 | Listed below |
 
-## BR-CCOMP-001 --- Course Completion\*\*
+The earlier tutoring reconciliation added 23 BR IDs and had 61 active rules.
+Phase 2 adds BR-PAY-011 for approved full refunds, bringing the active total to 62.
+No original ID is reused for unrelated semantics.
 
-A Course is considered completed for a Student when all required Lessons
-in that Course are completed.
 
-**---**
+Ranges in the following register are inclusive. Every original definition is
+accounted for exactly once. Retired/superseded/deferred entries below are historical
+records, not active rules. Deferred entries do not silently retain their old policy.
 
-## BR-CCOMP-002 --- Progress Percentage\*\*
+| Original inactive IDs | Count | Disposition |
+|---|---:|---|
+| `BR-ROLE-002`, `BR-ROLE-003`, `BR-ROLE-004` | 3 | Retired: Standard/Premium access and subscription framing. |
+| `BR-AUTHN-001`, `BR-AUTHN-003`, `BR-AUTHN-004`, `BR-AUTHN-005`, `BR-AUTHN-021`, `BR-AUTHN-022` | 6 | Superseded/retired: Student-only registration, access tiers and fixed Teacher provisioning. BR-AUTHN-001 and BR-AUTHN-022 are superseded by the safe onboarding boundary, not an automatic Teacher workflow; BR-AUTHN-003 and BR-AUTHN-021 are retired. BR-AUTHN-004 and BR-AUTHN-005 are deferred: detailed initial Student transitions/action lists require reconciliation, while verification safeguards remain under active account rules. |
+| `BR-PROFILE-001` | 1 | Superseded by BR-PROFILE-002: exact fields, lengths and update semantics are open; the former contract is not active. |
+| `BR-CEFR-001`, `BR-CEFR-002`, `BR-CEFR-003` | 3 | Retired: mandatory CEFR organization. |
+| `BR-COURSE-005`, `BR-COURSE-006` | 2 | Retired: Standard/Premium classification and authority. |
+| `BR-CSTATUS-001`, `BR-CSTATUS-002`, `BR-CSTATUS-003` | 3 | Deferred: exact lifecycle, discovery-state conditions and archival effects; old states/defaults are not operative rules. |
+| `BR-ENR-002`, `BR-ENR-003`, `BR-ENR-004`, `BR-ENR-005` | 4 | BR-ENR-002, BR-ENR-003 and BR-ENR-005 retired as tier rules; BR-ENR-004 deferred because duplicate-active-Enrollment policy remains open. |
+| `BR-LESSON-001`, `BR-LESSON-002`, `BR-LESSON-003`, `BR-LESSON-004` | 4 | Retired: vocabulary Lesson model; new Sessions have independent BR-SES rules. |
+| `BR-LCOMP-001`, `BR-LCOMP-002`, `BR-LCOMP-003` | 3 | Retired: legacy learning sequence, assessment completion and reattempt rules. |
+| `BR-CCOMP-001`, `BR-CCOMP-002` | 2 | Retired: Lesson-based completion and percentage formulas. |
+| `BR-VOC-001`, `BR-VOC-002`, `BR-VOC-003`, `BR-VOC-004`, `BR-VOC-005`, `BR-VOC-006` | 6 | Retired: shared vocabulary, senses and CEFR metadata. |
+| `BR-DIC-001`, `BR-DIC-002`, `BR-DIC-003`, `BR-DIC-004` | 4 | Retired: dictionary import/licensing workflow. |
+| `BR-SEARCH-001`, `BR-SEARCH-002`, `BR-SEARCH-003` | 3 | Retired: vocabulary search/access rules. |
+| `BR-SAVE-001`, `BR-SAVE-002`, `BR-SAVE-003`, `BR-SAVE-004` | 4 | Retired: saved vocabulary and subscription-independent collection rules. |
+| `BR-EX-001`, `BR-EX-002`, `BR-EX-003` | 3 | Retired: legacy exercise, correctness and attempt engine. |
+| `BR-FILL-001`, `BR-FILL-002`, `BR-FILL-003` | 3 | Retired: Fill Word behavior and answer normalization. |
+| `BR-LIS-001`, `BR-LIS-002`, `BR-LIS-003` | 3 | Retired: Listening behavior. |
+| `BR-QUIZ-001`, `BR-QUIZ-002` | 2 | Retired: Quiz behavior; new Assignments do not inherit it. |
+| `BR-SCORE-001`, `BR-SCORE-002`, `BR-SCORE-003`, `BR-SCORE-004` | 4 | Retired: score scale, formula, attempts and best-score behavior. |
+| `BR-ACC-001` | 1 | Retired: vocabulary answer-accuracy formula. |
+| `BR-MAST-001`, `BR-MAST-002`, `BR-MAST-003` | 3 | Retired: mastery formulas, evidence and thresholds. |
+| `BR-WEAK-001`, `BR-WEAK-002`, `BR-WEAK-003` | 3 | Retired: weak-vocabulary rules. |
+| `BR-REV-001`, `BR-REV-002`, `BR-REV-003` | 3 | Retired: vocabulary Review; participant feedback uses BR-RATE. |
+| `BR-HIST-001`, `BR-HIST-002`, `BR-HIST-003` | 3 | Retired: attempt history and subscription-dependent historical rules. |
+| `BR-PRE-001`, `BR-PRE-002` | 2 | Retired: Premium content/access. |
+| `BR-SUB-001`, `BR-SUB-002`, `BR-SUB-003`, `BR-SUB-004`, `BR-SUB-005` | 5 | Retired: subscription periods, expiry, entitlements and associated preservation policies. |
+| `BR-PAY-001`, `BR-PAY-004`, `BR-PAY-005` | 3 | Superseded: Premium/subscription effects removed; new Course-payment rules establish trust and separation without translating lifecycle. |
+| `BR-TEA-004` | 1 | Retired: platform-revenue analytics framing; current transaction access is constrained separately. |
+| `BR-ADM-003`, `BR-ADM-004`, `BR-ADM-006`, `BR-ADM-007` | 4 | Retired: access classification, subscription oversight, platform revenue and renewal classifications. |
+| `BR-REVN-001`, `BR-REVN-002`, `BR-REVN-003` | 3 | Retired: subscription-revenue source, calculations and reporting timestamps; no replacement revenue dashboard implied. |
+| `BR-DATA-001`, `BR-DATA-002`, `BR-DATA-003` | 3 | Retired: legacy subscription/archive preservation, shared vocabulary and attempt-context policies. New detailed retention/deletion policy remains open. |
+| `BR-AUTH-004` | 1 | Retired: Premium authorization. |
 
-Initial Course progress may be calculated as:
+## Semantic Migration Notes
 
-Completed Required Lessons / Total Required Lessons × 100
+- Retained Student role assignment is scoped to Student registration, not all public registration.
+- Account eligibility/verification safeguards remain; fixed Teacher onboarding and legacy activation assumptions are not imported.
+- Retained Course/content authorization preserves ownership, while obsolete classification restrictions and fixed lifecycle claims are removed.
+- Retained transaction recording no longer mandates a provider workflow. Existing frontend distrust is preserved and strengthened by the new confirmation prerequisite.
+- Retained privacy and Admin monitoring do not establish new grading, custody, moderation or reporting policy.
+- BR-WEB identifiers remain lightweight NFR references; they add no layout design.
+- New BR-SES, BR-SCH, BR-ASN, BR-MEET and BR-RATE families describe new semantics.
+  Old Lesson, Quiz, Subscription and vocabulary Review IDs are not renamed into them.
+- New numbers within existing families exceed their historical maximum. An old reference remaining syntactically resolvable does not make its legacy context current.
 
-Example:
+Unnumbered legacy rules are also superseded: the vocabulary learning sequence,
+mastery activity assumptions, Standard/Premium benefits, subscription renewal
+defaults and old scope exclusions are not active policy. Current publishing
+direction is preserved without the former fixed lifecycle. No standalone historical
+formula is transferred into grading or progress. The former live-class exclusion
+does not exclude the approved external Meet-based tutoring.
 
-8 completed Lessons / 10 Lessons = 80%
+## Downstream Reconciliation
 
-This rule may later be refined if optional Lessons are introduced.
+USE_CASES.md, DOMAIN_MODEL.md, ARCHITECTURE.md, DATABASE_DESIGN.md, API_DESIGN.md,
+TASK_BREAKDOWN.md, FEATURE_STATUS.md and README.md where applicable require
+separate semantic reconciliation. Their ranges/wildcards and historical BR references
+must not be treated as active approval without checking this register and current
+requirements. No downstream reference is repaired by this task.
 
-**---**
+Keep requirement -> governing rule -> later use case/design/verification traceability
+where meaningful. Do not mechanically create one BR per requirement.
 
-# 11. Vocabulary Rules\*\*
-
-## BR-VOC-001 --- Shared Vocabulary\*\*
-
-Vocabulary is a shared platform resource.
-
-Teachers should reuse existing vocabulary where appropriate.
-
-**---**
-
-## BR-VOC-002 --- Duplicate Prevention\*\*
-
-The system should avoid unnecessary duplicate vocabulary records
-representing the same canonical English word.
-
-**---**
-
-## BR-VOC-003 --- Multiple Senses\*\*
-
-One Vocabulary entry may contain multiple Vocabulary Senses.
-
-**---**
-
-## BR-VOC-004 --- Sense Information\*\*
-
-A Vocabulary Sense may contain:
-
-- part of speech
-
-- English definition
-
-- Vietnamese meaning
-
-- example sentence
-
-**---**
-
-## BR-VOC-005 --- Lesson Sense Selection\*\*
-
-When vocabulary has multiple senses, a Lesson should identify which
-sense is being taught in that Lesson.
-
-**---**
-
-## BR-VOC-006 --- CEFR\*\*
-
-Vocabulary may have a CEFR classification where reliable data is
-available.
-
-Absence of CEFR metadata shall not automatically make the vocabulary
-unusable.
-
-**---**
-
-# 12. Dictionary Import Rules\*\*
-
-## BR-DIC-001 --- Platform Search First\*\*
-
-Teacher vocabulary workflow should search the platform vocabulary
-database before requesting external dictionary data.
-
-**---**
-
-## BR-DIC-002 --- External Lookup\*\*
-
-External Dictionary lookup should be used when suitable vocabulary data
-does not already exist.
-
-**---**
-
-## BR-DIC-003 --- Teacher Review\*\*
-
-Dictionary results shall not automatically become approved learning
-content without appropriate Teacher review.
-
-**---**
-
-## BR-DIC-004 --- Licensing\*\*
-
-Storage, caching, redistribution, and audio usage shall follow the
-selected Dictionary Provider's license.
-
-No implementation shall assume permanent storage rights before provider
-selection.
-
-**---**
-
-# 13. Vocabulary Search Rules\*\*
-
-## BR-SEARCH-001 --- Student Search\*\*
-
-Both Standard and Premium Students may search vocabulary.
-
-Vocabulary Search is not a Premium-only feature.
-
-**---**
-
-## BR-SEARCH-002 --- Basic Search Information\*\*
-
-Standard Students should receive useful basic information where
-available:
-
-- word
-
-- IPA
-
-- part of speech
-
-- basic definition
-
-- Vietnamese meaning
-
-- basic example
-
-- pronunciation audio
-
-- CEFR level
-
-**---**
-
-## BR-SEARCH-003 --- Premium Detail\*\*
-
-Premium may provide additional vocabulary depth such as:
-
-- multiple advanced senses
-
-- collocations
-
-- synonyms
-
-- antonyms
-
-- word families
-
-- additional examples
-
-The exact Premium vocabulary dataset depends on available licensed data.
-
-**---**
-
-# 14. Saved Vocabulary Rules\*\*
-
-## BR-SAVE-001 --- Save Vocabulary\*\*
-
-Authenticated Students may save vocabulary to My Vocabulary.
-
-**---**
-
-## BR-SAVE-002 --- Duplicate Saved Word\*\*
-
-The same Student shall not have duplicate active saved records for the
-same Vocabulary entry.
-
-**---**
-
-## BR-SAVE-003 --- Remove Vocabulary\*\*
-
-Removing a word from My Vocabulary removes it from the Student's saved
-collection.
-
-It shall not delete the shared Vocabulary record.
-
-**---**
-
-## BR-SAVE-004 --- Subscription Independence\*\*
-
-Saved Vocabulary shall remain stored if Premium expires.
-
-**---**
-
-# 15. Exercise Rules\*\*
-
-The initial core exercise types are:
-
-- Fill Word
-
-- Listening
-
-- Quiz
-
-**---**
-
-## BR-EX-001 --- Lesson Vocabulary\*\*
-
-Exercise questions should use vocabulary relevant to the associated
-Lesson.
-
-**---**
-
-## BR-EX-002 --- Reattempts\*\*
-
-Students may perform multiple attempts.
-
-Previous relevant attempts shall remain available for history and
-analytics.
-
-**---**
-
-## BR-EX-003 --- Correctness\*\*
-
-Each answerable exercise question shall have sufficient information for
-the system to determine correctness.
-
-**---**
-
-# 16. Fill Word Rules\*\*
-
-## BR-FILL-001 --- Objective\*\*
-
-Fill Word primarily evaluates spelling and vocabulary recall.
-
-**---**
-
-## BR-FILL-002 --- Question Information\*\*
-
-A Fill Word question may include:
-
-- IPA
-
-- English definition
-
-- partially hidden word
-
-**---**
-
-## BR-FILL-003 --- Answer Comparison\*\*
-
-For the initial version:
-
-- leading/trailing whitespace is ignored
-
-- comparison is case-insensitive
-
-- spelling must otherwise match the expected answer
-
-Example:
-
-Expected:
-
-`beautiful`
-
-Accepted:
-
-`Beautiful`
-
-`beautiful`
-
-Not accepted:
-
-`beautifull`
-
-**---**
-
-# 17. Listening Rules\*\*
-
-## BR-LIS-001 --- Audio\*\*
-
-Listening questions require playable pronunciation audio.
-
-**---**
-
-## BR-LIS-002 --- Supported Formats\*\*
-
-Initial Listening formats may include:
-
-- LISTEN_AND_CHOOSE
-
-- LISTEN_AND_TYPE
-
-**---**
-
-## BR-LIS-003 --- Listen and Type Comparison\*\*
-
-Listen-and-Type answers follow the same basic normalization as Fill Word
-unless otherwise specified.
-
-**---**
-
-# 18. Quiz Rules\*\*
-
-## BR-QUIZ-001 --- Question Types\*\*
-
-Initial Quiz question concepts may include:
-
-- WORD_TO_DEFINITION
-
-- DEFINITION_TO_WORD
-
-- IPA_TO_WORD
-
-- CONTEXT_TO_WORD
-
-**---**
-
-## BR-QUIZ-002 --- Question Evaluation\*\*
-
-Every Quiz question shall have a defined correct answer or correct
-option.
-
-**---**
-
-# 19. Score Rules\*\*
-
-For the initial project version, scoring should remain understandable
-and demonstrable.
-
-**---**
-
-## BR-SCORE-001 --- Basic Score\*\*
-
-For exercises consisting of equally weighted questions:
-
-Score Percentage = Correct Answers / Total Questions × 100
-
-Example:
-
-8 correct / 10 questions = 80%
-
-**---**
-
-## BR-SCORE-002 --- Score Range\*\*
-
-Scores shall be represented from 0 to 100.
-
-**---**
-
-## BR-SCORE-003 --- Reattempt Scores\*\*
-
-Every completed attempt may retain its own score.
-
-**---**
-
-## BR-SCORE-004 --- Best Score\*\*
-
-The system may use the highest completed score as the Student's
-displayed best score for an exercise.
-
-Attempt history shall still be retained.
-
-**---**
-
-# 20. Accuracy Rules\*\*
-
-## BR-ACC-001 --- Basic Accuracy\*\*
-
-Accuracy may initially be calculated as:
-
-Correct Answers / Total Answered Questions × 100
-
-**---**
-
-# 21. Vocabulary Performance Rules\*\*
-
-The system should track Student performance at vocabulary level.
-
-Relevant events may include:
-
-- correct answer
-
-- incorrect answer
-
-- exercise type
-
-- attempt time
-
-**---**
-
-# 22. Vocabulary Mastery\*\*
-
-A simple initial mastery model shall be used before introducing advanced
-learning algorithms.
-
-**---**
-
-## BR-MAST-001 --- Initial Mastery\*\*
-
-Initial Vocabulary Mastery may be calculated from the Student's answer
-history for that vocabulary.
-
-Conceptually:
-
-Correct Vocabulary Answers / Total Vocabulary Answers × 100
-
-**---**
-
-## BR-MAST-002 --- Minimum Evidence\*\*
-
-A vocabulary item should not be treated as strongly mastered based on a
-single correct answer.
-
-The UI may distinguish insufficient learning data from established
-mastery.
-
-**---**
-
-## BR-MAST-003 --- Mastery Categories\*\*
-
-After the minimum evidence requirement is satisfied, the initial mastery
-categories are:
-
-- 0--49% → WEAK
-- 50--79% → LEARNING
-- 80--100% → MASTERED
-
-Before the minimum evidence requirement is satisfied:
-
-- fewer than 3 answered vocabulary questions → INSUFFICIENT_DATA
-
-These thresholds are initial project defaults and may be tuned only
-through an explicit Business Rule change.
-
-**---**
-
-# 23. Weak Vocabulary\*\*
-
-## BR-WEAK-001 --- Weak Threshold\*\*
-
-Vocabulary with at least 3 answered vocabulary questions and established
-mastery below 50% is classified as WEAK.
-
-**---**
-
-## BR-WEAK-002 --- Insufficient Data\*\*
-
-Vocabulary with fewer than 3 answered vocabulary questions is classified
-as INSUFFICIENT_DATA rather than WEAK.
-
-**---**
-
-## BR-WEAK-003 --- Review Source\*\*
-
-Weak vocabulary may become a source for Review activities.
-
-**---**
-
-# 24. Review Rules\*\*
-
-## BR-REV-001 --- Review Sources\*\*
-
-Review may select vocabulary from:
-
-- Weak Vocabulary
-
-- Saved Vocabulary
-
-- Incorrect Answers
-
-- Recently Learned Vocabulary
-
-**---**
-
-## BR-REV-002 --- No Complex SRS Requirement\*\*
-
-The initial version does not require a full spaced-repetition scheduling
-algorithm.
-
-**---**
-
-## BR-REV-003 --- Premium Review\*\*
-
-Basic Review may be available to Standard Students.
-
-More advanced personalized Weak Vocabulary practice and analytics may be
-Premium.
-
-**---**
-
-# 25. Learning History Rules\*\*
-
-## BR-HIST-001 --- Attempt History\*\*
-
-Relevant completed exercise attempts shall be retained.
-
-**---**
-
-## BR-HIST-002 --- Historical Information\*\*
-
-Learning History may include:
-
-- activity
-
-- Course
-
-- Lesson
-
-- score
-
-- attempt time
-
-**---**
-
-## BR-HIST-003 --- Subscription Independence\*\*
-
-Learning History shall remain available as stored learning data when
-Premium expires, subject to the Standard/Premium display rules defined
-by the product.
-
-**---**
-
-# 26. Standard Access Rules\*\*
-
-Standard is intended to provide genuine educational value.
-
-Standard Students may access core features including:
-
-- account
-
-- Course discovery
-
-- Standard Course enrollment
-
-- basic vocabulary learning
-
-- IPA
-
-- pronunciation audio where available
-
-- English definition
-
-- Vietnamese meaning
-
-- example
-
-- Fill Word
-
-- basic Listening
-
-- basic Quiz
-
-- Vocabulary Search
-
-- My Vocabulary
-
-- basic Review
-
-- basic Progress
-
-**---**
-
-# 27. Premium Access Rules\*\*
-
-Premium includes all Standard functionality plus eligible Premium
-capabilities.
-
-Premium may include:
-
-- Premium Courses
-
-- specialized Courses
-
-- deeper vocabulary information
-
-- advanced Listening
-
-- advanced exercises
-
-- advanced Weak Vocabulary practice
-
-- personalized Review
-
-- detailed learning analytics
-
-**---**
-
-## BR-PRE-001 --- CEFR Availability\*\*
-
-The system shall not assume that entire CEFR Levels are Premium-only.
-
-The platform may provide Standard content at multiple CEFR levels.
-
-**---**
-
-## BR-PRE-002 --- Premium Entitlement\*\*
-
-Premium functionality requires active Premium entitlement.
-
-**---**
-
-# 28. Subscription Rules\*\*
-
-## BR-SUB-001 --- Subscription Periods\*\*
-
-The initial subscription plan periods are:
-
-- MONTHLY
-
-- YEARLY
-
-**---**
-
-## BR-SUB-002 --- Active Premium\*\*
-
-A Student is Premium only when the system determines that an applicable
-Premium entitlement is active.
-
-**---**
-
-## BR-SUB-003 --- Expiration\*\*
-
-When the Premium entitlement expires, the Student returns to Standard
-access.
-
-**---**
-
-## BR-SUB-004 --- Preserve Data\*\*
-
-Premium expiration shall not delete:
-
-- account
-
-- enrollments
-
-- progress
-
-- scores
-
-- attempts
-
-- saved vocabulary
-
-- learning history
-
-**---**
-
-## BR-SUB-005 --- Premium Course Restriction\*\*
-
-After expiration, Premium Course content becomes inaccessible until
-Premium access is restored.
-
-Historical enrollment and progress remain stored.
-
-**---**
-
-# 29. Payment Rules\*\*
-
-## BR-PAY-001 --- Verified Payment\*\*
-
-Premium access shall only be activated after payment success has been
-verified by trusted backend logic.
-
-**---**
-
-## BR-PAY-002 --- Frontend Trust\*\*
-
-A frontend success screen alone shall never be sufficient evidence of
-payment.
-
-**---**
-
-## BR-PAY-003 --- Transaction Record\*\*
-
-Relevant payment attempts shall produce or update appropriate
-transaction records according to the selected provider workflow.
-
-**---**
-
-## BR-PAY-004 --- Successful Transaction\*\*
-
-A verified successful transaction may activate the corresponding
-subscription.
-
-**---**
-
-## BR-PAY-005 --- Failed Transaction\*\*
-
-A failed transaction shall not activate Premium.
-
-**---**
-
-# 30. Teacher Content Rules\*\*
-
-## BR-TEA-001 --- Owned Content\*\*
-
-Teachers primarily manage educational content associated with their own
-Courses.
-
-**---**
-
-## BR-TEA-002 --- Course Analytics\*\*
-
-Teachers may access learning analytics for Courses they own.
-
-**---**
-
-## BR-TEA-003 --- Student Privacy\*\*
-
-Teacher analytics should prioritize aggregated Course learning
-information.
-
-Detailed Student information shall only be exposed where required for
-legitimate educational functionality.
-
-**---**
-
-## BR-TEA-004 --- Revenue\*\*
-
-Teachers shall not access platform-wide revenue analytics.
-
-**---**
-
-# 31. Admin Rules\*\*
-
-## BR-ADM-001 --- Platform Management\*\*
-
-Admins have platform-level management capabilities according to
-authorized Admin functions.
-
-The operational Dashboard does not add account-management permissions or an
-expense-management, salary, bookkeeping or profit/loss subsystem.
-
-**---**
-
-## BR-ADM-002 --- Course Oversight\*\*
-
-Admins may oversee Courses across Teachers.
-
-**---**
-
-## BR-ADM-003 --- Access Classification\*\*
-
-Admins control the final Standard/Premium classification of Courses.
-
-**---**
-
-## BR-ADM-004 --- Subscription Oversight\*\*
-
-Admins may view platform subscription information.
-
-Current Premium counts shall count distinct Students covered by authoritative
-entitlement periods. Future and expired periods do not count as current coverage.
-Whether disabled Students with coverage are included or shown separately remains
-unresolved; account eligibility and entitlement remain distinct.
-
-**---**
-
-## BR-ADM-005 --- Transaction Oversight\*\*
-
-Admins may view relevant transaction information.
-
-Payment counts use authoritative outcome classifications. Unverified or unknown
-payments shall not be treated as failed merely because verification is incomplete.
-Detailed failed/invalid/cancelled/pending mapping and failure-report timestamps
-remain unresolved.
-
-**---**
-
-## BR-ADM-006 --- Revenue Analytics\*\*
-
-Admins may view platform revenue analytics.
-
-**---**
-
-## BR-ADM-007 --- Subscription Purchase Classification\*\*
-
-A Student's first successfully granted entitlement period is a new subscription.
-Each subsequent successfully granted period is a renewal, including after expiry.
-Determine first/subsequent from the Student's complete grant history, not only
-records in the selected range. Count purchase/grant events independently of future
-period start dates. The reporting timestamp/range policy for these events remains
-unresolved.
-
-**---**
-
-# 32. Revenue Rules\*\*
-
-## BR-REVN-001 --- Revenue Source\*\*
-
-The initial platform revenue source is Premium Student subscriptions.
-
-**---**
-
-## BR-REVN-002 --- Successful Payments\*\*
-
-Revenue calculations shall be based on verified successful payment
-transactions.
-
-Sum historical transaction amounts, not current catalog prices, and report each
-currency separately unless a conversion policy is explicitly approved. Failed or
-invalid payments contribute neither revenue nor Premium entitlement. Refund
-reporting remains unresolved; no net-revenue or profit metric is introduced.
-
-**---**
-
-## BR-REVN-003 --- Revenue Time\*\*
-
-Revenue reporting shall support aggregation over time, using successful-payment
-verification time (`verified_at`). Reporting timezone, default range, boundaries
-and grouping intervals remain unresolved.
-
-Examples:
-
-- day
-
-- month
-
-- year
-
-- custom date range
-
-**---**
-
-# 33. Data Preservation Rules\*\*
-
-## BR-DATA-001 --- Learning Data\*\*
-
-Student learning data shall not be deleted simply because:
-
-- Premium expires
-
-- Course becomes archived
-
-- Student stops learning temporarily
-
-**---**
-
-## BR-DATA-002 --- Shared Vocabulary\*\*
-
-Deleting a Lesson association shall not automatically delete a shared
-Vocabulary record that may be used elsewhere.
-
-**---**
-
-## BR-DATA-003 --- Historical Integrity\*\*
-
-Historical attempts should remain associated with the learning content
-context needed to interpret those attempts.
-
-**---**
-
-# 34. Authorization Rules\*\*
-
-## BR-AUTH-001 --- Backend Enforcement\*\*
-
-All important authorization rules shall be enforced by the backend.
-
-**---**
-
-## BR-AUTH-002 --- Frontend Restrictions\*\*
-
-Frontend hiding or disabling controls is a user-experience mechanism and
-shall not replace backend authorization.
-
-**---**
-
-## BR-AUTH-003 --- Teacher Ownership\*\*
-
-Teacher Course and Lesson modification shall verify Teacher ownership.
-
-**---**
-
-## BR-AUTH-004 --- Premium Access\*\*
-
-Premium content access shall verify active Premium entitlement.
-
-**---**
-
-# 35. Responsive Web Rules\*\*
-
-## BR-WEB-001 --- Student\*\*
-
-Student UI shall be mobile-first.
-
-**---**
-
-## BR-WEB-002 --- Teacher\*\*
-
-Teacher UI shall be desktop-optimized but responsive and usable on
-mobile.
-
-**---**
-
-## BR-WEB-003 --- Admin\*\*
-
-Admin UI shall be desktop-optimized but responsive and usable on mobile.
-
-**---**
-
-## BR-WEB-004 --- No Native App Requirement\*\*
-
-No native Android or iOS application is required for the initial
-project.
-
-**---**
-
-# 36. Scope Rules\*\*
-
-The following are not part of the initial core scope unless explicitly
-approved later:
-
-- Teacher marketplace
-
-- Teacher commission
-
-- Teacher payout
-
-- live classes
-
-- video calling
-
-- social networking
-
-- forum
-
-- native mobile application
-
-- AI chatbot
-
-- AI speaking assessment
-
-- leaderboard
-
-- complex gamification
-
-- certificates
-
-- placement testing
-
-- complex spaced repetition
-
-**---**
-
-# 37. Rules Still Requiring Future Decisions
-
-The following remain open and should not be invented during
-implementation:
-
-1.  Exact Dictionary Provider
-2.  Dictionary storage/caching rights
-3.  Exact pronunciation audio strategy
-4.  Exact TTS provider
-5.  Exact payment provider
-6.  Premium pricing
-7.  Exact specialized Premium Courses
-8.  Final Premium vocabulary dataset
-9.  Refund handling
-10. Detailed content moderation workflow
-11. Exact email-verification credential lifetime
-12. Exact password complexity policy
-13. Final mastery formula after validation, if the initial formula is
-    later revised
-14. Detailed Review-selection algorithm
-15. Exact advanced Premium exercise definitions
-16. Exact advanced Premium analytics definitions
-
-The following are now initial approved defaults rather than open
-decisions:
-
-- public registration creates STUDENT accounts only
-- new Students begin with STANDARD access
-- Student accounts begin as PENDING_VERIFICATION
-- Access Token default lifetime is 15 minutes
-- Refresh Token default lifetime is 7 days
-- password-reset credential default lifetime is 15 minutes
-- Refresh Token rotation is supported
-- Teacher accounts are provisioned by authorized Admin workflow
-- Admin accounts are not publicly self-registered
-- Teachers may publish and archive their own Courses
-- Admin retains final STANDARD/PREMIUM Course classification authority
-- Premium renewal is manual in the initial version
-- active renewal extends from the current expiration time
-- expired renewal starts from verified activation/payment time
-- vocabulary mastery requires at least 3 answered vocabulary questions
-  before WEAK/LEARNING/MASTERED classification
-
-Any implementation depending on an unresolved decision shall first
-request or document the missing decision.
+Preserve completed TASK-001/TASK-002/TASK-003 infrastructure and evidence. No status
+reset, database change, implementation or USE_CASES work is authorized here.

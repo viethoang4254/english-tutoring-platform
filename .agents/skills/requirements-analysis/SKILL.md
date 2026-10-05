@@ -1,6 +1,6 @@
 ---
 name: requirements-analysis
-description: Use when defining, reviewing, modifying, clarifying, or extending functional requirements, non-functional requirements, business rules, actors, permissions, workflows, acceptance criteria, or project scope for the English Learning Platform.
+description: Use when defining, reviewing, modifying, clarifying, or extending functional requirements, non-functional requirements, business rules, actors, permissions, workflows, acceptance criteria, or project scope for the English Tutoring Platform.
 ---
 
 ---
@@ -9,7 +9,7 @@ description: Use when defining, reviewing, modifying, clarifying, or extending f
 
 ## Purpose
 
-Use this skill whenever a request changes or may change what the English Learning Platform is expected to do.
+Use this skill whenever a request changes or may change what the English Tutoring Platform is expected to do.
 
 Examples include:
 
@@ -18,10 +18,9 @@ Examples include:
 - changing Student behavior
 - changing Teacher permissions
 - changing Admin permissions
-- changing Standard/Premium access
-- changing Course or Lesson behavior
-- changing exercise behavior
-- changing subscription behavior
+- changing resource access
+- changing Course behavior
+- changing participation or payment behavior
 - defining a new workflow
 - resolving unclear requirements
 
@@ -46,6 +45,14 @@ When necessary, also consult:
 if those documents exist.
 
 Do not assume an undocumented behavior is already approved.
+
+Current AGENTS.md is authoritative during the tutoring-scope transition.
+Conflicting legacy business rules in other documents are superseded; consult
+reconciled requirements or compatible technical/security guidance. Report remaining
+ambiguities rather than treating historical plans as current approval.
+Preserve completed TASK-001/TASK-002/TASK-003 infrastructure and verification evidence.
+This skill does not authorize schema changes, implementation or unrelated edits.
+
 
 ---
 
@@ -99,22 +106,11 @@ Examples:
 - Student Account
 - Teacher Account
 - Admin
-- CEFR
 - Course
 - Enrollment
-- Lesson
-- Vocabulary
-- Vocabulary Search
-- Saved Vocabulary
-- Exercise
-- Fill Word
-- Listening
-- Quiz
-- Score
+- Learning participation
 - Progress
-- Mastery
 - Review
-- Subscription
 - Payment
 - Analytics
 - External Integration
@@ -150,11 +146,10 @@ Identify applicable rules from:
 Examples:
 
 - Course ownership
-- Premium entitlement
+- resource access
 - enrollment
 - data preservation
-- exercise scoring
-- subscription expiration
+- permitted state transitions
 
 A requirement must not silently contradict an existing Business Rule.
 
@@ -207,7 +202,7 @@ Examples:
 - invalid input
 - unauthorized action
 - Course not found
-- Premium required
+- participation access denied
 - duplicate enrollment
 - external provider unavailable
 - payment failed
@@ -237,7 +232,7 @@ Ask:
 - Must the user be authenticated?
 - Which role can perform the action?
 - Does ownership matter?
-- Does Standard/Premium matter?
+- Does participation or resource-access eligibility matter?
 - Is Admin override allowed?
 - Must authorization be enforced server-side?
 
@@ -247,103 +242,36 @@ Never rely solely on frontend visibility.
 
 # Student Access Analysis
 
-For Student functionality, determine whether the feature is:
-
-- available to STANDARD
-- available to PREMIUM
-- available to both
-- dependent on Course access
-
-Do not classify a feature as Premium simply because it appears advanced.
-
-Premium restrictions must follow approved Business Rules.
+Identify which information is public and which requires authenticated participation,
+ownership or other approved access conditions. Use current business rules;
+do not infer access from payment initiation or browser state.
 
 ---
 
 # Data Impact Analysis
 
-For each important requirement, identify affected domain data.
-
-Examples:
-
-Course creation may affect:
-
-- Course
-- Teacher ownership
-- CEFR relationship
-
-Exercise submission may affect:
-
-- Attempt
-- Answer
-- Score
-- Vocabulary performance
-- Mastery
-- Learning History
-
-Premium payment may affect:
-
-- Transaction
-- Subscription
-- Student entitlement
-
-Do not design database tables during requirements analysis unless specifically requested.
-
-Identify domain data, not implementation schema.
+Identify affected domain data and preservation requirements.
+Course changes may affect ownership, participation and scheduling.
+Payment changes may affect transaction history and access eligibility; those remain
+distinct concerns. Do not design database tables during requirements analysis
+unless requested. Identify domain data, not implementation schema.
 
 ---
 
 # Learning Impact Analysis
 
-Student learning features should be checked for impact on:
-
-- Course progress
-- Lesson progress
-- attempts
-- score
-- accuracy
-- vocabulary performance
-- mastery
-- Weak Vocabulary
-- Review
-- Learning History
-
-Example:
-
-If a new exercise type contributes to vocabulary performance, the requirement must define whether its answers affect mastery.
-
-Do not assume this automatically.
+Identify affected content, participation, submissions, results, progress and history
+where required. Ask which activity contributes to a result; do not invent
+evaluation or progress formulas.
 
 ---
 
 # External Integration Analysis
 
-For requirements involving:
-
-- Dictionary Provider
-- pronunciation audio
-- Text-to-Speech
-- Payment Provider
-
-identify external dependencies explicitly.
-
-Do not assume provider behavior that has not been verified.
-
-For dictionary content, consider:
-
-- licensing
-- caching
-- storage
-- redistribution
-- rate limits
-
-For payment, consider:
-
-- trusted verification
-- failed payment
-- duplicate callbacks
-- transaction state
-
+Identify external dependencies, data ownership, privacy/licensing constraints,
+failure behavior and authoritative verification where relevant.
+Distinguish an approved integration goal from its unselected implementation.
+Do not assume a provider, confirmation mechanism or synchronization workflow.
 Detailed technical handling belongs to later design stages.
 
 ---
@@ -393,10 +321,6 @@ Enrollment:
 
 `FR-ENR-xxx`
 
-Vocabulary:
-
-`FR-VOC-xxx`
-
 Search:
 
 `FR-SEA-xxx`
@@ -417,10 +341,6 @@ Admin:
 
 `FR-ADM-xxx`
 
-Subscription:
-
-`FR-SUB-xxx`
-
 Payment:
 
 `FR-PAY-xxx`
@@ -433,7 +353,8 @@ Integration:
 
 `INT-xxx`
 
-Do not renumber existing requirement IDs unnecessarily.
+Do not renumber existing requirement IDs unnecessarily. Historical IDs do not
+approve retired scope; do not silently reuse them for a different requirement.
 
 ---
 
@@ -447,14 +368,6 @@ Examples:
 
 `BR-ENR-xxx`
 
-`BR-VOC-xxx`
-
-`BR-SCORE-xxx`
-
-`BR-MAST-xxx`
-
-`BR-SUB-xxx`
-
 `BR-PAY-xxx`
 
 Do not silently change an existing Business Rule's meaning.
@@ -465,25 +378,17 @@ If a rule changes materially, explicitly identify the change.
 
 # Acceptance Criteria
 
-When a requirement is sufficiently defined, create acceptance criteria when useful.
+Prefer observable acceptance criteria when a requirement is sufficiently defined.
 
-Prefer observable behavior.
+Example: a Teacher may modify only owned Courses.
 
-Example:
+- Given an authenticated Teacher
+- And a Course owned by another Teacher
+- When the Teacher requests an update
+- Then the backend rejects the operation
+- And the Course remains unchanged
 
-Requirement:
-
-A Standard Student cannot enroll in a Premium Course.
-
-Acceptance criteria:
-
-- Given an authenticated Standard Student
-- And a published Premium Course
-- When the Student attempts to enroll
-- Then enrollment is not created
-- And the system indicates Premium access is required
-
-Acceptance criteria should describe behavior, not UI implementation details unless UI behavior itself is required.
+Describe behavior, not UI implementation details unless UI behavior is required.
 
 ---
 
@@ -519,19 +424,9 @@ Potential future enhancement.
 
 Not part of the current project.
 
-The current core focus is:
-
-Discover
-→ Enroll
-→ Learn
-→ Practice
-→ Assess
-→ Track
-→ Review
-
-Teacher supports content creation.
-
-Admin supports platform management and business operations.
+Determine the current core workflow from AGENTS.md and reconciled requirements.
+Use `english-tutoring-domain` for domain interpretation. Do not carry a historical
+workflow forward solely because it appeared in a plan.
 
 ---
 
@@ -541,11 +436,9 @@ Features that require explicit approval before entering core scope include:
 
 - AI chatbot
 - AI speaking assessment
-- live classes
 - messaging
 - forum
-- Teacher marketplace
-- Teacher payout
+- platform payout infrastructure
 - social features
 - native mobile applications
 - leaderboard
@@ -632,7 +525,7 @@ A feature is ready for detailed design when:
 - primary workflow is defined
 - important alternative flows are known
 - authorization is defined
-- Standard/Premium behavior is defined if relevant
+- participation/resource-access conditions are defined if relevant
 - major Business Rules are defined
 - important data effects are understood
 - unresolved questions are documented
@@ -653,7 +546,7 @@ When analyzing a new requirement, prefer an output containing:
 6. Main workflow
 7. Important alternative flows
 8. Authorization
-9. Standard/Premium impact
+9. Access impact
 10. Data/learning impact
 11. Open decisions
 12. Affected documentation

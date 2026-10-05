@@ -1,842 +1,1765 @@
-# Database Design
+# English Tutoring Platform — Database Design
 
-Status: proposed physical design based on approved requirements and database decisions.
+**Status:** Approved Physical Database V1; implementation requires separate approval.
 
-## 1. Purpose and scope
+## 1. Authority, Purpose and Design Status
 
-Define the initial relational schema for the English Learning Platform. This is
-design documentation, not executable SQL, a migration, or authorization to begin
-application implementation. The schema contains exactly 18 application tables.
-Physical choices below are design proposals; unresolved policy-dependent details
-are explicitly provisional rather than new business requirements.
+Authority follows AGENTS.md -> PROJECT_SPEC.md -> REQUIREMENTS.md ->
+BUSINESS_RULES.md -> USE_CASES.md -> DOMAIN_MODEL.md -> ARCHITECTURE.md ->
+DATABASE_DESIGN.md -> API_DESIGN.md -> TASK_BREAKDOWN.md.
+FEATURE_STATUS.md separately owns live implementation status/evidence. Skills are
+subordinate working guidance and README is onboarding documentation.
 
-## 2. Source of truth and approved decisions
+This is the approved 22-table Physical Database V1 direction with the Phase 2
+corrections incorporated. Section 17 is a documentation-only SQL specification,
+NOT an approved/executable Flyway migration. Section 22 records the final physical
+decisions and remaining implementation-only gates. G-PHYSICAL is RESOLVED; TASK-004
+is TODO and awaits explicit implementation approval. No SQL execution is authorized.
+The historical baseline in section 23 is not current schema authority.
 
-Sources:
 
-- [Agent instructions](../AGENTS.md)
-- [Project specification](PROJECT_SPEC.md)
-- [Requirements](REQUIREMENTS.md)
-- [Business rules](BUSINESS_RULES.md)
-- [Use cases](USE_CASES.md)
-- [Domain model](DOMAIN_MODEL.md)
-- [Architecture](ARCHITECTURE.md)
-- [Requirements analysis skill](../.agents/skills/requirements-analysis/SKILL.md)
-- [English learning domain skill](../.agents/skills/english-learning-domain/SKILL.md)
-- [System design skill](../.agents/skills/system-design/SKILL.md)
-- [Authentication security skill](../.agents/skills/authentication-security/SKILL.md)
+## 2. Database Platform and Persistence Boundary
 
-The user explicitly approved these five decisions during database-design review:
+PostgreSQL is hosted on Supabase for development, with local PostgreSQL supported.
+Browser -> Next.js -> Spring Boot REST API -> Spring Data JPA/Hibernate -> PostgreSQL.
+Spring Boot owns business authorization; no frontend database access, Prisma,
+Supabase Auth/Data API or RLS replacing application authorization.
+Supabase Storage is separately approved for the bounded file uses in section 19;
+it does not change the core data-access path.
 
-1. Plans are database-backed catalog records. Payments preserve actual historical
-   amount and currency independently of catalog changes.
-2. Each verified successful purchase or renewal creates an immutable entitlement
-   period linked to exactly one originating payment. Failed/invalid payments
-   remain history and create no entitlement. Approved renewal timing is retained.
-3. Review reuses attempts and answers with explicit LESSON/REVIEW context. Review
-   requires neither a fake Lesson nor a fake Exercise.
-4. Minimal immutable historical snapshots preserve understandable results after
-   content changes. A general content-versioning system is not required.
-5. Recently learned vocabulary derives from answer/attempt evidence and timestamps;
-   passive vocabulary viewing is not tracked for this purpose.
+Use public schema, PostgreSQL-portable SQL where practical and controlled Flyway
+migrations only after approval. Hibernate/schema initialization remains disabled.
+No database connection or mutation is needed for this reconciliation.
 
-These resolve the prior P0 questions. Domain Model section 21 still contains the
-older open subscription-history choice; its resolution is recorded here without
-editing that document. The approved Review refinement extends its Lesson-centric
-attempt relationships. Other open P1/P2 decisions remain open.
 
-Traceability: DM-SUB-001, DM-SUB-002, DM-PAY-001, DM-ATT-001, DM-ATT-002;
-BR-SUB-001, BR-PAY-001, BR-DATA-003, BR-REV-001, FR-REV-005.
+## 3. Relational Design Principles
 
-## 3. Design principles
-
-- Spring Boot is authoritative for core application data and business decisions.
-- Normalize identities, vocabulary, relationships and financial evidence; avoid
-  duplicate mutable sources of truth.
-- STUDENT/TEACHER/ADMIN are authorization roles. STANDARD/PREMIUM describe Student
-  access and Course access classification, never security roles.
-- Derive current Premium from entitlement periods; there is no User Premium flag.
-- Preserve learning, financial, subscription and ownership history.
-- Use fixed checked values instead of speculative lookup/RBAC tables.
-- Use shared core exercise structures, not a generalized assessment engine.
-- Keep PostgreSQL portability practical; no provider-specific business schema.
-- A database FK establishes existence, not permission. Backend authorization remains
-  required even when all constraints pass.
-
-## 4. Naming, type and key conventions
-
-- Names use snake_case. Each table has an `id` bigint primary key with identity-style
-  generation. IDs are internal identifiers, not authorization evidence.
-- All absolute timestamps use timestamptz. User-facing time zones are presentation
-  concerns; timestamps do not encode a user's original time-zone preference.
-- Monetary values use exact numeric, never floating point. Precision and permitted
-  currency scale remain provider/catalog validation details; no arbitrary scale is
-  imposed before the currency policy is known.
-- Text uses text unless a fixed checked set provides a better constraint. No
-  undocumented password, title or definition length limits are introduced.
-- JSONB is limited to approved question-format payloads, not arbitrary provider
-  responses or a generic assessment framework. Its shape is backend-validated.
-- In specifications, N means NOT NULL; Y means nullable. Default `none` means no
-  database default. `NULL` is the default for an optional unset field.
-- `identity` and `current timestamp` describe defaults, not executable DDL.
-- Every listed FK uses restrictive deletion and stable referenced IDs. No cascading
-  deletion is proposed. Optional FKs also restrict deletion while populated.
-- Every id is a PK. Every FK targets the named table's id. Unique/PK indexes are
-  not duplicated by additional indexes.
-- updated_at has no automatic-on-update assumption: the backend maintains it.
-- Row-local checks and cross-record backend checks are specified separately.
-
-## 5. Final table inventory
+- BIGINT identity primary keys map to Java Long; teacher_profiles.teacher_id is the
+  intentional shared PK/FK exception, mapped from User rather than generated.
+- lowercase snake_case, plural table names except the approved collective
+  participant_feedback name; named PK/FK/UQ/CK/indexes.
+- TIMESTAMPTZ / Instant for absolute time; DATE / LocalDate; TIME / LocalTime for
+  recurring local rules, interpreted with Course timezone.
+- NUMERIC(15,2) / BigDecimal money; finite numeric values and explicit currency.
+  NUMERIC(5,2) score precision is approved; no arbitrary maximum of 100 is added.
+- Closed lifecycle values use TEXT + CHECK and future EnumType.STRING. Required
+  text additionally needs backend nonblank validation. No arbitrary VARCHAR limits.
+- Spring Boot/JPA supplies created_at/updated_at; no automatic timestamp triggers,
+  default version column, arbitrary JSONB or global soft deletion.
+- Restrictive history FKs; CASCADE only true dependent records when parent deletion
+  is legitimately permitted. No cascade substitutes for retention authorization.
 
 | Table | Responsibility |
-|---|---|
-| users | Shared identity, credentials, role and account eligibility |
-| refresh_sessions | Refresh credential expiration/revocation state |
-| email_verification_tokens | Account-bound verification credentials |
-| password_reset_tokens | Account-bound single-use recovery credentials |
-| courses | Teacher-owned classified learning Courses |
-| lessons | Ordered Course learning content |
-| vocabulary | Shared canonical words and available metadata |
-| vocabulary_senses | Definitions and meanings of a word |
-| lesson_vocabulary | Ordered Lesson selection of particular senses |
-| exercises | Lesson assessments of approved core types |
-| exercise_questions | Trusted questions and evaluation content |
-| enrollments | Student participation in Courses |
-| exercise_attempts | LESSON/REVIEW attempt context and results |
-| answer_records | Answer evidence and historical snapshots |
-| saved_vocabulary | Personal saved-word associations |
-| subscription_plans | Database-backed Premium catalog |
-| subscriptions | Immutable purchased entitlement periods |
-| payment_transactions | Verified and unsuccessful payment history |
-
-## 6. Detailed table specifications
-
-### 6.1 users
-
-Traceability: DM-USER-001, DM-USER-002, BR-ROLE-001, BR-AUTHN-001 through
-BR-AUTHN-005, BR-AUTHN-017 through BR-AUTHN-023.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| email | text | N | none | Login/contact address |
-| password_hash | text | N | none | Spring Security-compatible encoded password |
-| full_name | text | N | none | Required User display/full name; maximum 200 characters |
-| avatar_url | text | Y | NULL | Optional absolute HTTPS profile image reference; maximum 2048 characters |
-| role | text | N | none | STUDENT, TEACHER or ADMIN |
-| account_status | text | N | none | PENDING_VERIFICATION, ACTIVE, LOCKED or DISABLED |
-| email_verified_at | timestamptz | Y | NULL | Successful verification evidence |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last change |
-
-Unique: email; comparison/normalization semantics are provisional (P1). The backend
-and database must use the same approved identity semantics before implementation.
-Checks: role and account_status belong to the stated sets.
-No role/status defaults apply globally: public registration explicitly assigns
-STUDENT and PENDING_VERIFICATION; privileged provisioning follows its own approved
-workflow. Account status and email verification are distinct, not interchangeable.
-Under BR-PROFILE-001, full_name is required for every User creation, including
-Student registration and authorized Teacher provisioning. Spring Boot trims
-surrounding whitespace and rejects null/blank names. Database CHECKs require a
-nonblank full_name of at most 200 characters and, when present, avatar_url of at
-most 2048 characters. Spring Boot validates absolute HTTPS URL syntax/scheme;
-no reachability check, upload, proxy, image download or media service is implied.
-No uniqueness, index or FK is added for either field. PATCH omission preserves
-either field; null fullName is rejected and null avatarUrl clears the reference.
-Only eligible Students/Teachers may self-edit these fields; other identity,
-security and entitlement fields remain excluded. Password changes are separate;
-email changes remain unsupported. Admin self-edit is not granted.
-
-### 6.2 refresh_sessions
-
-Traceability: DM-AUTH-001, BR-AUTHN-007 through BR-AUTHN-011.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| user_id | bigint | N | none | FK users.id |
-| credential_hash | text | N | none | Non-raw refresh credential identifier/hash |
-| issued_at | timestamptz | N | current timestamp | Issuance |
-| expires_at | timestamptz | N | none | Configured expiration |
-| revoked_at | timestamptz | Y | NULL | Server-side invalidation |
-| replaced_by_id | bigint | Y | NULL | FK refresh_sessions.id; provisional rotation lineage |
-
-Unique: credential_hash. Checks: expires_at after issued_at; revoked_at, when set,
-not before issued_at; replacement cannot reference itself.
-Index: user_id for applicable session lookup/revocation. The optional replacement
-pointer documents a minimal possible rotation representation, not an approved replay,
-family-revocation or concurrent-session policy. Same-User linkage and absence of
-lineage cycles require backend validation if this provisional field is retained.
-No unique user_id; do not accidentally impose a single-session policy.
-
-### 6.3 email_verification_tokens
-
-Traceability: DM-AUTH-002, BR-AUTHN-004 through BR-AUTHN-006.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| user_id | bigint | N | none | FK users.id |
-| credential_hash | text | N | none | Purpose-specific credential hash |
-| created_at | timestamptz | N | current timestamp | Issuance |
-| expires_at | timestamptz | N | none | Policy-defined expiration |
-| consumed_at | timestamptz | Y | NULL | Successful consumption |
-
-Unique: credential_hash. Checks: expires_at after created_at; consumed_at, if set,
-not before created_at. Index: user_id for account verification workflows.
-The backend checks expiry and eligible account state at consumption. No unique
-user_id or one-live-token constraint is imposed before resend policy is approved.
-
-### 6.4 password_reset_tokens
-
-Traceability: DM-AUTH-003, BR-AUTHN-014 through BR-AUTHN-016.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| user_id | bigint | N | none | FK users.id |
-| credential_hash | text | N | none | Purpose-specific recovery hash |
-| created_at | timestamptz | N | current timestamp | Issuance |
-| expires_at | timestamptz | N | none | Configured expiration |
-| consumed_at | timestamptz | Y | NULL | Single-use consumption evidence |
-
-Unique: credential_hash. Checks: expires_at after created_at; consumed_at, if set,
-not before created_at. Index: user_id. Consumption and password change must be
-atomic against replay. Session invalidation following reset remains unresolved.
-
-### 6.5 courses
-
-Traceability: DM-COURSE-001, BR-COURSE-001 through BR-COURSE-006, BR-CSTATUS-001
-through BR-CSTATUS-003, BR-CEFR-003.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| teacher_id | bigint | N | none | FK users.id; owner |
-| title | text | N | none | Course name |
-| description | text | Y | NULL | Description |
-| cefr_level | text | N | none | A1, A2, B1, B2, C1 or C2 |
-| publication_status | text | N | DRAFT | DRAFT, PUBLISHED or ARCHIVED |
-| access_classification | text | N | none | STANDARD or PREMIUM |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last edit |
-
-Checks: enumerated CEFR, publication and classification sets. Backend verifies
-Teacher ownership and Admin classification authority. Spring Boot explicitly
-supplies DRAFT and STANDARD on Teacher creation; access_classification retains no
-database default. Teacher create/update DTOs exclude accessClassification while
-preserving all other approved owned-Course editing, content management and
-publish/archive capabilities. Admin classification operations remain separate. Requiring CEFR at draft
-creation is a proposed validation choice; only published-course completeness is a
-business requirement, so draft nullability may be refined during API design.
-Indexes: teacher_id for owned Courses; (publication_status, cefr_level,
-access_classification) for published-course browsing/filtering.
-
-### 6.6 lessons
-
-Traceability: DM-LESSON-001, BR-LESSON-001 through BR-LESSON-004, BR-CCOMP-001.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| course_id | bigint | N | none | FK courses.id |
-| title | text | N | none | Lesson label |
-| topic | text | Y | NULL | Topic metadata |
-| content | text | Y | NULL | Learning content |
-| position | integer | N | none | Display order |
-| is_required | boolean | N | none | Required for Course completion; provisional mapping |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last edit |
-
-Check: position nonnegative. Index: (course_id, position, id) for stable ordering.
-No unique title or order constraint is required. is_required represents existing
-required-Lesson terminology, not approval for a new optional-Lesson workflow;
-initial assignment and changes to completion configuration remain P1.
-
-### 6.7 vocabulary
-
-Traceability: DM-VOC-001, DM-VOC-004, BR-VOC-001, BR-VOC-002, BR-VOC-006, BR-DIC-004.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| word | text | N | none | Display/canonical word |
-| canonical_key | text | N | none | Provisional normalized duplicate-prevention key |
-| cefr_level | text | Y | NULL | Optional known CEFR level |
-| ipa | text | Y | NULL | Available pronunciation text |
-| audio_reference | text | Y | NULL | Provisional approved playable reference, not audio bytes |
-| source_provider | text | Y | NULL | Provenance where applicable |
-| source_reference | text | Y | NULL | Provider record reference where applicable |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last edit |
-
-Unique: canonical_key; exact generation and equality semantics unresolved (P1).
-Check: non-null cefr_level belongs to A1-C2. Canonical lookup uses its unique index;
-substring/fuzzy indexing is not assumed. Audio/provenance columns are provisional
-until provider rights and audio strategy are approved. They do not authorize
-storage, caching or redistribution. No separate audio/provider table is introduced.
-
-### 6.8 vocabulary_senses
-
-Traceability: DM-VOC-002, BR-VOC-003 through BR-VOC-005, BR-DIC-004.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| vocabulary_id | bigint | N | none | FK vocabulary.id |
-| part_of_speech | text | Y | NULL | Available grammatical metadata |
-| english_definition | text | Y | NULL | Available definition |
-| vietnamese_meaning | text | Y | NULL | Available meaning |
-| example_sentence | text | Y | NULL | Available example |
-| source_provider | text | Y | NULL | Sense-level provenance |
-| source_reference | text | Y | NULL | Provider reference |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last edit |
-
-Index: vocabulary_id for word details. Do not make (vocabulary_id, part_of_speech)
-unique: a word can have multiple senses of the same part of speech. Content
-completeness for a particular exercise is backend validation, not an invented
-requirement that every dictionary entry has all metadata.
-
-### 6.9 lesson_vocabulary
-
-Traceability: DM-VOC-003, BR-VOC-005, BR-DATA-002.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| lesson_id | bigint | N | none | FK lessons.id |
-| vocabulary_sense_id | bigint | N | none | FK vocabulary_senses.id |
-| position | integer | N | none | Display order |
-
-Unique: (lesson_id, vocabulary_sense_id). Check: position nonnegative.
-Indexes: (lesson_id, position, id) for ordered vocabulary; vocabulary_sense_id for
-reverse usage checks. Do not duplicate vocabulary_id: it follows from the sense.
-Deleting this association never deletes the shared word or sense.
-
-### 6.10 exercises
-
-Traceability: DM-EX-001, BR-LCOMP-002, FR-TEX-001 through FR-TEX-005.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| lesson_id | bigint | N | none | FK lessons.id |
-| exercise_type | text | N | none | FILL_WORD, LISTENING or QUIZ |
-| title | text | Y | NULL | Optional label |
-| instructions | text | Y | NULL | Assessment instructions |
-| position | integer | N | none | Display order |
-| is_required | boolean | N | none | Provisional mapping of required assessment sections |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last edit |
-
-Checks: approved exercise_type; nonnegative position. Index: (lesson_id, position,
-id). Do not impose one Exercise per type per Lesson without a requirement.
-Mapping required sections to individual exercises remains P1. No speculative
-advanced-exercise entitlement fields are added before that feature matrix is defined.
-
-### 6.11 exercise_questions
-
-Traceability: DM-EX-002, BR-EX-001, BR-EX-003, BR-LIS-001.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| exercise_id | bigint | N | none | FK exercises.id |
-| vocabulary_id | bigint | N | none | FK vocabulary.id; target word |
-| vocabulary_sense_id | bigint | Y | NULL | FK vocabulary_senses.id; selected meaning when relevant |
-| question_format | text | N | none | Approved format code |
-| prompt | text | N | none | Trusted question content |
-| answer_options | jsonb | Y | NULL | Provisional array of fixed-format option identifiers/text |
-| expected_answer | text | N | none | Trusted expected text or correct option identifier |
-| audio_reference | text | Y | NULL | Provisional playable reference for Listening |
-| position | integer | N | none | Display order |
-
-Checks: question_format is FILL_WORD, LISTEN_AND_CHOOSE, LISTEN_AND_TYPE,
-WORD_TO_DEFINITION, DEFINITION_TO_WORD, IPA_TO_WORD or CONTEXT_TO_WORD; position is
-nonnegative; answer_options, if supplied, is a JSON array. Exact option shape remains
-P1. Backend validates format/type compatibility, options, expected answer, selected
-sense ownership, Lesson relevance and playable Listening audio. vocabulary_id is
-retained because word-only questions need not select a sense; a supplied sense must
-belong to that word. Index: (exercise_id, position, id).
-
-### 6.12 enrollments
-
-Traceability: DM-ENR-001, BR-ENR-001 through BR-ENR-005.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| student_id | bigint | N | none | FK users.id |
-| course_id | bigint | N | none | FK courses.id |
-| enrolled_at | timestamptz | N | current timestamp | Enrollment time |
-
-Unique: (student_id, course_id). Index: course_id for Course analytics.
-No withdrawal/re-enrollment lifecycle has been approved; this is the minimal
-one-association mapping. Revisit uniqueness only if that lifecycle is introduced.
-Backend verifies STUDENT role, publication/access eligibility and Premium as needed.
-
-### 6.13 exercise_attempts
-
-Traceability: DM-ATT-001, BR-SCORE-001 through BR-SCORE-004, BR-ACC-001,
-BR-HIST-001 through BR-HIST-003; approved C3 and C4.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| student_id | bigint | N | none | FK users.id |
-| context | text | N | none | LESSON or REVIEW |
-| exercise_id | bigint | Y | NULL | FK exercises.id; required only for LESSON |
-| exercise_type | text | N | none | Snapshot of approved core activity type |
-| course_title_snapshot | text | Y | NULL | Historical Course label for LESSON |
-| lesson_title_snapshot | text | Y | NULL | Historical Lesson label for LESSON |
-| started_at | timestamptz | N | current timestamp | Start |
-| completed_at | timestamptz | Y | NULL | NULL until completed |
-| total_questions | integer | N | none | Captured assessment denominator |
-| answered_count | integer | Y | NULL | Final answered count |
-| correct_count | integer | Y | NULL | Final correct count |
-| score | numeric | Y | NULL | Final backend score percentage |
-| accuracy | numeric | Y | NULL | Final percentage; NULL when no answers |
-
-Checks: context is LESSON/REVIEW; approved exercise_type; total_questions positive.
-LESSON requires exercise_id and both title snapshots. REVIEW requires these three
-fields to be NULL. completed_at, if set, is not before started_at. Before completion,
-final counts/score/accuracy are NULL; on completion counts and score are required,
-0 <= correct_count <= answered_count <= total_questions, and score is within 0-100.
-For completed attempts, accuracy is NULL exactly when answered_count is zero; otherwise within 0-100.
-These checks must use explicit NULL handling, not rely on comparisons with NULL.
-Zero-answer completion eligibility remains API/workflow policy; this representation
-does not mandate accepting it. Completion itself represents attempt status; no
-redundant mutable status is added. A Review attempt uses one core activity type;
-mixed-type Review sessions are not a newly introduced requirement.
-Indexes: (student_id, completed_at, id) for history; (student_id, exercise_id,
-completed_at) for Lesson progress. No unique Student/Exercise constraint.
-
-### 6.14 answer_records
-
-Traceability: DM-ATT-002, BR-EX-003, BR-DATA-003, BR-MAST-001 through BR-MAST-003;
-approved C3, C4 and C5.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| attempt_id | bigint | N | none | FK exercise_attempts.id |
-| question_id | bigint | Y | NULL | FK exercise_questions.id; LESSON only |
-| vocabulary_id | bigint | N | none | FK vocabulary.id; stable aggregation identity |
-| vocabulary_sense_id | bigint | Y | NULL | FK vocabulary_senses.id; when relevant |
-| position | integer | N | none | Answered question slot within attempt |
-| question_format_snapshot | text | N | none | Approved question format at evaluation |
-| word_snapshot | text | N | none | Target word at evaluation |
-| sense_snapshot | text | Y | NULL | Relevant meaning/definition when needed |
-| prompt_snapshot | text | N | none | Minimum interpretable prompt/context |
-| submitted_answer | text | N | none | Typed answer or selected option text |
-| expected_answer_snapshot | text | N | none | Expected text/correct option text |
-| is_correct | boolean | N | none | Trusted backend result |
-| answered_at | timestamptz | N | current timestamp | Evidence timestamp |
-
-Unique: (attempt_id, position). Checks: nonnegative position; question format belongs
-to the same approved set as exercise_questions. Index: (vocabulary_id, answered_at,
-attempt_id) for performance/recent evidence; question_id for referenced-question
-lookup. The attempt-prefix unique index supports answer listing.
-Backend requires question_id for LESSON and NULL for REVIEW, verifies question
-membership and type compatibility, and checks selected sense belongs to vocabulary.
-These are cross-row rules, not row-local CHECK constraints. Slot identity prevents
-duplicate persistence of the same answer without forbidding legitimate repeated
-words. Whether an unanswered slot is persisted is not assumed: total_questions
-preserves the denominator even when no AnswerRecord exists for a skipped question.
-
-### 6.15 saved_vocabulary
-
-Traceability: DM-SAVE-001, BR-SAVE-001 through BR-SAVE-004.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| student_id | bigint | N | none | FK users.id |
-| vocabulary_id | bigint | N | none | FK vocabulary.id |
-| saved_at | timestamptz | N | current timestamp | Save time |
-
-Unique: (student_id, vocabulary_id). Index: (student_id, saved_at, id) for My
-Vocabulary chronological listing. Removing a saved association is allowed by the
-documented workflow; it does not remove Vocabulary or historical answers.
-
-### 6.16 subscription_plans
-
-Traceability: DM-SUB-001, BR-SUB-001; approved C1.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| plan_type | text | N | none | MONTHLY or YEARLY |
-| display_name | text | N | none | Catalog display label |
-| price | numeric | N | none | Current catalog price |
-| currency | text | N | none | Catalog currency |
-| is_available | boolean | N | false | Offered for purchase after explicit activation |
-| created_at | timestamptz | N | current timestamp | Creation |
-| updated_at | timestamptz | N | current timestamp | Last catalog edit |
-
-Checks: MONTHLY/YEARLY and nonnegative price. No unique plan_type: multiple retained
-catalog records must not be forbidden merely to simplify history. No extra index
-is justified for the small initial catalog. Price/currency configuration and exact
-calendar-month/year boundary semantics remain P1. Existing periods are not
-recalculated when the catalog changes. Availability default is a conservative
-catalog-write default, not a new approval workflow.
-
-### 6.17 subscriptions
-
-Traceability: DM-SUB-002, BR-SUB-002 through BR-SUB-005, NFR-DATA-008; approved C2.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| student_id | bigint | N | none | FK users.id |
-| plan_id | bigint | N | none | FK subscription_plans.id |
-| originating_payment_id | bigint | N | none | FK payment_transactions.id |
-| starts_at | timestamptz | N | none | Granted period start |
-| ends_at | timestamptz | N | none | Granted period end |
-| created_at | timestamptz | N | current timestamp | Grant creation |
-
-Unique: originating_payment_id. Check: ends_at after starts_at.
-Index: (student_id, ends_at, starts_at) for current coverage and latest granted end.
-No mutable ACTIVE/EXPIRED column: current coverage is derived using starts_at <=
-current time < ends_at. A future renewal period does not grant access early.
-All grant fields are immutable after insertion under backend write boundaries.
-No row CHECK is claimed to enforce immutability or verified-payment state.
-Refund/revocation modifications are not invented; their design remains P1.
-
-### 6.18 payment_transactions
-
-Traceability: DM-PAY-001, BR-PAY-001 through BR-PAY-005, BR-REVN-001 through
-BR-REVN-003, NFR-DATA-007; approved C1 and C2.
-
-| Column | Type | Null | Default | Purpose/key |
-|---|---|---|---|---|
-| id | bigint | N | identity | PK |
-| student_id | bigint | N | none | FK users.id |
-| plan_id | bigint | N | none | FK subscription_plans.id |
-| plan_type_snapshot | text | N | none | Purchased MONTHLY/YEARLY terms |
-| amount | numeric | N | none | Actual historical transaction amount |
-| currency | text | N | none | Actual historical transaction currency |
-| provider | text | N | none | Selected provider identifier |
-| provider_reference | text | Y | NULL | Reference when assigned by provider |
-| provider_status | text | Y | NULL | Non-authoritative raw status code, not payload |
-| verification_outcome | text | N | UNVERIFIED | Provisional normalized outcome |
-| initiated_at | timestamptz | N | current timestamp | Payment initiation |
-| verified_at | timestamptz | Y | NULL | Trusted successful verification time |
-
-Unique: (provider, provider_reference) for populated references. Namespace/scoping
-must be checked against the selected provider; NULL allows failed initiation with
-no assigned reference. Checks: nonnegative amount; approved plan_type_snapshot;
-provisional verification_outcome set UNVERIFIED, VERIFIED_SUCCESS, REJECTED.
-VERIFIED_SUCCESS requires verified_at; other outcomes require it to be NULL;
-verified_at cannot precede initiated_at. These three values distinguish grant
-eligibility, not a complete provider state machine. Detailed failure, cancellation,
-refund mapping and final constraint vocabulary remain P1.
-Indexes: (student_id, initiated_at, id) for payment history;
-(verification_outcome, verified_at) for verified-revenue queries.
-No reverse subscription_id is stored: the unique originating_payment_id already
-expresses the relationship without a circular mutable link.
-
-## 7. Relationships and Mermaid ERD
-
-Each child FK references one parent unless its column is nullable. Parents can
-initially have zero children. A User acting as Teacher owns many Courses; a User
-acting as Student enrolls, saves vocabulary, learns and purchases Premium. Roles
-are validated by Spring Boot, not inferred from FK names.
+| --- | --- |
+| users | Shared identity, single role, verified/locked flags and profile data. |
+| refresh_sessions | Hashed refresh credentials, expiry/revocation. |
+| email_verification_credentials | Hashed initial/email-change verification authority. |
+| password_reset_credentials | Hashed expiring single-use reset authority. |
+| teacher_applications | Retained review snapshots and review evidence. |
+| teacher_profiles | Current approved public teaching profile, shared User PK. |
+| course_categories | Active/inactive administered Categories. |
+| courses | Owned commercial unit, tuition/discount/capacity and protected Meet URL. |
+| course_schedule_rules | Recurring weekly local schedule. |
+| sessions | Fixed planned numbered occurrences and protected nullable content. |
+| session_schedule_changes | Old/new occurrence times and change timestamp. |
+| session_calendar_events | Provider mapping and synchronization state. |
+| enrollments | Unique Student/Course participation and seat reservation. |
+| assignments | Session work, deadline/max-score direction and lifecycle. |
+| assignment_attachments | Authorized Storage paths and file metadata. |
+| submissions | One current Student/Assignment work record and grading/result. |
+| submission_attachments | Authorized Submission file paths and metadata. |
+| participant_feedback | One completed-Enrollment rating/comment. |
+| teacher_payment_accounts | Retained Teacher bank destinations. |
+| payments | Historical attempts, price snapshots and confirmation. |
+| payment_transactions | Actual bank/provider evidence, potentially unmatched. |
+| refunds | One full refund per Payment, proof and Admin verification. |
+
+Exactly 22 application tables. No roles/user_roles, meetings, session_attendance,
+course_progress, statistics tables, notification_deliveries, calendar_attendees,
+assignment_results or submission_gradings.
+
+
+## 4. Identity and Authentication Persistence
+
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
+
+V1 uses users.locked as its account-blocking mechanism: a locked account cannot authenticate
+or use normal account functionality. There is no separate disabled, enabled or
+account_status field/lifecycle. Email uses lowercase(trim(inputEmail)) for storage/login; a verified email
+change retains the old email until successful verification of the new one. Password reset
+revokes all refresh sessions; logged-in password change revokes other sessions while
+preserving the current session. Raw refresh, verification and reset secrets are not
+persisted.
+
+Email canonicalization is lowercase(trim(inputEmail)) for registration, login,
+verification, email change and password-reset/account lookup. Persist users.email and
+verification target_email canonically; do not remove dots/+tags or apply provider-specific
+normalization. users.email is UNIQUE; target_email is not unique.
+Database CHECKs require email = lower(btrim(email)) and the equivalent for target_email.
+Email change verifies the account-bound EMAIL_CHANGE credential, atomically consumes it
+and handles the users.email uniqueness race before replacing the old effective email.
+No users.pending_email column is introduced. Relevant future Calendar attendees update.
+No Access JWT table; credential expiry/revocation/used timestamps support the approved
+security flows. Password encoding/transport/replay details are not invented.
+
+References: DM-USER-001, DM-USER-002, DM-AUTH-001, DM-AUTH-002, DM-AUTH-003;
+BR-AUTHN-006, BR-AUTHN-013, BR-AUTHN-015, BR-AUTHN-018, BR-AUTHN-019.
+
+
+## 5. Teacher Profile Persistence
+
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
+
+teacher_profiles.teacher_id is both PK and FK to users, not another identity sequence.
+Approval/rejection requires reviewed_at/reviewed_by; rejection requires a reason.
+PENDING has no review evidence. FK existence does not prove role or review authority.
+Profile edits do not alter application review snapshots.
+
+References: DM-TEA-001, BR-AUTHN-024, BR-PROFILE-002.
+
+
+## 6. Course and Category Persistence
+
+Every Course has one non-transferable owning Teacher and exactly one Category. Used
+Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,
+CANCELLED and ARCHIVED; teaching in progress remains PUBLISHED. Teacher explicitly completes
+a Course after backend validation. Cancellation and archival are distinct. Optional
+percentage-discount windows are supported; Payments retain their price snapshots.
+
+Capacity uses min_students/max_students; min counts ACTIVE only. Preserve tuition,
+currency and applicable discount snapshots on each Payment. Meet URL is protected.
+meet_url is nullable in DRAFT; Spring Boot requires a valid URL before publication.
+Tuition is finite nonnegative NUMERIC(15,2); zero means free. VND is the only currency.
+min_students > 0 and max_students >= min_students; session_count is the fixed positive
+planned count. Discount fields are either all absent or all present with
+0 < discount_percent < 100 and start < end; 100% is not the free-Course representation.
+
+References: DM-COURSE-001, DM-CAT-001, BR-COURSE-001, BR-COURSE-004.
+
+
+## 7. Session and Scheduling Persistence
+
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking.
+
+sessions.content TEXT NULL stores protected learning content; generated Sessions can
+have no content. No public Session projection includes it. UNIQUE(course_id, session_number)
+enforces one row per planned number; cancellation preserves the row, number and Course count.
+There is no replacement column, self FK, replacement index or replacement CHECK.
+
+Generate exactly session_count Sessions chronologically from planned_start_date
+(the earliest permitted date, not necessarily a matching weekday), using weekly rules
+with ISO weekdays 1=Monday through 7=Sunday. Number Sessions 1 through session_count,
+unique within the Course. Combine date and local times with the required backend-validated
+IANA Zone ID to persist TIMESTAMPTZ instants. Same-Course rules must not overlap;
+validate overlap transactionally. Draft inputs may change and generated Sessions may
+be regenerated only before meaningful historical/business activity. Before publication,
+Sessions exist for Teacher review and a valid Teacher-provided Meet URL is required.
+After publication, concrete timestamps are authoritative; do not blindly regenerate.
+Rescheduling updates the same row and Calendar event; cancellation preserves numbering
+and count. Each concrete Session has its own event, never one recurring Calendar event.
+Synchronization failure never rolls back core Course/Session state; retain durable
+sync status and retry. DST gap/overlap validation remains an implementation contract.
+
+References: DM-SES-001, DM-SCH-001, BR-SES-001, BR-SCH-001.
+
+
+## 8. Assignment, Submission and Result Persistence
+
+Assignments belong to Sessions and use ACTIVE/CANCELLED. Any Submission prevents hard
+deletion of its Assignment. There is one current Submission per Student/Assignment, using
+DRAFT/SUBMITTED/GRADED; no revision-history, result or grading table is introduced. Score,
+feedback and grading metadata remain on Submission. Only the owning Teacher grades, and a
+score cannot exceed Assignment max_score. A numeric score is not made mandatory merely by
+GRADED status.
+
+SUBMITTED/GRADED require submitted_at; GRADED additionally requires graded_at and
+graded_by, not a mandatory score. Same-row bounds reject NaN; max-score comparison
+is cross-table. Optional attachments store names, paths, type and size. Required
+due_at is NOT NULL; max_score is positive NUMERIC(5,2) and optional score is
+nonnegative NUMERIC(5,2), with no business maximum of 100. No revision/result table.
+
+References: DM-ASN-001, DM-ASN-002, DM-ASN-003, BR-ASN-002, BR-ASN-003.
+
+
+## 9. Enrollment and Participation Persistence
+
+Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
+COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
+Free Courses activate participation without fake Payments. Paid participation may reserve a
+seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
+new Enrollment or Payment may begin after the first Session has started. Activation,
+reservation and late-payment handling must be concurrency-safe.
+
+UNIQUE(student_id, course_id) also supports Student-prefix lookup. Status/expiry
+values alone do not reserve capacity safely: serialize relevant capacity decisions
+with an approved transaction/locking strategy. No wall-clock CHECK or partial index
+using current time is proposed.
+
+References: DM-ENR-001, BR-ENR-001, BR-ENR-008.
+
+
+## 10. Course Progress Persistence
+
+CourseProgress and statistics are derived from authoritative Enrollment, Session and
+Submission information; no progress, attendance or statistics table. Formulas and
+reporting time boundaries remain open. Opening Meet/content does not prove attendance
+or completion.
+
+References: DM-PRO-002, BR-AUTH-006, BR-TEA-002.
+
+
+## 11. Teacher Payment Receiving Information
+
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference.
+
+The partial unique index enforces at most one ACTIVE bank account per Teacher.
+Application logic validates Teacher authority, account ownership and historical
+immutability. V1 omits provider_account_ref; a later verified integration may justify
+a separately approved migration. It is not a confirmed VietQR field.
+
+References: DM-PAY-002, BR-PAY-006, BR-PAY-007.
+
+
+## 12. Course Payment / Transaction Persistence
+
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference.
+
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking.
+
+V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
+applicable full Payment amount under the approved workflow. Teacher performs the bank
+transfer back to the Student and submits proof; Admin verifies completion. Refund statuses
+are PENDING, SUBMITTED, COMPLETED and CANCELLED. Payment remains historical and has no
+REFUNDED status. This does not authorize platform custody, payouts, commissions, escrow or
+accounting.
+
+payment_transactions.payment_id and teacher_payment_account_id are independently
+nullable. The latter references teacher_payment_accounts(id) ON DELETE RESTRICT.
+Unknown receiving accounts stay unresolved for reconciliation; do not fabricate a
+receiver or infer a match from amount alone. When matched, verify account coherence.
+CONFIRMED requires confirmed_at. Full-refund amount/eligibility is cross-table;
+SUBMITTED and COMPLETED require the approved proof/time/reviewer evidence.
+
+V1 omits provider_order_id and its dependent unique index. provider_transaction_id is
+retained as external evidence without an unverified provider-wide unique constraint.
+The selected adapter must scope transaction identity using its verified source/account
+context and serialize duplicate detection, matching and confirmation atomically.
+Do not infer identity from amount alone or invent a VietQR API guarantee. This
+application/idempotency boundary is mandatory before adapter implementation, not a
+physical-design blocker. Do not store raw provider secrets in raw_reference.
+
+References: DM-PAY-001, DM-PAY-002, DM-PAY-003, BR-PAY-009, BR-PAY-011,
+UC-PAY-REFUND-01.
+
+
+## 13. Meet and Calendar Persistence Boundaries
+
+One manually supplied protected Course Meet URL is shared by all Sessions; no Meeting
+entity or Meet API. Supply timing/nullability remains a migration clarification.
+
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
+
+SYNCED requires external_event_id and last_synced_at. Non-null (provider, external_event_id)
+uniqueness is approved within V1's single configured Calendar. No calendar_attendees,
+calendar_id column or duplicated email columns; persist mapping state, not per-user OAuth.
+
+References: BR-MEET-001, BR-MEET-002, BR-AUTH-005, INV-019, INV-021.
+
+
+## 14. Participant Feedback Persistence
+
+Participant feedback is unique per Enrollment, can be created only for a COMPLETED
+Enrollment and has a rating from 1 to 5. No aggregate rating column is stored.
+Editing/moderation details not supplied by these decisions remain open.
+
+The FK/unique key/rating CHECK enforce relationship existence, one row and scale.
+COMPLETED eligibility and Student identity are application/transactional invariants.
+
+References: DM-RATE-001, BR-RATE-001.
+
+
+## 15. Admin and Reporting Data Boundary
+
+Admin uses authorized projections of existing records and verifies full-refund
+completion; no tuition custody or payout execution. Derive user/Course/Enrollment
+and transaction statistics, preserving currency separation and verified evidence.
+Do not equate Teacher tuition with Admin revenue. No materialized reporting tables,
+accounting/expense system or invented metrics.
+
+References: BR-ADM-001, BR-ADM-005, BR-PAY-011.
+
+
+## 16. Relationships and Foreign-Key Direction
+
+The SQL in section 17 and ERD in section 20 define the same relationships. Mandatory
+FKs reference one parent; nullable FKs reference zero or one. Course/User ownership
+and one Category are mandatory. Student/Course Enrollment and Student/Assignment
+Submission are pair-unique; repeated payment attempts are children of one Enrollment.
+
+TeacherProfile is zero-or-one per User; Teacher applications/accounts are one-to-many
+with partial unique current-state restrictions. Refund and feedback each have a
+unique parent. A Session has at most one Calendar mapping per provider in the single
+configured Calendar. No Session-to-Session replacement relationship exists.
+
+All business/history FKs use ON DELETE RESTRICT. Only Course schedule rules and
+Assignment/Submission attachment rows use CASCADE as true dependents. Parent hard
+deletion must first satisfy retention/authorization; FK cascade does not authorize
+it or delete Storage bytes. No SET NULL silently loses historical context.
+
+
+## 17. Constraints, Uniqueness and Lifecycle Boundaries
+
+The following is the corrected **documentation-only SQL specification** of the
+22-table Physical V1. It records database-enforced columns, types, nullability, named
+keys, FK deletion behavior, uniqueness, lifecycle CHECKs and indexes. Application
+invariants are in section 25; implementation-only details are in section 22.
+Do not execute or copy it to Flyway without separate implementation approval.
+
+Same-row evidence CHECKs are one-way implications, preserving historical evidence
+when a later legitimate state retains it. Teacher applications additionally require
+PENDING to be unreviewed. NUMERIC NaN is rejected explicitly for money/scores;
+discount_percent's finite upper bound already rejects it. Keep existing ranges and
+BigDecimal mapping. Required text is also validated nonblank in Spring Boot.
+Cross-row/time/authorization rules belong in section 25, not SQL triggers.
+Technical references: [PostgreSQL numeric
+values](https://www.postgresql.org/docs/17/datatype-numeric.html)
+and [CHECK constraint limits](https://www.postgresql.org/docs/17/ddl-constraints.html).
+
+```sql
+-- =========================================================
+-- ENGLISH TUTORING PLATFORM
+-- PHYSICAL DATABASE DESIGN V1
+-- PostgreSQL
+-- =========================================================
+
+
+-- =========================================================
+-- 1. USERS
+-- =========================================================
+
+CREATE TABLE public.users (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+
+    full_name TEXT NOT NULL,
+    phone TEXT,
+    address TEXT,
+    date_of_birth DATE,
+
+    role TEXT NOT NULL,
+
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    locked BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_users PRIMARY KEY (id),
+
+    CONSTRAINT uq_users_email
+        UNIQUE (email),
+
+    CONSTRAINT ck_users_email_canonical
+        CHECK (email = lower(btrim(email))),
+
+    CONSTRAINT ck_users_role
+        CHECK (role IN (
+            'STUDENT',
+            'TEACHER',
+            'ADMIN'
+        ))
+);
+
+
+-- =========================================================
+-- 2. REFRESH SESSIONS
+-- =========================================================
+
+CREATE TABLE public.refresh_sessions (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    user_id BIGINT NOT NULL,
+
+    token_hash TEXT NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_refresh_sessions PRIMARY KEY (id),
+
+    CONSTRAINT fk_refresh_sessions_user
+        FOREIGN KEY (user_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_refresh_sessions_token_hash
+        UNIQUE (token_hash),
+
+    CONSTRAINT ck_refresh_sessions_expiry
+        CHECK (expires_at > created_at)
+);
+
+CREATE INDEX ix_refresh_sessions_user_id
+    ON public.refresh_sessions(user_id);
+
+
+-- =========================================================
+-- 3. EMAIL VERIFICATION CREDENTIALS
+-- =========================================================
+
+CREATE TABLE public.email_verification_credentials (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    user_id BIGINT NOT NULL,
+
+    purpose TEXT NOT NULL,
+    target_email TEXT NOT NULL,
+
+    secret_hash TEXT NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_email_verification_credentials
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_email_verification_credentials_user
+        FOREIGN KEY (user_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_email_verification_credentials_secret
+        UNIQUE (secret_hash),
+
+    CONSTRAINT ck_email_verification_credentials_target_canonical
+        CHECK (target_email = lower(btrim(target_email))),
+
+    CONSTRAINT ck_email_verification_credentials_purpose
+        CHECK (purpose IN (
+            'INITIAL_VERIFICATION',
+            'EMAIL_CHANGE'
+        )),
+
+    CONSTRAINT ck_email_verification_credentials_expiry
+        CHECK (expires_at > created_at)
+);
+
+CREATE INDEX ix_email_verification_credentials_user
+    ON public.email_verification_credentials(user_id);
+
+
+-- =========================================================
+-- 4. PASSWORD RESET CREDENTIALS
+-- =========================================================
+
+CREATE TABLE public.password_reset_credentials (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    user_id BIGINT NOT NULL,
+
+    secret_hash TEXT NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_password_reset_credentials
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_password_reset_credentials_user
+        FOREIGN KEY (user_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_password_reset_credentials_secret
+        UNIQUE (secret_hash),
+
+    CONSTRAINT ck_password_reset_credentials_expiry
+        CHECK (expires_at > created_at)
+);
+
+CREATE INDEX ix_password_reset_credentials_user
+    ON public.password_reset_credentials(user_id);
+
+
+-- =========================================================
+-- 5. TEACHER APPLICATIONS
+-- =========================================================
+
+CREATE TABLE public.teacher_applications (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    teacher_id BIGINT NOT NULL,
+
+    specialization TEXT NOT NULL,
+    teaching_experience TEXT NOT NULL,
+    introduction TEXT NOT NULL,
+
+    status TEXT NOT NULL,
+
+    submitted_at TIMESTAMPTZ NOT NULL,
+
+    reviewed_at TIMESTAMPTZ,
+    reviewed_by BIGINT,
+    rejection_reason TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_teacher_applications
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_teacher_applications_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_teacher_applications_reviewer
+        FOREIGN KEY (reviewed_by)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_teacher_applications_status
+        CHECK (status IN (
+            'PENDING',
+            'APPROVED',
+            'REJECTED'
+        )),
+
+    CONSTRAINT ck_teacher_applications_review
+        CHECK ((status = 'PENDING' AND reviewed_at IS NULL AND reviewed_by IS NULL AND rejection_reason IS NULL)
+            OR (status IN ('APPROVED', 'REJECTED') AND reviewed_at IS NOT NULL AND reviewed_by IS NOT NULL
+                AND (status <> 'REJECTED' OR rejection_reason IS NOT NULL)))
+);
+
+CREATE INDEX ix_teacher_applications_teacher
+    ON public.teacher_applications(teacher_id);
+
+CREATE INDEX ix_teacher_applications_status
+    ON public.teacher_applications(status);
+
+CREATE UNIQUE INDEX uq_teacher_applications_one_pending
+    ON public.teacher_applications(teacher_id)
+    WHERE status = 'PENDING';
+
+
+-- =========================================================
+-- 6. TEACHER PROFILES
+-- =========================================================
+
+CREATE TABLE public.teacher_profiles (
+    teacher_id BIGINT NOT NULL,
+
+    avatar_path TEXT,
+
+    specialization TEXT NOT NULL,
+    teaching_experience TEXT NOT NULL,
+    introduction TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_teacher_profiles
+        PRIMARY KEY (teacher_id),
+
+    CONSTRAINT fk_teacher_profiles_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT
+);
+
+
+-- =========================================================
+-- 7. COURSE CATEGORIES
+-- =========================================================
+
+CREATE TABLE public.course_categories (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_course_categories
+        PRIMARY KEY (id),
+
+    CONSTRAINT uq_course_categories_name
+        UNIQUE (name)
+);
+
+
+-- =========================================================
+-- 8. COURSES
+-- =========================================================
+
+CREATE TABLE public.courses (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    teacher_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL,
+
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+
+    thumbnail_path TEXT,
+
+    tuition NUMERIC(15,2) NOT NULL,
+    currency TEXT NOT NULL,
+
+    discount_percent NUMERIC(5,2),
+    discount_start_at TIMESTAMPTZ,
+    discount_end_at TIMESTAMPTZ,
+
+    min_students INTEGER NOT NULL,
+    max_students INTEGER NOT NULL,
+
+    planned_start_date DATE NOT NULL,
+    timezone TEXT NOT NULL,
+
+    session_count INTEGER NOT NULL,
+
+    meet_url TEXT,
+
+    status TEXT NOT NULL,
+
+    cancelled_at TIMESTAMPTZ,
+    cancellation_reason TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT ck_courses_currency
+        CHECK (currency = 'VND'),
+
+    CONSTRAINT pk_courses
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_courses_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_courses_category
+        FOREIGN KEY (category_id)
+        REFERENCES public.course_categories(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_courses_tuition
+        CHECK (tuition >= 0 AND tuition <> 'NaN'::numeric),
+
+    CONSTRAINT ck_courses_capacity
+        CHECK (
+            min_students > 0
+            AND max_students >= min_students
+        ),
+
+    CONSTRAINT ck_courses_session_count
+        CHECK (session_count > 0),
+
+    CONSTRAINT ck_courses_status
+        CHECK (status IN (
+            'DRAFT',
+            'PUBLISHED',
+            'COMPLETED',
+            'CANCELLED',
+            'ARCHIVED'
+        )),
+
+    CONSTRAINT ck_courses_discount_percent
+        CHECK (
+            discount_percent IS NULL
+            OR (
+                discount_percent > 0
+                AND discount_percent < 100
+            )
+        ),
+
+    CONSTRAINT ck_courses_discount_fields
+        CHECK (
+            (
+                discount_percent IS NULL
+                AND discount_start_at IS NULL
+                AND discount_end_at IS NULL
+            )
+            OR
+            (
+                discount_percent IS NOT NULL
+                AND discount_start_at IS NOT NULL
+                AND discount_end_at IS NOT NULL
+                AND discount_start_at < discount_end_at
+            )
+        )
+);
+
+CREATE INDEX ix_courses_teacher_status
+    ON public.courses(teacher_id, status);
+
+CREATE INDEX ix_courses_category_status
+    ON public.courses(category_id, status);
+
+
+-- =========================================================
+-- 9. COURSE SCHEDULE RULES
+-- =========================================================
+
+CREATE TABLE public.course_schedule_rules (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    course_id BIGINT NOT NULL,
+
+    day_of_week SMALLINT NOT NULL,
+
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_course_schedule_rules
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_course_schedule_rules_course
+        FOREIGN KEY (course_id)
+        REFERENCES public.courses(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT ck_course_schedule_rules_day
+        CHECK (day_of_week BETWEEN 1 AND 7),
+
+    CONSTRAINT ck_course_schedule_rules_time
+        CHECK (end_time > start_time)
+);
+
+CREATE INDEX ix_course_schedule_rules_course
+    ON public.course_schedule_rules(course_id);
+
+
+-- =========================================================
+-- 10. SESSIONS
+-- =========================================================
+
+CREATE TABLE public.sessions (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    course_id BIGINT NOT NULL,
+
+    session_number INTEGER NOT NULL,
+    title TEXT,
+    content TEXT,
+
+    scheduled_start_at TIMESTAMPTZ NOT NULL,
+    scheduled_end_at TIMESTAMPTZ NOT NULL,
+
+    status TEXT NOT NULL,
+
+    cancellation_reason TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_sessions
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_sessions_course
+        FOREIGN KEY (course_id)
+        REFERENCES public.courses(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_sessions_number
+        CHECK (session_number > 0),
+
+    CONSTRAINT ck_sessions_time
+        CHECK (
+            scheduled_end_at > scheduled_start_at
+        ),
+
+    CONSTRAINT ck_sessions_status
+        CHECK (
+            status IN (
+                'SCHEDULED',
+                'CANCELLED'
+            )
+        ),
+
+    CONSTRAINT uq_sessions_course_number
+        UNIQUE (course_id, session_number)
+);
+
+CREATE INDEX ix_sessions_course_start
+    ON public.sessions(
+        course_id,
+        scheduled_start_at
+    );
+
+
+-- =========================================================
+-- 11. SESSION SCHEDULE CHANGES
+-- =========================================================
+
+CREATE TABLE public.session_schedule_changes (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    session_id BIGINT NOT NULL,
+
+    old_start_at TIMESTAMPTZ NOT NULL,
+    old_end_at TIMESTAMPTZ NOT NULL,
+
+    new_start_at TIMESTAMPTZ NOT NULL,
+    new_end_at TIMESTAMPTZ NOT NULL,
+
+    changed_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_session_schedule_changes
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_session_schedule_changes_session
+        FOREIGN KEY (session_id)
+        REFERENCES public.sessions(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_session_schedule_changes_old_time
+        CHECK (
+            old_end_at > old_start_at
+        ),
+
+    CONSTRAINT ck_session_schedule_changes_new_time
+        CHECK (
+            new_end_at > new_start_at
+        )
+);
+
+CREATE INDEX ix_session_schedule_changes_session
+    ON public.session_schedule_changes(session_id);
+
+
+-- =========================================================
+-- 12. SESSION CALENDAR EVENTS
+-- =========================================================
+
+CREATE TABLE public.session_calendar_events (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    session_id BIGINT NOT NULL,
+
+    provider TEXT NOT NULL,
+
+    external_event_id TEXT,
+
+    sync_status TEXT NOT NULL,
+    last_synced_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_session_calendar_events
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_session_calendar_events_session
+        FOREIGN KEY (session_id)
+        REFERENCES public.sessions(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_session_calendar_events_session_provider
+        UNIQUE (session_id, provider),
+
+    CONSTRAINT ck_session_calendar_events_provider
+        CHECK (
+            provider IN ('GOOGLE_CALENDAR')
+        ),
+
+    CONSTRAINT ck_session_calendar_events_status
+        CHECK (
+            sync_status IN (
+                'PENDING',
+                'SYNCED',
+                'FAILED'
+            )
+        ),
+
+    CONSTRAINT ck_session_calendar_events_synced
+        CHECK (sync_status <> 'SYNCED' OR (external_event_id IS NOT NULL AND last_synced_at IS NOT NULL))
+);
+
+-- V1 uses one configured Calendar; its ID belongs to backend configuration.
+CREATE UNIQUE INDEX uq_session_calendar_events_external
+    ON public.session_calendar_events(
+        provider,
+        external_event_id
+    )
+    WHERE external_event_id IS NOT NULL;
+
+
+-- =========================================================
+-- 13. ENROLLMENTS
+-- =========================================================
+
+CREATE TABLE public.enrollments (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    student_id BIGINT NOT NULL,
+    course_id BIGINT NOT NULL,
+
+    status TEXT NOT NULL,
+
+    enrolled_at TIMESTAMPTZ,
+    seat_reserved_until TIMESTAMPTZ,
+
+    cancelled_at TIMESTAMPTZ,
+    cancellation_reason TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_enrollments
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_enrollments_student
+        FOREIGN KEY (student_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_enrollments_course
+        FOREIGN KEY (course_id)
+        REFERENCES public.courses(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_enrollments_student_course
+        UNIQUE (student_id, course_id),
+
+    CONSTRAINT ck_enrollments_status
+        CHECK (
+            status IN (
+                'PENDING',
+                'ACTIVE',
+                'COMPLETED',
+                'CANCELLED'
+            )
+        )
+);
+
+CREATE INDEX ix_enrollments_course
+    ON public.enrollments(course_id);
+
+
+-- =========================================================
+-- 14. ASSIGNMENTS
+-- =========================================================
+
+CREATE TABLE public.assignments (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    session_id BIGINT NOT NULL,
+
+    title TEXT NOT NULL,
+    description TEXT,
+
+    max_score NUMERIC(5,2) NOT NULL,
+
+    due_at TIMESTAMPTZ NOT NULL,
+
+    status TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_assignments
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_assignments_session
+        FOREIGN KEY (session_id)
+        REFERENCES public.sessions(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_assignments_max_score
+        CHECK (max_score > 0 AND max_score <> 'NaN'::numeric),
+
+    CONSTRAINT ck_assignments_status
+        CHECK (
+            status IN (
+                'ACTIVE',
+                'CANCELLED'
+            )
+        )
+);
+
+CREATE INDEX ix_assignments_session
+    ON public.assignments(session_id);
+
+
+-- =========================================================
+-- 15. ASSIGNMENT ATTACHMENTS
+-- =========================================================
+
+CREATE TABLE public.assignment_attachments (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    assignment_id BIGINT NOT NULL,
+
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+
+    content_type TEXT,
+
+    file_size BIGINT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_assignment_attachments
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_assignment_attachments_assignment
+        FOREIGN KEY (assignment_id)
+        REFERENCES public.assignments(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_assignment_attachments_storage_path
+        UNIQUE (storage_path),
+
+    CONSTRAINT ck_assignment_attachments_size
+        CHECK (file_size >= 0)
+);
+
+CREATE INDEX ix_assignment_attachments_assignment
+    ON public.assignment_attachments(assignment_id);
+
+
+-- =========================================================
+-- 16. SUBMISSIONS
+-- =========================================================
+
+CREATE TABLE public.submissions (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    assignment_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+
+    status TEXT NOT NULL,
+
+    content TEXT,
+
+    submitted_at TIMESTAMPTZ,
+
+    score NUMERIC(5,2),
+    teacher_feedback TEXT,
+
+    graded_at TIMESTAMPTZ,
+    graded_by BIGINT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_submissions
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_submissions_assignment
+        FOREIGN KEY (assignment_id)
+        REFERENCES public.assignments(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_submissions_student
+        FOREIGN KEY (student_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_submissions_grader
+        FOREIGN KEY (graded_by)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_submissions_assignment_student
+        UNIQUE (
+            assignment_id,
+            student_id
+        ),
+
+    CONSTRAINT ck_submissions_status
+        CHECK (
+            status IN (
+                'DRAFT',
+                'SUBMITTED',
+                'GRADED'
+            )
+        ),
+
+    CONSTRAINT ck_submissions_score
+        CHECK (
+            score IS NULL
+            OR (score >= 0 AND score <> 'NaN'::numeric)
+        ),
+
+    CONSTRAINT ck_submissions_submission_evidence
+        CHECK (status NOT IN ('SUBMITTED', 'GRADED') OR submitted_at IS NOT NULL),
+
+    CONSTRAINT ck_submissions_grading_evidence
+        CHECK (status <> 'GRADED' OR (graded_at IS NOT NULL AND graded_by IS NOT NULL))
+);
+
+CREATE INDEX ix_submissions_student
+    ON public.submissions(student_id);
+
+
+-- =========================================================
+-- 17. SUBMISSION ATTACHMENTS
+-- =========================================================
+
+CREATE TABLE public.submission_attachments (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    submission_id BIGINT NOT NULL,
+
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+
+    content_type TEXT,
+
+    file_size BIGINT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_submission_attachments
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_submission_attachments_submission
+        FOREIGN KEY (submission_id)
+        REFERENCES public.submissions(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_submission_attachments_storage_path
+        UNIQUE (storage_path),
+
+    CONSTRAINT ck_submission_attachments_size
+        CHECK (file_size >= 0)
+);
+
+CREATE INDEX ix_submission_attachments_submission
+    ON public.submission_attachments(submission_id);
+
+
+-- =========================================================
+-- 18. PARTICIPANT FEEDBACK
+-- =========================================================
+
+CREATE TABLE public.participant_feedback (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    enrollment_id BIGINT NOT NULL,
+
+    rating SMALLINT NOT NULL,
+    comment TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_participant_feedback
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_participant_feedback_enrollment
+        FOREIGN KEY (enrollment_id)
+        REFERENCES public.enrollments(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_participant_feedback_enrollment
+        UNIQUE (enrollment_id),
+
+    CONSTRAINT ck_participant_feedback_rating
+        CHECK (rating BETWEEN 1 AND 5)
+);
+
+
+-- =========================================================
+-- 19. TEACHER PAYMENT ACCOUNTS
+-- =========================================================
+
+CREATE TABLE public.teacher_payment_accounts (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    teacher_id BIGINT NOT NULL,
+
+    bank_code TEXT NOT NULL,
+    account_number TEXT NOT NULL,
+    account_holder_name TEXT NOT NULL,
+
+    provider TEXT NOT NULL,
+    status TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_teacher_payment_accounts
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_teacher_payment_accounts_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_teacher_payment_accounts_provider
+        CHECK (
+            provider IN ('VIETQR')
+        ),
+
+    CONSTRAINT ck_teacher_payment_accounts_status
+        CHECK (
+            status IN (
+                'ACTIVE',
+                'INACTIVE'
+            )
+        )
+);
+
+CREATE INDEX ix_teacher_payment_accounts_teacher
+    ON public.teacher_payment_accounts(teacher_id);
+
+CREATE UNIQUE INDEX uq_teacher_payment_accounts_one_active
+    ON public.teacher_payment_accounts(teacher_id)
+    WHERE status = 'ACTIVE';
+
+
+-- =========================================================
+-- 20. PAYMENTS
+-- =========================================================
+
+CREATE TABLE public.payments (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    enrollment_id BIGINT NOT NULL,
+    teacher_payment_account_id BIGINT NOT NULL,
+
+    payment_code TEXT NOT NULL,
+
+    provider TEXT NOT NULL,
+    original_amount NUMERIC(15,2) NOT NULL,
+    discount_amount NUMERIC(15,2) NOT NULL,
+    final_amount NUMERIC(15,2) NOT NULL,
+
+    currency TEXT NOT NULL,
+
+    status TEXT NOT NULL,
+
+    expires_at TIMESTAMPTZ NOT NULL,
+    confirmed_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT ck_payments_currency
+        CHECK (currency = 'VND'),
+
+    CONSTRAINT pk_payments
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_payments_enrollment
+        FOREIGN KEY (enrollment_id)
+        REFERENCES public.enrollments(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_payments_teacher_account
+        FOREIGN KEY (teacher_payment_account_id)
+        REFERENCES public.teacher_payment_accounts(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_payments_payment_code
+        UNIQUE (payment_code),
+
+    CONSTRAINT ck_payments_provider
+        CHECK (
+            provider IN ('VIETQR')
+        ),
+
+    CONSTRAINT ck_payments_status
+        CHECK (
+            status IN (
+                'PENDING',
+                'CONFIRMED',
+                'EXPIRED',
+                'CANCELLED'
+            )
+        ),
+
+    CONSTRAINT ck_payments_amounts
+        CHECK (
+            original_amount <> 'NaN'::numeric
+            AND discount_amount <> 'NaN'::numeric
+            AND final_amount <> 'NaN'::numeric
+            AND original_amount >= 0
+            AND discount_amount >= 0
+            AND final_amount > 0
+            AND discount_amount <= original_amount
+            AND final_amount =
+                original_amount - discount_amount
+        ),
+
+    CONSTRAINT ck_payments_expiry
+        CHECK (
+            expires_at > created_at
+        ),
+
+    CONSTRAINT ck_payments_confirmation_evidence
+        CHECK (status <> 'CONFIRMED' OR confirmed_at IS NOT NULL)
+);
+
+CREATE INDEX ix_payments_enrollment
+    ON public.payments(enrollment_id);
+
+CREATE INDEX ix_payments_teacher_account
+    ON public.payments(teacher_payment_account_id);
+
+CREATE UNIQUE INDEX uq_payments_one_pending_per_enrollment
+    ON public.payments(enrollment_id)
+    WHERE status = 'PENDING';
+
+
+-- =========================================================
+-- 21. PAYMENT TRANSACTIONS
+-- =========================================================
+
+CREATE TABLE public.payment_transactions (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    payment_id BIGINT,
+    teacher_payment_account_id BIGINT,
+
+    provider TEXT NOT NULL,
+    provider_transaction_id TEXT NOT NULL,
+
+    amount NUMERIC(15,2) NOT NULL,
+    currency TEXT NOT NULL,
+
+    transaction_at TIMESTAMPTZ NOT NULL,
+
+    raw_reference TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT ck_payment_transactions_currency
+        CHECK (currency = 'VND'),
+
+    CONSTRAINT pk_payment_transactions
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_payment_transactions_payment
+        FOREIGN KEY (payment_id)
+        REFERENCES public.payments(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_payment_transactions_teacher_account
+        FOREIGN KEY (teacher_payment_account_id)
+        REFERENCES public.teacher_payment_accounts(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT ck_payment_transactions_provider
+        CHECK (
+            provider IN ('VIETQR')
+        ),
+
+    CONSTRAINT ck_payment_transactions_amount
+        CHECK (amount > 0 AND amount <> 'NaN'::numeric)
+);
+
+CREATE INDEX ix_payment_transactions_payment
+    ON public.payment_transactions(payment_id);
+
+
+-- =========================================================
+-- 22. REFUNDS
+-- =========================================================
+
+CREATE TABLE public.refunds (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY,
+
+    payment_id BIGINT NOT NULL,
+
+    amount NUMERIC(15,2) NOT NULL,
+    reason TEXT NOT NULL,
+
+    status TEXT NOT NULL,
+
+    recipient_bank_code TEXT NOT NULL,
+    recipient_account_number TEXT NOT NULL,
+    recipient_account_holder TEXT NOT NULL,
+
+    proof_image_path TEXT,
+
+    requested_at TIMESTAMPTZ NOT NULL,
+    submitted_at TIMESTAMPTZ,
+
+    completed_at TIMESTAMPTZ,
+    completed_by BIGINT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT pk_refunds
+        PRIMARY KEY (id),
+
+    CONSTRAINT fk_refunds_payment
+        FOREIGN KEY (payment_id)
+        REFERENCES public.payments(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_refunds_completed_by
+        FOREIGN KEY (completed_by)
+        REFERENCES public.users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_refunds_payment
+        UNIQUE (payment_id),
+
+    CONSTRAINT ck_refunds_amount
+        CHECK (amount > 0 AND amount <> 'NaN'::numeric),
+
+    CONSTRAINT ck_refunds_status
+        CHECK (
+            status IN (
+                'PENDING',
+                'SUBMITTED',
+                'COMPLETED',
+                'CANCELLED'
+            )
+        ),
+
+    CONSTRAINT ck_refunds_submission_evidence
+        CHECK (status NOT IN ('SUBMITTED', 'COMPLETED') OR (proof_image_path IS NOT NULL AND submitted_at IS NOT NULL)),
+
+    CONSTRAINT ck_refunds_completion_evidence
+        CHECK (status <> 'COMPLETED' OR (completed_at IS NOT NULL AND completed_by IS NOT NULL))
+);
+```
+
+
+## 18. Indexing and Query-Support Direction
+
+Section 17 names the proposed indexes. PK/unique constraints already supply indexes.
+
+| Access pattern | Supporting key/index |
+| --- | --- |
+| Login/credential validation | Unique email/hash keys; User FK lookup indexes for revoke/cleanup. |
+| Application review/history | Teacher and status indexes; one-PENDING partial unique index. |
+| Owned/discovered Courses | (teacher_id, status), (category_id, status). |
+| Course schedule/content | Schedule Course index; Sessions (course_id, scheduled_start_at); Assignment Session index. |
+| Reschedule/Calendar | Schedule-change Session index; unique Session/provider and single-calendar external mapping key. |
+| Enrollment/capacity | Unique (student_id, course_id), Course index. |
+| Submission inspection | Unique (assignment_id, student_id), Student index; attachment parent indexes. |
+| Teacher bank history | Teacher index and one-ACTIVE partial unique index. |
+| Payment attempts/history | Enrollment/account indexes; unique payment_code; one-PENDING partial index. |
+| Bank evidence | Payment index; adapter-context duplicate detection is transactional, not an unverified provider-wide unique key. |
+| Refund/feedback | Unique Payment/Enrollment parent keys. |
+
+Remove ix_enrollments_student: the existing composite unique key covers its prefix.
+UNIQUE(course_id, session_number) supplies the approved numbering index. No speculative
+receiver/reporting index is added; evaluate actual reconciliation query plans later.
+Calendar uniqueness has the approved single-calendar scope. Indexes never establish
+business authority or replace adapter-context payment idempotency.
+
+
+## 19. Sensitive Data and Retention
+
+Supabase Storage holds Teacher avatars, Course thumbnails, Assignment files, Submission
+files and refund proof. PostgreSQL stores paths/references and applicable metadata, never
+file bytes, base64 or temporary signed URLs. Resolve each path within an explicitly
+configured bucket for its usage; exact bucket identifiers remain configuration, and the
+path/bucket mapping must be fixed before integration. Spring Boot authorizes access; Storage
+does not replace backend business authorization.
+
+Fixed configured buckets are resolved by usage (Teacher avatar, Course thumbnail,
+Assignment/Submission attachment, refund proof). Paths are bucket-relative stable
+object keys. Do not persist temporary signed URLs or duplicate bucket guesses.
+Attachment path uniqueness presumes the fixed mapping; finalize it before integration.
+Backend checks owner/Enrollment/recipient permissions before file access.
+
+Retain Teacher application snapshots, bank accounts referenced by Payments, price
+snapshots, actual transaction/refund evidence and schedule-change history.
+Do not delete an Assignment with submissions or a used Category. Locking is not
+deletion. Precise retention periods/credential cleanup remain open.
+
+Hashes, secrets, private bank details, refund proof, Meet URLs and Student work are
+never public projections. Database presence grants no DTO exposure. No generic audit
+infrastructure, binary/base64 persistence or global soft-delete strategy.
+
+
+## 20. ERD / Relationship Direction
+
+This ERD reflects the 22-table documented candidate, not a deployed schema.
+Optional matching/receiving links remain independent. SQL constraints and section 25
+provide finer lifecycle and authorization restrictions than this relationship diagram.
 
 ```mermaid
 erDiagram
-    users ||--o{ refresh_sessions : has
-    refresh_sessions o|--o{ refresh_sessions : replacement
-    users ||--o{ email_verification_tokens : verifies
-    users ||--o{ password_reset_tokens : recovers
+    users ||--o{ refresh_sessions : owns
+    users ||--o{ email_verification_credentials : verifies
+    users ||--o{ password_reset_credentials : recovers
+    users ||--o{ teacher_applications : applies
+    users o|--o{ teacher_applications : reviews
+    users ||--o| teacher_profiles : has
     users ||--o{ courses : owns
-    courses ||--o{ lessons : contains
-    vocabulary ||--o{ vocabulary_senses : defines
-    lessons ||--o{ lesson_vocabulary : selects
-    vocabulary_senses ||--o{ lesson_vocabulary : selected
-    lessons ||--o{ exercises : contains
-    exercises ||--o{ exercise_questions : contains
-    vocabulary ||--o{ exercise_questions : targets
-    vocabulary_senses o|--o{ exercise_questions : qualifies
-    users ||--o{ enrollments : enrolls
-    courses ||--o{ enrollments : receives
-    users ||--o{ exercise_attempts : performs
-    exercises o|--o{ exercise_attempts : lesson_context
-    exercise_attempts ||--o{ answer_records : records
-    exercise_questions o|--o{ answer_records : lesson_question
-    vocabulary ||--o{ answer_records : evidence
-    vocabulary_senses o|--o{ answer_records : meaning
-    users ||--o{ saved_vocabulary : saves
-    vocabulary ||--o{ saved_vocabulary : saved
-    users ||--o{ subscriptions : receives
-    subscription_plans ||--o{ subscriptions : grants
-    payment_transactions ||--o| subscriptions : originates
-    users ||--o{ payment_transactions : pays
-    subscription_plans ||--o{ payment_transactions : purchased
+    course_categories ||--o{ courses : classifies
+    courses ||--o{ course_schedule_rules : schedules
+    courses ||--o{ sessions : contains
+    sessions ||--o{ session_schedule_changes : records
+    sessions ||--o{ session_calendar_events : maps_per_provider
+    users ||--o{ enrollments : student
+    courses ||--o{ enrollments : participates
+    sessions ||--o{ assignments : contains
+    assignments ||--o{ assignment_attachments : attaches
+    assignments ||--o{ submissions : receives
+    users ||--o{ submissions : authors
+    users o|--o{ submissions : grades
+    submissions ||--o{ submission_attachments : attaches
+    enrollments ||--o| participant_feedback : receives
+    users ||--o{ teacher_payment_accounts : owns
+    enrollments ||--o{ payments : attempts
+    teacher_payment_accounts ||--o{ payments : historical_receiver
+    payments o|--o{ payment_transactions : matches
+    teacher_payment_accounts o|--o{ payment_transactions : known_receiver
+    payments ||--o| refunds : refunds
+    users o|--o{ refunds : verifies
 ```
 
-The self-reference depicts only nullable replacement lineage; it does not approve
-a many-branch rotation policy. Conditional LESSON/REVIEW requirements cannot be
-fully expressed by ERD optionality; section 9 is normative for those conditions.
+Calendar is at most one row per Session/provider (only GOOGLE_CALENDAR in V1).
+Submission/Enrollment pair uniqueness and partial current-state constraints are
+defined in SQL; the diagram does not imply repeated pair records.
 
-## 8. Authentication persistence
 
-One User identity serves all roles. Authentication owns refresh, verification and
-reset persistence; User identity remains in the user feature. Keep Spring Security
-and JWT components in features/auth/security/. Access Tokens have no database table.
+## 21. Migration and Environment Direction
 
-Preserve configurable approved defaults: Access Token 15 minutes, Refresh Token
-7 days and password-reset credential 15 minutes (BR-AUTHN-007, BR-AUTHN-008,
-BR-AUTHN-016). Store actual credential expiration, not a hardcoded schema lifetime.
-Verification lifetime remains unresolved. Hashes/identifiers are stored rather
-than raw bearer credentials; password encoding uses Spring Security facilities.
+This reconciliation creates documentation only, not a Flyway migration. TASK-003's
+historical local/Supabase connectivity evidence remains valid; no current database
+contents are asserted or connection required. Preserve environment-supplied
+DATABASE_URL/DATABASE_USERNAME/DATABASE_PASSWORD and ignored secrets.
 
-Backend credential use checks current account state, purpose, expiry, revocation
-and consumption. Logout invalidates applicable refresh state; it does not imply
-instant revocation of every issued Access Token. Consuming single-use reset state
-must be concurrency-safe. Rotation, resend and session invalidation policies stay
-open; no Access Token blacklist or extra infrastructure is introduced.
+Supabase Session Pooler uses port 5432 and the approved TLS configuration:
+sslmode=require enables encryption without claiming certificate/hostname validation.
+Do not weaken stronger settings. Local PostgreSQL remains supported; production
+hosting remains undecided. Flyway is not installed by this task.
 
-## 9. Lesson and Review persistence
+Resolve section 22 blockers before separately approved migration work. The SQL below
+is not permission to execute, create schema.sql/data.sql, seed data, install Flyway
+or enable Hibernate auto-generation. No implementation status is advanced.
 
-| Condition | LESSON | REVIEW |
-|---|---|---|
-| Attempt exercise_id | Required | NULL |
-| Course/Lesson title snapshots | Required | NULL |
-| Answer question_id | Required; belongs to attempt Exercise | NULL |
-| Answer word/sense evidence | Required word; sense when relevant | Same |
-| Evaluation | Trusted backend question content | Trusted backend generated content |
-| Fake Lesson/Exercise | Never | Never |
 
-Backend validation also verifies enrollment/access when applicable, Student identity,
-Course ownership for content modification, sense/word consistency and format/type
-compatibility. Review prompt/expected-answer snapshots must come from backend
-selection/evaluation, never from an untrusted correctness field supplied by a client.
-Secure delivery/submission correlation belongs to API design, not a new Review table.
+## 22. Final Physical Decisions and Remaining Implementation Gates
 
-Completed results are immutable. Answers and final attempt aggregates are recorded
-consistently; total_questions captures the original denominator. Reattempting creates
-a new attempt. Existing content edits cannot change a saved historical score.
+### A. Database-enforced Physical V1
 
-## 10. Historical-data preservation
+The final SQL specification in section 17 defines exactly 22 tables. It includes
+nullable draft meet_url; required due_at; positive finite NUMERIC(5,2) max_score;
+nullable nonnegative finite NUMERIC(5,2) score; finite nonnegative NUMERIC(15,2)
+tuition; VND-only currency CHECKs; positive minimum and maximum >= minimum; complete
+discount windows with 0 < percentage < 100 and start < end; canonical email CHECKs;
+and UNIQUE(course_id, session_number). No arbitrary score cap of 100 is introduced.
 
-Minimum immutable history captures who learned, when, activity type, Lesson/Course
-labels when relevant, target word, relevant meaning when needed, interpretable
-prompt, submitted response, expected answer and backend correctness. Attempt counts,
-score and accuracy describe the completed evaluation.
+### B. Application / transactional invariants
 
-For choice formats, retain selected/expected option text rather than relying on
-mutable option IDs. Full distractor lists, audio bytes and exact UI presentation are
-not retained merely for replay. For Listening, a textual target/context and evaluated
-response preserve result interpretation without asserting rights to archive audio.
-For definition/context questions, sense_snapshot/prompt_snapshot preserve the text
-needed to understand that result; unrelated dictionary fields are not copied.
+Section 25 owns cross-row, authorization and workflow invariants. Spring Boot requires
+a valid Teacher-provided Meet URL before publication, generates the fixed planned
+Session set, validates IANA timezones and non-overlapping rules, enforces max_score
+across Assignment/Submission rows and applies transactional email change/idempotency.
+Cancellation retains Session identity, number and count; no replacement model exists.
 
-Canonical IDs remain useful for progress and vocabulary aggregation. Their current
-labels and definitions are not the exclusive historical source. Retain referenced
-canonical rows under restrictive FKs pending approved deletion workflows. Historical
-snapshots do not authorize hard deletion of canonical identities or ownership.
+### C. Integration details, not Physical V1 blockers
 
-Dictionary licensing applies to snapshot copies too (BR-DIC-004). Only approved,
-retainable content may be used where persistent text evidence is necessary. If a
-provider does not permit that use, select permitted content or resolve the conflict;
-do not silently archive prohibited data. No exact question/UI replay is promised.
+- Provider-neutral V1 omits provider_account_ref/provider_order_id and the order index.
+  provider_transaction_id remains evidence, without an unverified provider-wide unique
+  constraint. The selected adapter must establish verified source/account identity
+  and transactional idempotency before ingestion; no amount-only matching.
+- One system/organization Google account uses one configured Calendar. Its ID stays
+  in backend configuration/secrets. Each Session maps to one event; existing mapping
+  and external-event uniqueness apply within this single-calendar boundary.
+  Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
+- Provider authenticity/mapping/retry, Calendar credentials/delivery/retry/reminders,
+  Storage bucket settings/uploads, password transport, UI/API contracts, progress,
+  reporting, retention and deployment remain implementation gates. They do not reopen
+  approved physical structure or authorize integration work here.
 
-## 11. Subscription and payment history
+### Previous blocker disposition
 
-Plans are catalog data. Price, currency and plan type at purchase are captured on
-payment_transactions and are not later rewritten from the catalog. Subscription
-start/end timestamps preserve the exact granted interval independently of future
-plan changes.
+| Previous blocker | Final disposition |
+| --- | --- |
+| Conceptual provider fields/order uniqueness | RESOLVED: omitted from V1; future verified need requires a migration. |
+| Provider-wide transaction-ID namespace | Physical restriction removed; adapter-context idempotency is implementation-only. |
+| Calendar identity/count/external-ID scope | RESOLVED: one configured Calendar; provider/event uniqueness within it. |
+| Meet/deadline/score/capacity/discount restrictions | RESOLVED by the final nullability, type and range decisions. |
+| Replacement numbering and Session count | RESOLVED: no replacements; fixed planned count, unique sequential Course numbering. |
+| Recurrence weekday/timezone interpretation | RESOLVED: ISO 1..7, IANA zone, chronological generation from earliest date. Same-date local start/end uses the existing end > start constraint; DST validation is implementation-only. |
+| Canonical email/storage uniqueness | RESOLVED: lowercase(trim(inputEmail)), canonical CHECKs, unique users.email only. |
 
-Each successful initial purchase or renewal creates one immutable period linked
-through a required unique originating_payment_id. A transaction has zero or one
-period; every period has exactly one transaction. Failed/invalid payments have zero.
-The backend enforces matching Student/plan and VERIFIED_SUCCESS before grant creation.
-Finalizing successful verification and creating the grant occur atomically. Repeated
-provider notifications must return the existing result rather than grant twice.
+**G-PHYSICAL: RESOLVED.** No remaining physical decision blocks V1.
+TASK-004 is unblocked to TODO, not DONE. Flyway implementation and SQL execution
+still require explicit approval.
 
-Manual renewal while active starts at the end of already-granted continuous
-coverage, including previously purchased extensions. Expired renewal starts at
-verified activation/payment time, as approved in Business Rules section 37.
-The backend serializes competing grants for a Student and rechecks existing periods
-inside the transaction; a unique payment link alone cannot prevent overlapping
-renewals from different successful payments. No unsupported concurrency mechanism
-or exclusion constraint is mandated here.
 
-Current Premium is the existence of a granted period covering the current instant.
-Future periods are not active yet; expired periods remain history. No User flag or
-mutable subscription ACTIVE/EXPIRED column competes with this calculation. Teacher
-and Admin functions remain independent of Student Premium.
+## 23. Retired Legacy Schema
 
-Revenue derives from verified successful payments, not plan prices, period count or
-frontend success pages. Refund effects remain unresolved and must not be implemented
-by deleting a transaction or mutating an immutable historical grant.
+This register records the earlier scope migration, not today's open-decision list.
+Independent V1 approvals in the active sections supersede its then-deferred choices.
 
-## 12. Persisted versus derived data
+**D — Historical disposition only.** All 18 former tables are accounted for below.
+Seven responsibilities need reconciliation; eleven structures retire.
+Zero tables are preserved unchanged and zero are mechanically renamed.
 
-| Data | Treatment |
-|---|---|
-| User role/account status | Persisted authoritative identity/eligibility |
-| Premium catalog and financial evidence | Persisted independently |
-| Entitlement periods | Persisted immutable grants |
-| Current STANDARD/PREMIUM access | Derived from current coverage |
-| Attempts/answers and snapshots | Persisted trusted evidence |
-| Completed attempt score/accuracy | Persisted result; backend checks against evidence |
-| Lesson progress | Derived from completed required assessment evidence |
-| Course progress | Derived from completed required Lessons |
-| Best score | Derived maximum across retained eligible completed attempts |
-| Mastery/weak vocabulary | Derived from answer history using approved initial rules |
-| Recently learned vocabulary | Derived from answer/attempt evidence and timestamps |
-| Review selection | Derived from approved saved/weak/incorrect/recent sources |
-| Revenue and enrollment statistics | Derived aggregates |
+| Legacy table | Disposition | Reason |
+| --- | --- | --- |
+| users | Reconcile | Shared identity remains; old exact profile/onboarding/status choices are not carried forward. |
+| refresh_sessions | Reconcile | Supporting refresh state remains; independent table and lineage are not mandatory. |
+| email_verification_tokens | Reconcile | Verification authority remains; physical representation and resend policy are open. |
+| password_reset_tokens | Reconcile | Recovery authority remains; representation/invalidation requires finalization. |
+| courses | Reconcile | Teacher-owned tutoring Course remains; retired classification and fixed lifecycle assumptions removed. |
+| lessons | Retire | Vocabulary Lesson structure is not renamed Session. |
+| vocabulary | Retire | Canonical vocabulary/audio/provider responsibilities are retired. |
+| vocabulary_senses | Retire | Word meaning structures are retired. |
+| lesson_vocabulary | Retire | Legacy Lesson/sense join structure is retired. |
+| exercises | Retire | Exercise/Quiz structure is not renamed Assignment. |
+| exercise_questions | Retire | Question/expected-answer engine is retired. |
+| enrollments | Reconcile | Participation remains; lifetime uniqueness and old access semantics withdrawn. |
+| exercise_attempts | Retire | ExerciseAttempt is not Submission. |
+| answer_records | Retire | AnswerRecord evaluation/snapshots are not the new result model. |
+| saved_vocabulary | Retire | SavedVocabulary capability is retired. |
+| subscription_plans | Retire | SubscriptionPlan/Premium catalog is retired. |
+| subscriptions | Retire | Subscription periods are not renamed Enrollment. |
+| payment_transactions | Reconcile | Course transaction responsibility replaces obsolete plan/provider/grant assumptions. |
 
-Admin Overview Dashboard derivation (`FR-AAN-007`, `BR-ADM-007`, `FR-REVN-006`):
+The following legacy columns, constraints, indexes and derived rules are not active:
 
-| Metric | Existing authoritative evidence |
-|---|---|
-| Student/Teacher totals | users filtered by STUDENT/TEACHER role |
-| Course total | courses |
-| Current Premium Students | Distinct student_id with a currently covering entitlement period |
-| New subscriptions/renewals | First/subsequent successful grants over complete Student history; include renewals after expiry |
-| Total/time-range revenue | Each verified successful payment amount once, by verified_at and currency |
-| Successful/confirmed-failed counts | Authoritative payment outcomes; failure mapping remains provisional |
-| Revenue by plan | Payment plan_id or plan_type_snapshot and historical amount/currency |
+- CEFR fields/checks; STANDARD/PREMIUM Course classification and Premium gating.
+- Required full_name/avatar_url specifications and their fixed lengths/PATCH
+  semantics; exact current profile contracts remain deferred.
+- Universal account transitions and DRAFT/PUBLISHED/ARCHIVED Course states/defaults.
+- VocabularySense, LessonVocabulary, pronunciation/audio/Dictionary provenance and
+  canonical-word uniqueness; vocabulary Review/practice and SavedVocabulary.
+- FILL_WORD, LISTENING, QUIZ, ExerciseQuestion, ExerciseAttempt and AnswerRecord
+  structures; expected-answer/correctness fields, LESSON/REVIEW conditions,
+  attempt-slot uniqueness, scores, accuracy, mastery and weak-vocabulary rules.
+- LessonProgress/VocabularyPerformance formulas, required-Lesson completion and
+  immutable answer-snapshot assumptions; CourseProgress has an independent open design.
+- SubscriptionPlan, MONTHLY/YEARLY pricing snapshots, payment plan_id, Subscription
+  originating-payment uniqueness, coverage intervals, renewal and subscription
+  revenue rules. Enrollment is neither Subscription nor Payment.
+- Mandatory provider selection, provider-reference uniqueness, raw provider status
+  mapping, UNVERIFIED/VERIFIED_SUCCESS/REJECTED vocabulary and notification-driven grants.
+- Associated obsolete FKs, lookup indexes, blanket restrictive deletion and
+  vocabulary/subscription retention behavior.
 
-Do not count future period starts as purchase events, multiply revenue through
-joins, or label unverified payments as failures. Current plan names are catalog
-labels, not historical name snapshots. No table, column, index or ERD change is
-required. Existing backend authorization and account-management limits apply.
-Reporting timezone, default ranges/boundaries, intervals, total-count status
-filters, disabled-Student handling in Premium counts, subscription-event and
-failure-report timestamps, provider/refund mapping and dashboard freshness remain
-unresolved. These are reporting details, not authorization to add accounting or
-reporting infrastructure.
+Legacy vocabulary Review did not have a separate review table; it reused attempts
+and answers. ParticipantFeedback is independently defined. No Lesson-to-Session,
+Exercise/Quiz-to-Assignment, attempt-to-Submission or Subscription-to-Enrollment
+physical conversion is approved.
 
-BR-SCORE-001 uses correct/total questions; BR-ACC-001 uses correct/answered questions.
-BR-MAST-003 and BR-WEAK-001 require at least three answered vocabulary questions;
-below that is insufficient evidence, and mastery below 50 percent is WEAK when
-eligible. BR-LCOMP-002 and BR-CCOMP-001/002 define initial completion principles;
-viewing vocabulary alone does not complete a Lesson. Configuration mapping and
-changes to required content remain P1. No progress/analytics cache table is needed.
+The old 18-table target, five historical database decisions, P0-resolution claim
+and checked legacy validation checklist are not current approval. This disposition
+does not assert that any legacy table exists in the actual database or authorize
+its deletion.
 
-## 13. Delete, archive and retention behavior
+## 24. Traceability and Downstream Boundaries
 
-| Resource | Initial conservative behavior |
-|---|---|
-| Users/Teachers | Disable/lock according to rules; no cascade into ownership/history |
-| Courses | Archive preserves Lessons, enrollment and historical learning |
-| Lessons/Exercises/questions | Block hard deletion while referenced; detailed retirement workflow unresolved |
-| Vocabulary/senses | Retain referenced canonical identity; removing an association is not global deletion |
-| Enrollments | Retain through Premium expiry and Course archival |
-| Attempts/answers | Retain completed evidence and immutable results |
-| Saved vocabulary | Explicit removal deletes personal association only |
-| Plans | Disable availability; retain referenced catalog identity |
-| Subscriptions | Preserve immutable historical periods |
-| Payments | Preserve financial evidence, including unsuccessful attempts as required |
-| Authentication credentials | Revoke/consume as approved; cleanup schedule remains unresolved |
+| Active domain responsibility | V1 physical representation |
+| --- | --- |
+| DM-USER-001 | users shared identity/profile. |
+| DM-USER-002 | users.locked/email_verified, not a status table/enum. |
+| DM-AUTH-001 | refresh_sessions. |
+| DM-AUTH-002 | email_verification_credentials. |
+| DM-AUTH-003 | password_reset_credentials. |
+| DM-TEA-001 | teacher_applications snapshots; teacher_profiles current profile. |
+| DM-COURSE-001 | courses. |
+| DM-CAT-001 | course_categories. |
+| DM-SES-001 | sessions, session_schedule_changes, session_calendar_events. |
+| DM-SCH-001 | course_schedule_rules and generated sessions. |
+| DM-ASN-001 | assignments, assignment_attachments. |
+| DM-ASN-002 | submissions, submission_attachments. |
+| DM-ASN-003 | Submission score/feedback/grading projection, no separate table. |
+| DM-ENR-001 | enrollments. |
+| DM-PRO-002 | Derived progress, no table. |
+| DM-PAY-002 | teacher_payment_accounts. |
+| DM-PAY-001 | payments and payment_transactions. |
+| DM-PAY-003 | refunds. |
+| DM-RATE-001 | participant_feedback. |
 
-All FKs are restrictive. No default soft-delete flag on every table is introduced.
-Teacher disable does not transfer or erase Course ownership. Teacher deletion or
-ownership transfer requires an approved workflow. No automatic history expiry or
-retention duration is invented (BR-DATA-001 through BR-DATA-003, BR-AUTHN-019).
+Meet is a protected Course field. Admin/statistics use authorized derived views.
+References retain current meanings; historical identifiers do not restore old scope.
+API contracts and task plans follow these decisions without claiming implementation.
+FEATURE_STATUS.md is the sole live-status/evidence authority. Preserve completed
+TASK-001/002/003 foundations; TASK-004 awaits separate implementation approval.
 
-## 14. Enforcement boundaries and index rationale
+## 25. APPLICATION / TRANSACTIONAL INVARIANTS
 
-| Invariant | Database | Spring Boot |
-|---|---|---|
-| Referenced row exists | PK/FK | Resolve permitted resource |
-| Role/status values | CHECK | Provisioning, transitions and current eligibility |
-| Course ownership | Required owner FK | Role, identity and permission checks |
-| LESSON/REVIEW attempt shape | Row-local conditional CHECK | Full workflow validation |
-| Answer belongs to attempted question/context | FK existence only | Cross-row membership and context checks |
-| Sense belongs to word | FK existence only | Cross-record consistency |
-| Duplicate associations | UNIQUE | Friendly validation and conflict handling |
-| One payment creates at most one period | UNIQUE originating payment | Idempotent atomic verification/grant |
-| Grant comes from successful matching payment | FK existence only | Verification outcome, Student and plan equality |
-| Grant timing/non-overlap | Positive interval CHECK | Serialized renewal calculation |
-| Immutable completed history/grants | Not enforced by row CHECK | Restricted write paths and transactional workflows |
-| Premium and scores | Stored evidence/range checks | Trusted derivation/evaluation |
+A single-table CHECK cannot establish caller identity, another row's state,
+aggregate capacity, time-sensitive eligibility or trusted external evidence.
+Use Spring Boot authorization and transactions with appropriate locking/conditional
+updates, unique-violation handling and tests. Do not add SQL triggers for these rules.
+The concrete locking/provider retry protocols remain design work, not presumed done.
 
-Indexes in table specifications support existing ownership, browsing, history,
-progress, credential, subscription and revenue queries. No index is automatically
-added to every column. Composite indexes are justified by their leading lookup
-columns; a unique/PK index is not duplicated. Search semantics, pagination and
-query plans may refine indexes during API/performance design. There is no claim
-that the canonical-key index supports arbitrary substring/fuzzy search.
+| Invariant | Required backend enforcement and verification |
+| --- | --- |
+| Teacher authority | TEACHER + verified + unlocked + approved onboarding for business operations; FK/profile existence alone is insufficient. Retain application snapshots, authorize reviewers and serialize PENDING submissions/reviews. |
+| Email change | Use lowercase(trim(inputEmail)) without provider-specific normalization, verify target before replacing old effective email, atomically consume credential/check uniqueness, update relevant future Calendar attendees. |
+| Credential invalidation | Consume verification/reset once; reset revokes all refresh sessions, logged-in password change revokes others and preserves current. Validate expiry, revocation and account eligibility on use. |
+| Course ownership | Course owner immutable in V1. Traverse Session/Assignment/Submission to owning Course, and validate Teacher eligibility before read/write. |
+| Category retention | Exactly one Category per Course; retain/deactivate a used Category, no deletion/reassignment bypass. |
+| Publication/completion | Generate concrete Sessions before publication; require a valid Teacher-provided Meet URL and validate approved prerequisites. Teaching stays PUBLISHED; Teacher completion is explicit and validated. Cancellation differs from archival. |
+| Enrollment cutoff | Reject new Enrollment/Payment after first Session starts; schedule-change boundary semantics must be clarified, not guessed. |
+| Capacity concurrency | Count ACTIVE plus unexpired PENDING reservations for occupancy, ACTIVE only for minimum. Serialize capacity checks/reservation/activation; expired reservations do not consume seats. |
+| Payment retry/idempotency | Unique Enrollment and one-PENDING Payment do not alone define durable request identity. Handle expiry/retry atomically; never duplicate confirmation or activation on replay. Use verified adapter source/account context to serialize duplicate detection and confirmation; no provider-wide ID guarantee. |
+| Payment confirmation | Validate trustworthy provider/bank evidence against receiver, Payment code, exact amount and currency. Neither client nor Teacher claims nor amount-only matching confirm; no automatic partial aggregation. |
+| Unmatched/late transactions | Keep independent nullable Payment/receiver links. Reconcile unknown receiver without fabrication; verify matching-account consistency. Late evidence cannot bypass capacity/cutoff rules. |
+| Bank-account history | At most one ACTIVE account; changing destination retains old Payment references and cannot rewrite historical receiving details. |
+| Session generation/rescheduling/cancellation | Generate the fixed numbered set from ISO weekly rules and IANA timezone; reject overlaps transactionally. Regenerate only in the approved inactive draft workflow. Reschedule same row with history; cancel same row without changing number/count or creating make-up Sessions, and synchronize its Calendar event. |
+| Submission/grading | Resolve Student authorship/Enrollment and Teacher ownership; one current work record. Score <= Assignment max_score across rows, finite; grade metadata valid without forcing a score. |
+| Assignment retention | Never hard-delete once any Submission exists; dependent attachment cascade is not permission to violate this rule. |
+| Feedback eligibility | Author is Enrollment Student, Enrollment COMPLETED, one rating 1..5; concurrency-safe creation, no stored aggregates. |
+| Refund workflow | One full Refund per eligible Payment; exact applicable full amount and Teacher receiver/Student recipient coherence. Teacher transfers/submits proof; only authorized Admin verifies completion. No automatic Enrollment change is inferred. |
+| Calendar synchronization | One configured Calendar, one event per concrete Session; publish/synchronize and reschedule/cancel the corresponding event. Session is source of truth; external failure cannot roll back core changes. Derive attendees; update relevant future events for verified email changes. No per-user OAuth or attendee copies. |
+| Storage authorization | Validate file type/size/path per approved contract and authorize each upload/access against owner/Enrollment/recipient. Store stable configured-bucket paths/metadata only; never file bytes or signed URLs. |
+| History and deletion | Protect application review, schedule-change, bank, payment and refund history. DB RESTRICT helps referential integrity but does not prevent unauthorized UPDATEs; service rules and tests must protect snapshots. |
 
-## 15. Supabase-hosted PostgreSQL
-
-```text
-Browser
-  -> Next.js
-  -> Spring Boot REST API
-  -> Spring Data JPA / Hibernate
-  -> Supabase-hosted PostgreSQL
-```
-
-Supabase provides managed PostgreSQL hosting only. Core application access is through
-Spring Boot and JPA/Hibernate. There is no direct Next.js/browser database path.
-Keep Spring Security + JWT and features/auth/security/ unchanged. Do not duplicate
-users into Supabase Auth or introduce Realtime, Storage, Edge Functions or Supabase
-business logic. RLS is not a replacement for Spring Boot authorization. This design
-adds no Supabase-specific tables, extensions or configuration.
-
-Local PostgreSQL remains valid for development/testing. Next.js and Spring Boot
-hosting providers remain unresolved. Connection pooling, backups and operational
-credentials are deployment concerns; no actual endpoint, credential or secret is
-included here.
-
-## 16. Remaining P1/P2 decisions
-
-No current P0 blocker remains for the approved core model. This document does not
-authorize implementation of unresolved dependent behavior. Provisional fields and
-constraints are marked in their table specifications and must be revisited when the
-relevant policy is approved.
-
-| Priority | Unresolved decision | Design impact |
-|---|---|---|
-| P1 | Refresh rotation/replay/concurrency/session limits | replaced_by_id and lifecycle/uniqueness remain provisional |
-| P1 | Verification resend behavior and lifetime | Multiple outstanding credential handling; no unique User constraint yet |
-| P1 | Password change/reset session invalidation | Revocation workflow, not silently all-session logout |
-| P1 | Exact email normalization | Provisional email uniqueness semantics |
-| P1 | Canonical vocabulary normalization | Provisional canonical_key generation and uniqueness |
-| P1 | Detailed deletion, Teacher transfer and retirement | Restrictive defaults; no destructive workflow inferred |
-| P1 | Dictionary licensing/storage rights | Provenance and snapshot permission must be verified |
-| P1 | Audio strategy and variants | audio_reference mapping is provisional; no speculative audio table |
-| P1 | Payment provider status/reference mapping | Outcome vocabulary and provider-reference uniqueness scope provisional |
-| P1 | Refund behavior | No invented refund state or mutation of historical grants |
-| P1 | Exact price/currency configuration and calendar boundaries | Monetary validation and future period calculation details |
-| P1 | Recent-learning time window | Query policy; evidence source already approved |
-| P1 | Required-section mapping/content edits | is_required assignment and progress interpretation provisional |
-| P1 | Question payload/API lifecycle details | Format-specific options, completion eligibility and secure submissions |
-| P1 | Draft completeness | Course draft CEFR nullability provisional |
-| P2 | Browser JWT transport/cookies/CORS/CSRF | No schema choice or localStorage policy implied |
-| P2 | Password encoding parameters/signing configuration | Use supported security facilities; parameters unresolved |
-| P2 | Next.js/Spring Boot deployment providers | Hosting remains open |
-| P2 | Connection pooling/backups/secret management | Operational design only |
-| P2 | Cleanup scheduling and performance tuning | Follow approved retention; optimize measured queries |
-
-If a later policy/provider imposes a new relational requirement, review that specific
-change explicitly. Do not pre-build a generic subsystem to anticipate it.
-
-## 17. Validation checklist
-
-- [x] Exactly 18 detailed table specifications match the approved inventory.
-- [x] Each FK points to an existing table/PK; ERD contains every FK relationship.
-- [x] Nullable relationships agree with conditional LESSON/REVIEW rules.
-- [x] Row-local NULL handling is explicit; cross-row rules are assigned to backend.
-- [x] Payment-to-period cardinality is zero-or-one to exactly-one, with a unique FK.
-- [x] Financial snapshots and immutable intervals survive catalog changes.
-- [x] History uses minimal immutable snapshots without claiming exact replay.
-- [x] Roles are distinct from access classification; no mutable User Premium state.
-- [x] No cascading deletion destroys ownership, learning or financial history.
-- [x] All source identifiers/links exist; remaining decisions stay explicitly open.
-- [x] Supabase remains hosting only; Spring Boot authority is preserved.
-- [x] Markdown structure, whitespace, CRLF and final newline are verified.
-- [x] No application code, SQL, migrations, configuration or dependencies are created.
-
-These are design-review checks. Executable database constraints, transactional tests
-and application security tests belong to later approved implementation work; this
-document does not claim those tests have run.
+References: BR-AUTHN-006, BR-AUTHN-013, BR-AUTHN-015, BR-AUTHN-024,
+BR-COURSE-001, BR-COURSE-004, BR-SCH-001, BR-ASN-002, BR-ASN-003,
+BR-ENR-001, BR-ENR-008, BR-PAY-006, BR-PAY-009, BR-PAY-011, BR-RATE-001,
+BR-AUTH-005; INV-002, INV-010, INV-024.

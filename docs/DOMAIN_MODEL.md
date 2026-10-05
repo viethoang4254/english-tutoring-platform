@@ -1,1319 +1,761 @@
-# English Learning Platform --- Domain Model
+# English Tutoring Platform --- Domain Model
 
-**Version:** 0.1\
-**Status:** Draft\
+**Version:** 0.2
+**Status:** Reconciled conceptual tutoring model with explicit decision gates
 **Project Type:** Graduation Project
 
 ---
 
-# 1. Purpose
+# 1. Authority, Purpose and Modeling Conventions
 
-This document defines the conceptual domain model of the English
-Learning Platform.
+This document defines the conceptual model for Development of an English Tutoring
+Platform. Authority follows AGENTS.md -> PROJECT_SPEC.md -> REQUIREMENTS.md ->
+BUSINESS_RULES.md -> USE_CASES.md -> DOMAIN_MODEL.md.
+Downstream designs cannot establish missing business policy.
 
-It describes domain concepts, responsibilities, relationships,
-ownership, and important invariants.
+Project-local skills provide subordinate working guidance for applying the canonical
+documentation. They do not override or redefine the canonical project documents.
 
-This document does **not** define:
+Concepts describe responsibilities, relationships, ownership and invariants.
+An identified concept need not be a separate persistence entity or class.
+This document describes the approved domain; DATABASE_DESIGN.md defines its physical
+representation. No API contract or implementation is authorized here.
+Shared identity and supporting authentication are distinguished from core tutoring.
 
-- PostgreSQL tables
-- JPA annotations
-- REST endpoints
-- DTO classes
-- frontend components
-- implementation package structure
+Only DM and INV definition headings below are active definitions. Section 18
+reserves historical identifiers; its retired/deferred entries are not active rules.
+References are targeted current IDs, not approval of the former wording of an ID.
+Section 17 records unresolved decisions; a diagram or concept name cannot close them.
 
-Those decisions belong to later design stages.
+"One" identifies a justified parent/subject relationship. "May have many" does
+not require existing children at creation. Physical details are specified in
+DATABASE_DESIGN.md. Authorization traversal does
+not prescribe persistence nesting, cascading operations or transaction boundaries.
 
----
-
-# 2. Design Principles
-
-1.  Use one shared account model for authentication and authorization.
-2.  STUDENT, TEACHER, and ADMIN are roles.
-3.  STANDARD and PREMIUM are Student access tiers, not roles.
-4.  Vocabulary is reusable platform data and is not owned independently
-    by each Teacher.
-5.  A Vocabulary may have multiple senses.
-6.  A Lesson selects the appropriate Vocabulary Sense for its learning
-    context.
-7.  A Teacher owns Courses, not global Vocabulary.
-8.  Learning history must remain interpretable after Course archival or
-    Premium expiration.
-9.  Payment success and Premium entitlement are backend-authoritative.
-10. The initial system is a modular monolith; domain boundaries should
-    remain clear without introducing microservices.
+Preserve completed TASK-001, TASK-002 and TASK-003 infrastructure and evidence.
+This reconciliation authorizes no implementation; dependent documents follow the approved decisions.
 
 ---
 
-# 3. High-Level Domain Areas
+# 2. Domain Overview and Conceptual Relationships
+
+Teacher-owned Courses are purchased as a whole and accessed through Enrollment.
+The approved V1 persistence direction is 22 tables; conceptual result/progress views
+do not imply extra entities.
 
 ```text
-Identity & Access
-├── User
-├── Role
-├── AccountStatus
-├── RefreshSession
-├── EmailVerification
-└── PasswordReset
-
-Learning Content
-├── CefrLevel
-├── Course
-├── Lesson
-├── Vocabulary
-├── VocabularySense
-├── LessonVocabulary
-└── PronunciationAudio
-
-Exercises
-├── Exercise
-└── ExerciseQuestion
-
-Student Learning
-├── Enrollment
-├── ExerciseAttempt
-├── AnswerRecord
-├── LessonProgress
-├── CourseProgress
-├── VocabularyPerformance
-└── SavedVocabulary
-
-Commercial
-├── SubscriptionPlan
-├── Subscription
-└── PaymentTransaction
+User (one role) -> many immutable TeacherApplication snapshots; at most one PENDING
+Teacher User -> zero or one current TeacherProfile after approval
+Teacher -> many Courses; Course -> exactly one non-transferable Teacher
+Category -> many Courses; Course -> exactly one Category
+Course -> weekly ScheduleRules -> generated Sessions
+Session -> schedule-change history; cancellation retains the same planned numbered row
+Session -> zero or one Calendar mapping per provider
+Session -> many Assignments -> many Submissions
+Student + Assignment -> at most one current Submission; grading/result on Submission
+Course + Student -> at most one Enrollment -> many historical Payments
+Teacher -> many receiving accounts; at most one ACTIVE
+Payment -> one historical receiving account; zero or one Refund
+BankTransaction -> zero or one matched Payment; zero or one known receiving account
+COMPLETED Enrollment -> zero or one ParticipantFeedback (rating 1..5)
+Course -> one protected manually supplied Meet URL, shared by all Sessions
+CourseProgress/statistics -> derived views; no independent persisted identity
 ```
 
-Analytics are primarily derived from authoritative domain data rather
-than requiring a separate core business entity for every dashboard
-metric.
+Payment and Enrollment remain separate. Storage contains file bytes; domain records
+retain authorized paths/metadata. No attendance, generic audit or multi-role model.
+
+**References:** FR-TCR-003, FR-SES-001, FR-ASN-004, FR-ENR-006, FR-PAY-008,
+FR-PAY-013, BR-COURSE-001, BR-ENR-001, BR-PAY-011.
 
 ---
 
-# 4. Identity and Access Domain
+# 3. Identity, Accounts, Roles and Supporting Authentication Concepts
 
 ## DM-USER-001 --- User
 
-`User` represents an account that can authenticate to the platform.
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
 
-### Core Conceptual Attributes
+User includes email, protected password hash, full name and permitted optional
+phone/address/date of birth. Exact profile API validation remains explicit. V1 uses
+users.locked as its account-blocking mechanism: a locked account cannot authenticate or use
+normal account functionality. There is no separate disabled, enabled or account_status
+field/lifecycle. Email uses lowercase(trim(inputEmail)) for storage/login; a verified email change retains
+the old email until successful verification of the new one. Password reset revokes all
+refresh sessions; logged-in password change revokes other sessions while preserving the
+current session. Raw refresh, verification and reset secrets are not persisted. Admin is not
+publicly self-registered.
 
-- id
-- email
-- password credential
-- full_name (required display/full name)
-- avatar_url (optional profile image reference)
-- role
-- account status
-- email verification state
-- created time
-- updated time
+**References:** FR-STU-001, FR-TEA-005, FR-ACC-007, FR-ACC-016,
+FR-AUTH-001, BR-ROLE-001, BR-AUTHN-002, BR-AUTHN-012, BR-AUTHN-020,
+BR-AUTHN-023, BR-AUTHN-024, BR-PROFILE-002, UC-AUTH-REGISTER-01,
+UC-AUTH-REGISTER-TEACHER-01, UC-AUTH-ME-01, UC-AUTH-PROFILE-01.
 
-### Role
+## DM-USER-002 — Account Eligibility
 
-A User has exactly one primary role in the initial version:
+Account eligibility is represented by locked and email verification, plus approved
+onboarding for Teacher business authority. There is no separate account_status, disabled or
+enabled field/lifecycle. Locked means blocked from authentication/normal use, not deleted.
+Keep this identifier for account eligibility; it does not require an AccountStatus entity or
+enum.
 
-- STUDENT
-- TEACHER
-- ADMIN
+**References:** FR-ACC-014, FR-ACC-015, FR-AUTH-007, FR-ADM-006,
+BR-AUTHN-006, BR-AUTHN-017, BR-AUTHN-018, BR-AUTHN-019,
+UC-AUTH-VERIFY-EMAIL-01, UC-AUTH-LOGIN-01, UC-ADM-USERS-01.
 
-### Rules
+## Supporting Credentials
 
-- Public registration creates STUDENT only.
-- TEACHER is provisioned through an authorized Admin workflow.
-- ADMIN is not publicly self-registered.
-- Role is backend-authoritative.
-- PREMIUM must not be stored as a role.
-- All account creation supplies full_name; Student/Teacher self-profile updates
-  allow only full_name and avatar_url under BR-PROFILE-001. No separate profile
-  identity or Admin self-edit permission is introduced.
+Passwords, Access Tokens and Refresh Tokens support authentication, not tutoring
+ownership. Passwords require supported secure protection. Access Tokens use the
+approved JWT architecture; sensitive credentials must not become public profile
+information or unnecessary token claims.
 
-### References
+A Refresh Token credential is distinct from the server-authoritative refresh
+state represented below. Credential transport and detailed concurrency policy remain
+security-design decisions; supporting credential persistence uses hashes, never raw secrets.
 
-- `BR-ROLE-*`
-- `BR-AUTHN-001`--`BR-AUTHN-023`
-- `UC-AUTH-*`
+Retained configurable defaults are 15 minutes for Access Tokens, 7 days for
+Refresh Tokens and 15 minutes for password-reset credentials. These do not
+determine account activation or other unresolved policies.
 
----
-
-## DM-USER-002 --- AccountStatus
-
-Initial account states:
-
-```text
-PENDING_VERIFICATION
-ACTIVE
-LOCKED
-DISABLED
-```
-
-Conceptual transition:
-
-```text
-registration
-    ↓
-PENDING_VERIFICATION
-    ↓ email verified
-ACTIVE
- ├────────→ LOCKED
- └────────→ DISABLED
-```
-
-The exact administrative unlock/enable workflow may be refined later.
-
----
+**References:** FR-ACC-001, FR-ACC-002, FR-ACC-003, NFR-SEC-001,
+NFR-SEC-010, NFR-SEC-013, BR-AUTHN-007, BR-AUTHN-008, BR-AUTHN-016,
+UC-AUTH-LOGIN-01.
 
 ## DM-AUTH-001 --- RefreshSession
 
-`RefreshSession` represents server-authoritative refresh authentication
-state.
+RefreshSession is User-bound, server-authoritative hashed refresh credential state with
+expiry/revocation. Logout invalidates applicable state; rotation invalidates replacements as
+approved. Password reset revokes all sessions, while logged-in password change revokes other
+sessions and preserves the current one. No access-JWT table. Transport/replay/concurrency
+controls remain open.
 
-### Conceptual Attributes
-
-- id
-- user
-- refresh credential identifier/hash
-- issued time
-- expiration time
-- revoked time/status
-- replacement/rotation information where required
-
-### Rules
-
-- Refresh state belongs to one User.
-- Invalid, expired, or revoked state cannot create a new Access Token.
-- Rotation must be enforceable by the backend.
-- Logout invalidates applicable refresh state.
-- Raw sensitive token material should not be unnecessarily persisted.
-
----
+**References:** FR-ACC-004, FR-ACC-005, FR-ACC-006, NFR-DATA-006,
+BR-AUTHN-009, BR-AUTHN-010, BR-AUTHN-011,
+UC-AUTH-REFRESH-01, UC-AUTH-LOGOUT-01.
 
 ## DM-AUTH-002 --- EmailVerification
 
-Represents a purpose-specific email verification process.
+EmailVerification is User-bound hashed, expiring, single-use evidence for
+INITIAL_VERIFICATION or EMAIL_CHANGE. Canonicalize the target address. The old email remains
+effective until the new one verifies; update relevant future Calendar attendees after
+verified change. Verification never removes a lock or approves onboarding. Resend/lifetime
+controls remain open.
 
-### Conceptual Attributes
-
-- id
-- user
-- verification credential identifier/hash
-- created time
-- expiration time
-- consumed time/status
-
-### Rules
-
-- belongs to one User
-- expires
-- cannot be reused after successful consumption where applicable
-
----
+**References:** FR-ACC-008, FR-ACC-009, NFR-SEC-015, BR-AUTHN-006,
+BR-AUTHN-017, UC-AUTH-VERIFY-EMAIL-01.
 
 ## DM-AUTH-003 --- PasswordReset
 
-Represents a password recovery process.
+PasswordReset uses hashed, purpose-bound, expiring, single-use User credentials. Success
+consumes the credential and revokes all refresh sessions. Recovery responses protect account
+privacy. Password/delivery policy remains gated.
 
-### Conceptual Attributes
-
-- id
-- user
-- reset credential identifier/hash
-- created time
-- expiration time
-- consumed time/status
-
-### Rules
-
-- belongs to one User
-- is purpose-specific
-- expires
-- successfully consumed credentials are not reusable
+**References:** FR-ACC-010, FR-ACC-011, FR-ACC-012, FR-ACC-013,
+NFR-SEC-014, BR-AUTHN-013, BR-AUTHN-014, BR-AUTHN-015, BR-AUTHN-016,
+UC-AUTH-CHANGE-PASSWORD-01, UC-AUTH-FORGOT-PASSWORD-01, UC-AUTH-RESET-PASSWORD-01.
 
 ---
 
-# 5. CEFR and Course Domain
+# 4. Teacher Profile and Ownership
 
-## DM-CEFR-001 --- CefrLevel
+## DM-TEA-001 --- TeacherProfile
 
-Represents the supported English proficiency level.
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
 
-Supported values:
+TeacherProfile is current teaching information (specialization, experience, introduction and
+optional avatar Storage path) sharing the User identity. Application history is a separate
+review snapshot, not edited with the public profile. Reviewed applications retain
+reviewer/time and rejection reason where applicable; PENDING is unreviewed. No second login
+identity is created.
 
-```text
-A1
-A2
-B1
-B2
-C1
-C2
-```
-
-A Course belongs to exactly one CEFR level.
-
-Vocabulary may also carry CEFR classification where available.
-
-CEFR levels are platform reference data rather than Teacher-owned
-content.
+**References:** FR-TEA-002, FR-TEA-003, FR-DIS-004, FR-DIS-005,
+FR-AUTH-012, BR-PROFILE-002, BR-AUTH-003, BR-AUTH-007,
+UC-AUTH-PROFILE-01, UC-DIS-TEACHERS-01.
 
 ---
+
+# 5. Course
 
 ## DM-COURSE-001 --- Course
 
-Represents a structured learning Course.
+Every Course has one non-transferable owning Teacher and exactly one Category. Used
+Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,
+CANCELLED and ARCHIVED; teaching in progress remains PUBLISHED. Teacher explicitly completes
+a Course after backend validation. Cancellation and archival are distinct. Optional
+percentage-discount windows are supported; Payments retain their price snapshots.
 
-### Conceptual Attributes
+Course includes name/description, tuition/currency, optional thumbnail Storage path and
+discount window, planned start, timezone, capacity and Session count. Course content/Meet
+URL are protected. Enrollment is unique per Student/Course and uses PENDING, ACTIVE,
+COMPLETED or CANCELLED. A COMPLETED Enrollment is historical and cannot simply re-enroll
+into that Course instance. Free Courses activate participation without fake Payments. Paid
+participation may reserve a seat while PENDING. Capacity counts ACTIVE plus PENDING
+Enrollments with unexpired reservations; min_students counts ACTIVE only. Expired
+reservations consume no capacity. No new Enrollment or Payment may begin after the first
+Session has started. Activation, reservation and late-payment handling must be
+concurrency-safe. Remaining publication/completion operation validations are
+implementation gates; approved physical restrictions are in DATABASE_DESIGN.
 
-- id
-- title
-- description
-- CEFR level
-- primary Teacher
-- lifecycle status
-- access classification
-- created time
-- updated time
-
-### Lifecycle Status
-
-```text
-DRAFT
-PUBLISHED
-ARCHIVED
-```
-
-### Access Classification
-
-```text
-STANDARD
-PREMIUM
-```
-
-### Relationships
-
-```text
-Teacher 1 ─────── * Course
-CefrLevel 1 ───── * Course
-Course 1 ──────── * Lesson
-Course 1 ──────── * Enrollment
-```
-
-### Rules
-
-- One Course has one primary Teacher.
-- Spring Boot initializes Teacher-created Courses as DRAFT and STANDARD.
-- Teacher create/update input excludes access classification; other approved
-  ownership-based editing and content-management capabilities remain intact.
-- One Teacher may own many Courses.
-- Teacher may modify only owned Courses.
-- Teacher may publish/archive an owned Course according to business
-  rules.
-- Admin has final authority for STANDARD/PREMIUM Course
-  classification.
-- Archiving a Course does not delete historical Student learning data.
-
-### References
-
-- `BR-COURSE-*`
-- `BR-AUTH-003`
-- `BR-CSTATUS-*`
-- `UC-TEA-COURSE-01`
-- `UC-TEA-PUBLISH-01`
+**References:** FR-TCR-001, FR-TCR-003, FR-TCR-004, FR-TCR-005,
+FR-TCR-006, FR-TCR-007, FR-TCR-008, FR-TCR-009, FR-DIS-003,
+FR-DIS-006, BR-COURSE-001, BR-COURSE-002, BR-COURSE-003,
+BR-COURSE-004, BR-COURSE-007, BR-AUTH-007,
+UC-TEA-COURSE-01, UC-TEA-PUBLISH-01, UC-STU-BROWSE-COURSES-01,
+UC-STU-VIEW-COURSE-01.
 
 ---
 
-# 6. Lesson Domain
+# 6. Course Category / Topic
 
-## DM-LESSON-001 --- Lesson
+## DM-CAT-001 --- CourseCategoryTopic
 
-Represents a learning unit inside a Course.
+CourseCategory is Admin-managed teaching classification with active/inactive lifecycle.
+Every Course selects exactly one Category; a Category may serve many Courses. Used
+Categories are retained and deactivated instead of deleted. No hierarchy or automatic Course
+reassignment is introduced.
 
-### Conceptual Attributes
-
-- id
-- course
-- title
-- topic
-- description/content summary where required
-- ordering position
-- created time
-- updated time
-
-### Relationships
-
-```text
-Course 1 ───── * Lesson
-Lesson 1 ───── * LessonVocabulary
-Lesson 1 ───── * Exercise
-```
-
-### Rules
-
-- A Lesson belongs to exactly one Course.
-- Teacher authorization for Lesson modification derives from Course
-  ownership.
-- Lessons are primarily organized by topic.
-- Part of speech is Vocabulary/Sense metadata, not the primary Lesson
-  hierarchy.
-- Lesson order belongs to its Course context.
-
-### References
-
-- `BR-LESSON-*`
-- `UC-STU-VIEW-LESSON-01`
-- `UC-TEA-LESSON-01`
+**References:** FR-ADM-007, FR-TCR-008, BR-ADM-001,
+UC-ADM-CATEGORIES-01, UC-TEA-COURSE-01.
 
 ---
 
-# 7. Vocabulary Domain
+# 7. Session and Scheduling
 
-## DM-VOC-001 --- Vocabulary
+## DM-SES-001 --- Session
 
-Represents a reusable vocabulary entry shared across the platform.
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking. Every Session belongs to one
+Course; Teacher ownership traverses that Course. Start/end are absolute timestamps. Content
+is optional because generation can precede learning-content authoring.
 
-### Conceptual Attributes
+**References:** FR-SES-001, FR-SES-002, FR-SES-003, FR-SES-004,
+FR-AUTH-011, BR-SES-001, BR-SES-002, BR-AUTH-003, BR-ENR-006,
+UC-SES-MANAGE-01, UC-SES-VIEW-01.
 
-- id
-- canonical word
-- CEFR level where available
-- pronunciation/IPA data where appropriate
-- source/provenance metadata where required
-- created time
-- updated time
+## DM-SCH-001 --- CourseSchedule
 
-### Relationships
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking. Weekly rules use weekday/local
+start/end plus Course timezone. Concrete Session times and reschedule history are distinct.
+Calendar synchronization is downstream and cannot roll back the Session.
 
-```text
-Vocabulary 1 ───── * VocabularySense
-Vocabulary 1 ───── * PronunciationAudio
-Vocabulary 1 ───── * LessonVocabulary
-Vocabulary 1 ───── * SavedVocabulary
-Vocabulary 1 ───── * VocabularyPerformance
-```
-
-### Rules
-
-- Vocabulary is reusable across Teachers and Courses.
-- Removing Vocabulary from one Lesson does not delete the shared
-  Vocabulary.
-- Dictionary licensing/storage rules must be respected.
-- A Vocabulary may contain multiple senses.
-
----
-
-## DM-VOC-002 --- VocabularySense
-
-Represents one meaning/usage of a Vocabulary.
-
-### Conceptual Attributes
-
-- id
-- vocabulary
-- part of speech
-- English definition
-- Vietnamese meaning
-- example sentence
-- source/provenance where required
-
-### Relationship
-
-```text
-Vocabulary 1 ───── * VocabularySense
-```
-
-### Rules
-
-- One Vocabulary may have multiple Vocabulary Senses.
-- Different senses may use different parts of speech.
-- A Teacher selects the sense appropriate to the Lesson context.
-
-Example:
-
-```text
-record
-├── Sense 1
-│   ├── noun
-│   └── "information kept about something"
-│
-└── Sense 2
-    ├── verb
-    └── "to store sound, video, or information"
-```
+**References:** FR-TCR-009, FR-SCH-001, FR-SCH-002, BR-SCH-001,
+UC-SCH-COURSE-01, UC-SCH-SESSION-01.
 
 ---
 
-## DM-VOC-003 --- LessonVocabulary
+# 8. Assignment, Submission and Results
 
-`LessonVocabulary` is the association between a Lesson and reusable
-Vocabulary content.
+## DM-ASN-001 --- Assignment
 
-It is required because a Lesson does not merely point to a word; it must
-identify the appropriate learning sense/context.
+Assignment belongs to one Session and uses ACTIVE/CANCELLED. Once any Submission exists it
+cannot be hard-deleted. Assignment content, max_score and deadline direction are
+represented: deadline is required and max_score is positive NUMERIC(5,2); nullable
+Submission score uses NUMERIC(5,2), is nonnegative and cannot exceed max_score. Supabase
+Storage holds Teacher avatars, Course thumbnails, Assignment files, Submission files and
+refund proof. PostgreSQL stores paths/references and applicable metadata, never file bytes,
+base64 or temporary signed URLs. Resolve each path within an explicitly configured bucket
+for its usage; exact bucket identifiers remain configuration, and the path/bucket mapping
+must be fixed before integration. Spring Boot authorizes access; Storage does not replace
+backend business authorization.
 
-### Conceptual Attributes
+**References:** FR-ASN-001, FR-ASN-002, FR-ASN-003, FR-SES-004,
+BR-ASN-001, BR-ASN-002, BR-TEA-001,
+UC-ASN-MANAGE-01, UC-ASN-VIEW-01.
 
-- id
-- lesson
-- vocabulary
-- selected VocabularySense
-- ordering position
-- optional Lesson-specific teaching note where later approved
+## DM-ASN-002 --- Submission
 
-### Relationships
+Assignments belong to Sessions and use ACTIVE/CANCELLED. Any Submission prevents hard
+deletion of its Assignment. There is one current Submission per Student/Assignment, using
+DRAFT/SUBMITTED/GRADED; no revision-history, result or grading table is introduced. Score,
+feedback and grading metadata remain on Submission. Only the owning Teacher grades, and a
+score cannot exceed Assignment max_score. A numeric score is not made mandatory merely by
+GRADED status. SUBMITTED requires submitted_at; GRADED additionally requires graded_at and
+graded_by. Student authorship, Enrollment eligibility and Teacher grading ownership are
+transactional authorization invariants. Attachments are Storage references; no
+revision-history entity.
 
-```text
-Lesson 1 ───────── * LessonVocabulary
-Vocabulary 1 ───── * LessonVocabulary
-VocabularySense 1 ─ * LessonVocabulary
-```
+**References:** FR-ASN-004, FR-ASN-005, FR-AUTH-011, FR-AUTH-013,
+NFR-DATA-001, BR-ASN-001, BR-ASN-002, BR-ASN-003, BR-TEA-003,
+UC-ASN-SUBMIT-01, UC-ASN-INSPECT-01.
 
-### Rules
+## DM-ASN-003 --- AssignmentResult
 
-- Selected VocabularySense must belong to the referenced Vocabulary.
-- Removing LessonVocabulary removes only the Lesson association.
-- Shared Vocabulary/VocabularySense must not be automatically deleted.
-- Duplicate Lesson associations should be prevented when they
-  represent the same intended vocabulary/sense.
+AssignmentResult is a permitted projection of Submission score, feedback and grading
+metadata, not a separate entity/table. Only owning Teachers grade; Students view authorized
+own results. A score is not required merely because status is GRADED. Result-availability
+details remain open.
 
----
-
-## DM-VOC-004 --- PronunciationAudio
-
-Represents available pronunciation audio metadata.
-
-### Conceptual Attributes
-
-- id
-- vocabulary
-- audio source/reference
-- pronunciation variant where available
-- provider/source metadata
-- storage/reference strategy
-
-### Rules
-
-- Listening questions require playable audio.
-- Audio may originate from an approved Dictionary provider, licensed
-  stored media, or approved TTS strategy.
-- Permanent storage must not be assumed unless licensing permits it.
-
-The exact provider/storage implementation remains an open design
-decision.
+**References:** FR-ASN-005, FR-ASN-006, BR-ASN-003, BR-AUTH-006,
+UC-ASN-INSPECT-01, UC-ASN-RESULT-01.
 
 ---
 
-# 8. Exercise Domain
-
-## DM-EX-001 --- Exercise
-
-Represents a practice/evaluation activity associated with a Lesson.
-
-### Exercise Types
-
-```text
-FILL_WORD
-LISTENING
-QUIZ
-```
-
-### Conceptual Attributes
-
-- id
-- lesson
-- type
-- title/instructions where required
-- access classification where advanced Premium behavior requires it
-- ordering information
-- created time
-- updated time
-
-### Relationships
-
-```text
-Lesson 1 ───── * Exercise
-Exercise 1 ─── * ExerciseQuestion
-Exercise 1 ─── * ExerciseAttempt
-```
-
-### Rules
-
-- Exercise belongs to one Lesson.
-- Teacher modification authorization derives from ownership of the
-  Lesson's Course.
-- Only approved core exercise types are included initially.
-
----
-
-## DM-EX-002 --- ExerciseQuestion
-
-Represents an answerable question in an Exercise.
-
-### Conceptual Attributes
-
-- id
-- exercise
-- vocabulary / selected sense where relevant
-- question format
-- prompt/configuration
-- expected answer or correct option
-- ordering position
-
-### Initial Formats
-
-Fill Word:
-
-```text
-FILL_WORD
-```
-
-Listening:
-
-```text
-LISTEN_AND_CHOOSE
-LISTEN_AND_TYPE
-```
-
-Quiz:
-
-```text
-WORD_TO_DEFINITION
-DEFINITION_TO_WORD
-IPA_TO_WORD
-CONTEXT_TO_WORD
-```
-
-### Rules
-
-- Every answerable question must contain enough information for
-  backend evaluation.
-- Listening questions must reference usable audio.
-- Correct-answer authority belongs to trusted backend content.
-- Client-submitted correctness is never authoritative.
-
----
-
-# 9. Enrollment Domain
+# 9. Enrollment and Course Participation
 
 ## DM-ENR-001 --- Enrollment
 
-Represents a Student's enrollment in a Course.
+Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
+COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
+Free Courses activate participation without fake Payments. Paid participation may reserve a
+seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
+new Enrollment or Payment may begin after the first Session has started. Activation,
+reservation and late-payment handling must be concurrency-safe. Protected participation
+remains backend-authoritative; listing enrollment or a payment claim is insufficient.
+Payment attempts and Refunds remain separate records.
 
-### Conceptual Attributes
-
-- id
-- student User
-- course
-- enrollment time
-- enrollment status where required
-
-### Relationships
-
-```text
-Student 1 ───── * Enrollment
-Course 1 ────── * Enrollment
-```
-
-### Rules
-
-- Only STUDENT accounts enroll as learners.
-- Enrollment requires Course accessibility.
-- Premium Course enrollment requires active Premium entitlement.
-- Duplicate active enrollment for the same Student/Course should not
-  exist.
-- Enrollment supports Course progress and analytics.
-- Course archival does not erase historical Enrollment data.
+**References:** FR-ENR-004, FR-ENR-006, FR-ENR-007, FR-ENR-008,
+BR-ENR-001, BR-ENR-006, BR-ENR-007, BR-ENR-008, BR-COURSE-007,
+UC-STU-ENROLL-01, UC-STU-MY-COURSES-01.
 
 ---
 
-# 10. Exercise Attempt Domain
+# 10. Teacher Payment Receiving Information
 
-## DM-ATT-001 --- ExerciseAttempt
+## DM-PAY-002 --- PaymentReceivingInformation
 
-Represents one Student attempt at an Exercise.
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference. Bank receiving information is private; exactly one
+historical account is referenced by each Payment. Actual transactions may independently
+reference a known receiving account without matching Payment. Provider account reference
+remains conceptual until verified.
 
-### Conceptual Attributes
-
-- id
-- student
-- exercise
-- started time
-- completed time
-- score
-- accuracy where applicable
-- attempt status
-
-### Relationships
-
-```text
-Student 1 ───── * ExerciseAttempt
-Exercise 1 ──── * ExerciseAttempt
-ExerciseAttempt 1 ─ * AnswerRecord
-```
-
-### Rules
-
-- Multiple attempts are allowed.
-- Completed attempts retain their own results.
-- Previous relevant attempts remain available for history/analytics.
-- Score is calculated by the backend.
-- Historical attempts must remain interpretable.
+**References:** FR-PAY-007, FR-PAY-008, FR-AUTH-012, BR-PAY-006,
+BR-PAY-007, BR-AUTH-007, UC-PAY-RECEIVING-01, UC-PAY-COURSE-01.
 
 ---
 
-## DM-ATT-002 --- AnswerRecord
-
-Represents the Student's answer to one exercise question.
-
-### Conceptual Attributes
-
-- id
-- exercise attempt
-- exercise question
-- submitted answer/selected option
-- correctness
-- answered time
-
-### Rules
-
-- Correctness is calculated by trusted backend logic.
-- AnswerRecord supports vocabulary-level performance.
-- Client-supplied `correct=true` is never authoritative.
-
----
-
-# 11. Progress Domain
-
-## DM-PRO-001 --- LessonProgress
-
-Represents a Student's progress through a Lesson.
-
-### Conceptual Attributes
-
-- student
-- lesson
-- completion/progress value
-- last activity time
-- completion time where applicable
-
-The exact completion formula follows Business Rules and may be derived
-from learning activity.
-
----
-
-## DM-PRO-002 --- CourseProgress
-
-Represents a Student's progress through an enrolled Course.
-
-### Conceptual Attributes
-
-- student/enrollment
-- course
-- progress value
-- last activity time
-- completion time where applicable
-
-CourseProgress may be derived from Lesson progress according to approved
-rules.
-
----
-
-## DM-PRO-003 --- VocabularyPerformance
-
-Represents accumulated learning evidence for one Student and one
-Vocabulary item.
-
-### Conceptual Attributes
-
-- student
-- vocabulary
-- correct answer count
-- answered question count
-- mastery percentage/state
-- last practiced time
-
-### Initial Mastery State
-
-```text
-INSUFFICIENT_DATA
-WEAK
-LEARNING
-MASTERED
-```
-
-### Rules
-
-- Fewer than 3 answered vocabulary questions → INSUFFICIENT_DATA.
-- With sufficient evidence:
-  - 0--49% → WEAK
-  - 50--79% → LEARNING
-  - 80--100% → MASTERED
-- Performance should be based on authoritative AnswerRecord/learning
-  history.
-- Aggregated fields may later be stored or derived depending on
-  database/performance design.
-
----
-
-# 12. Saved Vocabulary Domain
-
-## DM-SAVE-001 --- SavedVocabulary
-
-Represents a Student saving a Vocabulary item to My Vocabulary.
-
-### Conceptual Attributes
-
-- student
-- vocabulary
-- saved time
-
-### Relationship
-
-```text
-Student * ───── * Vocabulary
-      through SavedVocabulary
-```
-
-### Rules
-
-- A Student should not have duplicate saved associations for the same
-  Vocabulary.
-- Removing SavedVocabulary does not delete Vocabulary.
-- Saved Vocabulary may be a Review source.
-
----
-
-# 13. Review Domain
-
-Review is initially modeled as a learning process using existing domain
-data rather than as a complex independent spaced-repetition engine.
-
-### Initial Review Sources
-
-- WEAK vocabulary
-- saved vocabulary
-- incorrectly answered vocabulary
-- recently learned vocabulary
-
-### Inputs
-
-```text
-VocabularyPerformance
-SavedVocabulary
-AnswerRecord
-ExerciseAttempt
-recent learning history
-```
-
-### Outputs
-
-Review activity may create new:
-
-```text
-ExerciseAttempt / AnswerRecord
-        ↓
-VocabularyPerformance update
-```
-
-### Rules
-
-- Complex spaced repetition is outside initial scope.
-- Premium may unlock advanced/personalized Review.
-- Exact advanced selection algorithm remains open.
-
-A dedicated persistent `ReviewSession` entity should be introduced only
-if later requirements need session history or workflow state that cannot
-be represented cleanly by existing attempt data.
-
----
-
-# 14. Subscription Domain
-
-## DM-SUB-001 --- SubscriptionPlan
-
-Represents a Premium plan offered by the platform.
-
-### Initial Plan Types
-
-```text
-MONTHLY
-YEARLY
-```
-
-### Conceptual Attributes
-
-- id
-- plan type
-- display name
-- price
-- active/available state
-- duration semantics
-
-Pricing remains a business configuration decision.
-
----
-
-## DM-SUB-002 --- Subscription
-
-Represents a Student's Premium entitlement period.
-
-### Conceptual Attributes
-
-- id
-- student
-- plan
-- start time
-- expiration time
-- status
-- created/updated time
-
-### Conceptual Status
-
-At minimum the system must be able to determine:
-
-```text
-ACTIVE
-EXPIRED
-```
-
-Additional payment/subscription statuses should be introduced only when
-required by the selected payment provider.
-
-### Rules
-
-- Subscription belongs to a STUDENT.
-- Premium entitlement derives from authoritative active subscription
-  state.
-- Premium is not a role.
-- Expiration returns the Student to Standard access.
-- Expiration does not delete learning history/progress.
-- Active manual renewal extends from current expiration.
-- Renewal after expiration starts from verified activation/payment
-  time.
-
----
-
-# 15. Payment Domain
+# 11. Course Payment / Transaction Context
 
 ## DM-PAY-001 --- PaymentTransaction
 
-Represents a Premium payment transaction.
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference.
 
-### Conceptual Attributes
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking.
+Actual bank transactions and Payment attempts are separate records: unmatched transactions
+may have no Payment or no resolvable receiver. CONFIRMED requires confirmation time. No
+FAILED or REFUNDED Payment state. Physical V1 omits conceptual provider order/account
+references. Verified adapter-context idempotency is required without claiming provider-wide
+transaction-ID uniqueness.
 
-- id
-- student
-- subscription plan
-- provider
-- provider transaction/reference identifier
-- amount
-- currency
-- status
-- initiated time
-- verified/completed time
-
-### Conceptual Status
-
-The exact provider-specific state machine is deferred.
-
-The domain must at minimum distinguish a verified successful transaction
-from one that must not activate Premium.
-
-### Rules
-
-- Client-reported payment success is not authoritative.
-- Premium activates/extends only after trusted backend verification.
-- Revenue uses verified successful transactions.
-- Transaction history is available to authorized Admin.
-- Teacher payout/commission is outside scope.
+**References:** FR-PAY-002, FR-PAY-008, FR-PAY-009, FR-PAY-010,
+FR-PAY-011, FR-PAY-012, FR-ENR-008, NFR-DATA-007,
+BR-PAY-002, BR-PAY-003, BR-PAY-007, BR-PAY-008, BR-PAY-009,
+BR-PAY-010, BR-ENR-008, BR-ADM-005,
+UC-PAY-COURSE-01, UC-PAY-VIEW-01, UC-ADM-TRANSACTIONS-01.
 
 ---
 
-# 16. Analytics Domain
+## DM-PAY-003 --- Refund
 
-Analytics should primarily be projections/aggregations over existing
-authoritative data.
+V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
+applicable full Payment amount under the approved workflow. Teacher performs the bank
+transfer back to the Student and submits proof; Admin verifies completion. Refund statuses
+are PENDING, SUBMITTED, COMPLETED and CANCELLED. Payment remains historical and has no
+REFUNDED status. This does not authorize platform custody, payouts, commissions, escrow or
+accounting. Proof is a Storage reference; completion metadata identifies the verifying
+Admin. No automatic Enrollment transition is inferred.
 
-## Student Analytics Sources
-
-```text
-Enrollment
-ExerciseAttempt
-AnswerRecord
-LessonProgress
-CourseProgress
-VocabularyPerformance
-```
-
-## Teacher Analytics Sources
-
-For Courses owned by the Teacher:
-
-```text
-Enrollment
-CourseProgress
-ExerciseAttempt
-VocabularyPerformance
-```
-
-Teacher analytics should prioritize aggregated learning information.
-
-## Admin Analytics Sources
-
-```text
-User
-Course
-Enrollment
-Subscription
-PaymentTransaction
-learning records
-```
-
-Admin metrics include:
-
-- total users
-- Student count/statistics
-- Teacher count/statistics
-- Course statistics
-- enrollment statistics
-- learning statistics
-- active Premium Students
-- subscription statistics
-- revenue over time
-
-A separate analytics warehouse is not required for the initial
-graduation project.
+**References:** FR-PAY-013, BR-PAY-011, UC-PAY-REFUND-01.
 
 ---
 
-# 17. Aggregate and Ownership Boundaries
+# 12. Meet and Calendar Boundaries
 
-These are conceptual ownership boundaries, not microservices.
+## Course Meet Information
 
-## User / Authentication
+The owning Teacher creates Google Meet externally and manually supplies exactly
+one Course Meet URL when configured. Every Session uses that same Course URL.
+This is protected Course participation information, not an independent meeting
+entity or Session-specific meeting model.
 
-```text
-User
-├── RefreshSession
-├── EmailVerification
-└── PasswordReset
-```
+Public discovery cannot disclose the URL. Student access checks the requested
+Course and authoritative participation. URL access does not prove attendance.
+There is no Meet API or automatic meeting creation. Supply timing, URL validation
+and update effects remain unresolved.
 
-User is the identity root.
+**References:** FR-MEET-001, FR-MEET-002, FR-MEET-003,
+BR-MEET-001, BR-MEET-002, BR-ENR-006,
+UC-MEET-MANAGE-01, UC-MEET-ACCESS-01.
 
-## Course Content
+## External Calendar Boundary
 
-```text
-Course
-├── Lesson
-│   ├── LessonVocabulary
-│   └── Exercise
-│       └── ExerciseQuestion
-```
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
 
-Course ownership controls Teacher content modification.
-
-Global Vocabulary remains outside the Course ownership boundary.
-
-## Vocabulary
-
-```text
-Vocabulary
-├── VocabularySense
-└── PronunciationAudio
-```
-
-Vocabulary is shared platform content.
-
-## Student Learning
-
-```text
-Enrollment
-ExerciseAttempt
-AnswerRecord
-Progress
-VocabularyPerformance
-SavedVocabulary
-```
-
-These records belong to Student learning history and must not disappear
-merely because content is archived or Premium expires.
-
-## Commercial
-
-```text
-SubscriptionPlan
-Subscription
-PaymentTransaction
-```
-
-Payment verification controls Premium entitlement changes.
+**References:** INT-CAL-001, BR-AUTH-005, UC-CAL-SCHEDULE-01.
 
 ---
 
-# 18. Conceptual Relationship Diagram
+# 13. Learning Progress
 
-```text
-                         ┌──────────────┐
-                         │  CefrLevel   │
-                         └──────┬───────┘
-                                │ 1
-                                │
-                                │ *
-┌────────────┐ 1          * ┌───▼──────────┐
-│ Teacher    ├──────────────►│    Course    │
-│   User     │               └─────┬────────┘
-└────────────┘                     │ 1
-                                   │
-                                   │ *
-                              ┌────▼─────┐
-                              │  Lesson  │
-                              └─┬─────┬──┘
-                                │     │
-                    *           │     │ 1
-              ┌─────────────────┘     │
-              │                       │ *
-      ┌───────▼──────────┐       ┌────▼────────┐
-      │ LessonVocabulary │       │  Exercise   │
-      └───────┬──────────┘       └────┬────────┘
-              │                       │ 1
-              │                       │
-              │                       │ *
-      ┌───────▼──────────┐       ┌────▼──────────────┐
-      │    Vocabulary    │       │ ExerciseQuestion │
-      └──────┬───────────┘       └───────────────────┘
-             │ 1
-             │
-             │ *
-      ┌──────▼───────────┐
-      │ VocabularySense │
-      └─────────────────┘
+## DM-PRO-002 --- CourseProgress
 
+CourseProgress is an authorized derived view of Course participation and persisted learning
+information. No course_progress or attendance table is approved. Student own-data and
+Teacher owned-Course boundaries apply; formulas and completion indicators remain open.
 
-┌────────────┐      * ┌────────────┐ *      1 ┌────────────┐
-│ Student    ├────────► Enrollment ├──────────►│   Course   │
-│   User     │        └────────────┘           └────────────┘
-└─────┬──────┘
-      │
-      │ 1
-      │
-      │ *         * ┌─────────────────┐ 1
-      ├────────────►│ ExerciseAttempt ├────────► Exercise
-      │             └────────┬────────┘
-      │                      │ 1
-      │                      │
-      │                      │ *
-      │               ┌──────▼──────┐
-      │               │ AnswerRecord│
-      │               └─────────────┘
-      │
-      ├──────────────► VocabularyPerformance ◄──── Vocabulary
-      │
-      └──────────────► SavedVocabulary ◄────────── Vocabulary
-
-
-Student User
-    │
-    ├──── * Subscription ──── 1 SubscriptionPlan
-    │
-    └──── * PaymentTransaction ──── 1 SubscriptionPlan
-```
-
-This diagram is conceptual. Exact foreign keys and join constraints
-belong to `DATABASE_DESIGN.md`.
+**References:** FR-ENR-005, FR-PRO-004, FR-PRO-009, FR-TAN-003,
+NFR-DATA-001, BR-AUTH-006, BR-TEA-002,
+UC-LEARN-PROGRESS-01, UC-TEA-ANALYTICS-01.
 
 ---
 
-# 19. Important Domain Invariants
+# 14. Participant Feedback / Rating
 
-## INV-001 --- Role and Premium Separation
+## DM-RATE-001 --- ParticipantFeedback
 
-```text
-role ∈ {STUDENT, TEACHER, ADMIN}
-```
+Participant feedback is unique per Enrollment, can be created only for a COMPLETED
+Enrollment and has a rating from 1 to 5. No aggregate rating column is stored.
+Editing/moderation details not supplied by these decisions remain open. The Enrollment
+identifies the Student, Course and Teacher context; no independent rating target or stored
+aggregate is invented.
 
-Premium is not a role.
-
----
-
-## INV-002 --- Course Ownership
-
-Every Course has exactly one primary Teacher in the initial version.
-
-Teacher modification of Course-owned content requires ownership.
+**References:** FR-RATE-001, FR-AUTH-013, BR-RATE-001, BR-AUTH-001,
+UC-RATE-PARTICIPANT-01.
 
 ---
 
-## INV-003 --- Lesson Ownership
+# 15. Admin Domain Boundaries
 
-A Lesson belongs to one Course.
+Admin may manage permitted account/profile information, authorized account
+restrictions and categories/topics, oversee Courses, monitor Enrollments and
+transactions, and view approved platform statistics. Each action requires its
+particular authority; viewing does not grant mutation permission.
 
-Teacher permission to modify the Lesson derives from Course ownership.
+Admin does not automatically become Course owner, Teacher, Assignment grader,
+tuition recipient/custodian, payment confirmer or unrestricted moderator.
+Full-refund completion verification is explicitly authorized; unrelated overrides,
+moderation and exact operation fields remain unresolved.
 
----
+Statistics include appropriate user, Student, Teacher and Course totals, and
+Enrollment/transaction information. Teacher tuition is not Admin/platform revenue.
+Measures, reporting periods and outcome classification remain gated. No separate
+analytics warehouse or reporting entity is required by these conceptual views.
 
-## INV-004 --- Vocabulary Reuse
+Teacher monitoring may include authorized individual submissions/results;
+aggregation is not a replacement for access checks or approved individual inspection.
 
-Vocabulary is shared platform data.
-
-Removing a Lesson association must not automatically delete reusable
-Vocabulary.
-
----
-
-## INV-005 --- Sense Integrity
-
-A LessonVocabulary selected sense must belong to its referenced
-Vocabulary.
-
----
-
-## INV-006 --- Enrollment Uniqueness
-
-A Student should not have duplicate active enrollment for the same
-Course.
-
----
-
-## INV-007 --- Saved Vocabulary Uniqueness
-
-A Student should not have duplicate SavedVocabulary associations for the
-same Vocabulary.
+**References:** FR-ADM-002, FR-ADM-003, FR-ADM-004, FR-ADM-006,
+FR-ADM-007, FR-ADM-008, FR-ACR-001, FR-ACR-002, FR-ATR-001,
+FR-ATR-002, FR-ATR-003, FR-AAN-001, FR-AAN-002, FR-AAN-003,
+FR-AAN-004, FR-AAN-005, FR-AAN-008, FR-TCR-010, FR-TAN-002,
+BR-ADM-001, BR-ADM-002, BR-ADM-005, BR-TEA-003,
+UC-ADM-USERS-01, UC-ADM-COURSES-01, UC-ADM-CATEGORIES-01,
+UC-ADM-ENROLLMENTS-01, UC-ADM-TRANSACTIONS-01, UC-ADM-ANALYTICS-01,
+UC-TEA-STUDENTS-01, UC-TEA-ANALYTICS-01.
 
 ---
 
-## INV-008 --- Backend Correctness
+# 16. Cross-Cutting Domain Invariants
 
-Exercise correctness, score, and learning performance are
-backend-authoritative.
+## INV-001 --- Role Authority and Conditional Access
+
+STUDENT, TEACHER and ADMIN are authorization roles. Payment/participation is not
+a role. Role membership alone does not establish resource ownership or access.
+
+**References:** FR-AUTH-001, FR-AUTH-013, BR-ROLE-001, BR-AUTHN-020.
+
+## INV-002 --- Course and Nested Teacher Ownership
+
+Each Course has exactly one owning Teacher. Teacher management checks authoritative
+identity, account eligibility, operation permission and ownership before disclosure
+or mutation. Traverse Session -> Course -> Teacher, Assignment -> Session -> Course
+-> Teacher and Submission -> Assignment -> Session -> Course -> Teacher.
+The Course boundary also protects enrolled-Student information, results, progress
+and relevant transaction information. Teacher A cannot manage Teacher B's resources.
+
+**References:** FR-TCR-003, FR-AUTH-011, BR-COURSE-001, BR-AUTH-003.
+
+## INV-010 --- Trustworthy Payment Confirmation
+
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking.
+
+**References:** FR-PAY-010, FR-PAY-012, FR-ENR-008,
+BR-PAY-002, BR-PAY-009, BR-ENR-008, BR-ADM-005.
+
+## INV-013 --- Participation Relationship and Access
+
+Enrollment concerns one Student and one Course. Protected participation requires
+authoritative validity where applicable; discovery or My Courses listing alone
+does not establish it. Enrollment grants no other Student's private information.
+
+**References:** FR-ENR-006, FR-ENR-007, BR-ENR-001, BR-ENR-006, BR-ENR-007.
+
+## INV-014 --- Whole-Course Purchase and Payment Separation
+
+Purchase concerns the whole Course, never individual Sessions. Payment records
+and Enrollment participation are distinct; no unconditional activation is implied.
+
+**References:** FR-ENR-006, FR-ENR-008, BR-COURSE-007, BR-ENR-008.
+
+## INV-015 --- Teacher-Owned Receiving Destination
+
+Receiving information belongs to its Teacher. Course payment resolves Course ->
+owning Teacher -> configured destination; client input cannot substitute an
+unauthorized destination. Receiving information is not public discovery data.
+
+**References:** FR-PAY-007, FR-PAY-008, BR-PAY-006, BR-PAY-007, BR-AUTH-007.
+
+## INV-016 --- Direct Tuition without Platform Custody
+
+Tuition is directed to the owning Teacher's destination. Platform/Admin does not
+hold it for later distribution; monitoring grants no financial custody.
+
+**References:** FR-PAY-009, BR-PAY-008, BR-ADM-005.
+
+## INV-017 --- Session and Assignment Parentage
+
+Each Session belongs to one Course; each Assignment belongs to one Session.
+A Session may have no Assignments. Parentage controls authorization.
+
+**References:** FR-SES-001, FR-SES-004, FR-ASN-001, BR-SES-001, BR-ASN-001.
+
+## INV-018 --- Submission Authorship and Privacy
+
+Submission belongs to its Assignment and submitting Student. Backend identity
+establishes authorship. Teacher inspection derives through Course ownership;
+it does not transfer authorship or grant unrestricted grading.
+Students cannot access another Student's private submission/result.
+
+**References:** FR-ASN-004, FR-ASN-005, FR-ASN-006, BR-ASN-002, BR-ASN-003.
+
+## INV-019 --- Shared Protected Course Meet URL
+
+Exactly one manually supplied, externally created Course URL is used by all its
+Sessions when configured. Disclosure requires authorization; no public discovery
+leak, automatic meeting creation, Meet API or per-Session meeting is permitted.
+
+**References:** FR-MEET-001, FR-MEET-002, FR-MEET-003, BR-MEET-001, BR-MEET-002.
+
+## INV-020 --- Recurrence and Occurrence Separation
+
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking.
+
+**References:** FR-SCH-001, FR-SCH-002, BR-SCH-001.
+
+## INV-021 --- Calendar Information Boundary
+
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
+
+**References:** INT-CAL-001, BR-AUTH-005, UC-CAL-SCHEDULE-01.
+
+## INV-022 --- Limited Administrative Authority
+
+Administrative monitoring does not confer Course ownership, grading, confirmation,
+arbitrary mutation or tuition custody. Exact overrides remain unresolved.
+
+**References:** FR-ACR-002, FR-ADM-008, FR-ATR-001,
+BR-ADM-001, BR-ADM-002, BR-ADM-005.
+
+## INV-023 --- Backend Authority and Protected Information
+
+The backend establishes identity, role, account eligibility, ownership, required
+participation and permitted effects before protected disclosure/mutation.
+Public discovery excludes private submissions/results, receiving information,
+transactions, Student information and protected participation content.
+Client state cannot overwrite authoritative results or payment/participation rights.
+
+**References:** FR-AUTH-006, FR-AUTH-012, FR-AUTH-013, NFR-SEC-016,
+BR-AUTH-001, BR-AUTH-007, BR-AUTH-006.
+
+## INV-024 --- Required Information and Retention Boundary
+
+Retain Teacher applications, bank-account history, Payment snapshots, transactions, Refund
+evidence and Session schedule-change history. Assignment hard deletion is forbidden
+after any Submission. Used Categories are deactivated. Exact legal retention periods remain
+open; no global soft-delete/audit system.
+
+**References:** NFR-DATA-001, NFR-DATA-006, NFR-DATA-007,
+BR-AUTHN-019, BR-PAY-003.
+
+Unresolved policies must not be encoded as fixed state, multiplicity, formula or
+acceptance rules. This modeling discipline follows the source-document decision
+gates and is not a new business workflow.
 
 ---
 
-## INV-009 --- Premium Entitlement
+# 17. Deferred Modeling Decisions
 
-Premium access is determined from authoritative Subscription state.
-
-Client flags and stale JWT claims do not independently grant Premium.
-
----
-
-## INV-010 --- Payment Verification
-
-A PaymentTransaction activates or extends Premium only after trusted
-verification.
-
----
-
-## INV-011 --- Historical Learning Preservation
-
-Premium expiration, Course archival, or temporary inactivity must not
-delete Student learning history.
+| Area | Remaining clarification; approved V1 decisions above are not reopened |
+| --- | --- |
+| Provider contracts | Physical V1 omits provider_account_ref/provider_order_id and provider-order uniqueness. Adapter mapping/authenticity and transaction idempotency remain integration work, not a physical gate; no unverified provider-wide transaction-ID guarantee. |
+| Accounts/security | Canonical email is lowercase(trim(inputEmail)); password encoding/transport/rotation/replay, resend controls and operation-specific review contracts remain implementation gates. Locked is the sole account-blocking mechanism. |
+| Physical restrictions | Resolved: nullable draft Meet URL with publication validation; required deadline; NUMERIC(5,2) scores; positive minimum; fixed planned Session count and unique numbering; complete 0<discount<100 window; VND only. |
+| Calendar | One organizational account and one configured Calendar; backend-configured calendar ID, one event per Session, unique non-null (provider, external_event_id). Execution/retry/reminder details remain integration work. |
+| Storage | Fixed bucket/path mapping, upload limits and file validation/delivery contracts; no binary or signed-URL persistence. |
+| Workflow edges | Detailed publication/completion validations, first-start cutoff under schedule changes, cancellation/re-entry and late-payment reconciliation; do not invent extra lifecycle states or refund eligibility policy. |
+| Progress/reporting | Indicators, formulas, filters and time boundaries; derive from authoritative data without progress/statistics tables. |
+| Privacy/operations | Detailed retention periods, feedback editing/moderation, unrelated Admin overrides, UI/API details and deployment/production operations. |
 
 ---
 
-## INV-012 --- Mastery Evidence
+# 18. Retired Legacy Concepts and Identifier Disposition
 
-Vocabulary cannot be classified WEAK, LEARNING, or MASTERED until the
-Student has at least 3 answered vocabulary questions for that
-Vocabulary.
+This register records the earlier scope migration, not today's open-decision list.
+Independent V1 approvals in the active sections supersede its then-deferred choices.
 
----
+## Original Domain Identifier Register
 
-# 20. Concepts Deliberately Not Modeled as Core Entities Yet
+All 24 original DM identifiers are accounted for: 9 preserved/reconciled and
+15 retired. Retired IDs are reserved and are not active dependencies.
 
-The following should **not** be added automatically:
+| Original ID | Concept | Disposition |
+|---|---|---|
+| DM-USER-001 | User | Reconciled: shared identity retained; old onboarding/profile contract withdrawn. |
+| DM-USER-002 | AccountStatus | Reconciled: restrictions retained; universal transitions withdrawn. |
+| DM-AUTH-001 | RefreshSession | Preserved/reconciled as supporting authentication state. |
+| DM-AUTH-002 | EmailVerification | Preserved/reconciled supporting security; no unconditional activation. |
+| DM-AUTH-003 | PasswordReset | Preserved/reconciled supporting recovery authority. |
+| DM-CEFR-001 | CefrLevel | Retired: no mandatory CEFR Course organization. |
+| DM-COURSE-001 | Course | Reconciled: tutoring/commercial ownership; old classification/lifecycle withdrawn. |
+| DM-LESSON-001 | Lesson | Retired; Session has an independent definition. |
+| DM-VOC-001 | Vocabulary | Retired. |
+| DM-VOC-002 | VocabularySense | Retired. |
+| DM-VOC-003 | LessonVocabulary | Retired. |
+| DM-VOC-004 | PronunciationAudio | Retired. |
+| DM-EX-001 | Exercise | Retired; Assignment has an independent definition. |
+| DM-EX-002 | ExerciseQuestion | Retired. |
+| DM-ENR-001 | Enrollment | Reconciled: Student-Course participation; old access/uniqueness assumptions withdrawn. |
+| DM-ATT-001 | ExerciseAttempt | Retired; Submission has an independent definition. |
+| DM-ATT-002 | AnswerRecord | Retired. |
+| DM-PRO-001 | LessonProgress | Retired. |
+| DM-PRO-002 | CourseProgress | Reconciled direction; old inputs/formulas withdrawn. |
+| DM-PRO-003 | VocabularyPerformance | Retired. |
+| DM-SAVE-001 | SavedVocabulary | Retired. |
+| DM-SUB-001 | SubscriptionPlan | Retired. |
+| DM-SUB-002 | Subscription | Retired; not converted into Enrollment. |
+| DM-PAY-001 | PaymentTransaction | Reconciled as Course transaction information; Premium/plan semantics withdrawn. |
 
-- native mobile application entities
-- social posts
-- forum threads
-- live classes
-- video calls
-- teacher marketplace
-- teacher payouts
-- certificates
-- leaderboard
-- placement tests
-- AI chatbot conversations
-- AI speaking assessments
-- complex spaced-repetition scheduling
-- separate Student/Teacher/Admin authentication tables
-- separate Vocabulary copies per Teacher
-- analytics warehouse entities
+Vocabulary learning, Dictionary integration, vocabulary audio, vocabulary Lessons,
+Fill Word, Listening, Quiz, the old Exercise/Attempt/Answer engine, automatic
+Score/accuracy/mastery, weak vocabulary, saved vocabulary and vocabulary Review
+are retired. STANDARD/PREMIUM access tiers/classification, Premium gating,
+Subscription access/renewal and subscription revenue are not active scope.
 
-They may be introduced later only after approved requirements.
+Lesson is not Session; Exercise/Quiz is not Assignment; ExerciseAttempt is not
+Submission; Subscription is not Enrollment; vocabulary Review is not participant
+feedback. No old identifier is mechanically renamed into a new tutoring meaning.
+The former ReviewSession candidate and its practice algorithm are also retired.
 
----
+## Original Invariant Register
 
-# 21. Open Domain Decisions
+All 12 original invariant IDs are accounted for. Only INV-001, INV-002 and
+INV-010 remain active with compatible reconciled responsibilities.
 
-The following remain open and should be resolved before dependent
-database/API implementation:
+| Original ID | Disposition |
+|---|---|
+| INV-001 | Reconciled role authority; Premium framing retired. |
+| INV-002 | Preserved Course ownership and extended tutoring-child authorization. |
+| INV-003 | Retired Lesson ownership; new Session parentage uses INV-017. |
+| INV-004 | Retired Vocabulary reuse. |
+| INV-005 | Retired sense integrity. |
+| INV-006 | Deferred/inactive duplicate-active-Enrollment assertion; no uniqueness rule retained. |
+| INV-007 | Retired SavedVocabulary uniqueness. |
+| INV-008 | Retired exercise correctness; current backend authority is independently expressed in INV-023. |
+| INV-009 | Retired Premium entitlement. |
+| INV-010 | Reconciled trustworthy payment-confirmation responsibility; Premium effects retired. |
+| INV-011 | Superseded/inactive blanket historical/archive guarantee; current boundary uses INV-024. |
+| INV-012 | Retired mastery evidence thresholds. |
 
-1.  Exact Dictionary Provider and licensing/storage model.
-2.  Exact pronunciation audio/TTS strategy.
-3.  Exact Payment Provider and provider transaction states.
-4.  Premium pricing.
-5.  Exact advanced Premium exercise model.
-6.  Exact personalized Review algorithm.
-7.  Whether ReviewSession requires persistent state.
-8.  Exact Lesson/Course completion formula where not already finalized.
-9.  Exact handling of deleted/retired educational content while
-    preserving historical attempts.
-10. Whether Subscription history is represented by multiple immutable
-    periods or another model after payment-provider design is selected.
-
----
-
-# 22. Traceability Example
-
-```text
-Requirement
-FR-QUIZ-*
-    ↓
-Business Rules
-BR-QUIZ-*
-BR-SCORE-*
-    ↓
-Use Case
-UC-LEARN-QUIZ-01
-    ↓
-Domain
-Exercise
-ExerciseQuestion
-ExerciseAttempt
-AnswerRecord
-VocabularyPerformance
-    ↓
-Database Design
-    ↓
-API Design
-    ↓
-Implementation Task
-    ↓
-Tests
-```
-
-Domain identifiers should be used by later documents to avoid repeatedly
-loading the full domain specification.
+The old fixed account and DRAFT/PUBLISHED/ARCHIVED Course transition assumptions
+are withdrawn as operative policy. Their presence in history does not resolve
+current lifecycle gates. The old exclusion of live tutoring does not exclude
+approved external Meet-based tutoring; built-in video remains unapproved.
 
 ---
 
-# 23. Next Design Stage
+# 19. Traceability and Subsequent Review Boundaries
 
-After this Domain Model is approved, proceed to:
+Each active concept and invariant carries targeted current references. Only active
+definition headings in REQUIREMENTS, BUSINESS_RULES and USE_CASES establish source
+IDs; historical registers cannot satisfy active traceability.
 
-```text
-ARCHITECTURE.md
-        ↓
-DATABASE_DESIGN.md
-        ↓
-UI_UX.md
-        ↓
-API_DESIGN.md
-        ↓
-TASK BREAKDOWN
-        ↓
-IMPLEMENTATION
-```
+The new identified concepts are TeacherProfile, CourseCategoryTopic, Session,
+CourseSchedule, Assignment, Submission, AssignmentResult,
+PaymentReceivingInformation, Refund and ParticipantFeedback. Naming these responsibilities
+does not require separate persistence structures. Meet remains Course information;
+Calendar remains external; statistics remain authorized views.
 
-Do not generate JPA entities or PostgreSQL tables directly from this
-document before architecture and database design are reviewed.
+Useful consistency/ownership boundaries are shared identity with supporting auth,
+Course-owned teaching content, Student-authored work with Course-derived inspection
+authority, Enrollment participation, Teacher receiving information and distinct
+Course transactions. These are candidates, not finalized persistence aggregates,
+transaction scopes or cascading-deletion rules.
+
+For example, FR-ASN-004 -> BR-ASN-002 -> UC-ASN-SUBMIT-01 ->
+DM-ASN-002 expresses submitting identity and participation authorization while
+leaving format and resubmission policy open. References preserve those gates.
+
+ARCHITECTURE.md, DATABASE_DESIGN.md, API_DESIGN.md, TASK_BREAKDOWN.md and
+FEATURE_STATUS.md consume this reconciled direction. Do not distort this
+model to preserve obsolete downstream counts, contracts or constraints.
+Preserve TASK-001/TASK-002/TASK-003 implementation and verification evidence.
+Phase 2 reconciles affected canonical guidance; technical foundations and actual
+implementation remain unchanged.
+
+Follow the approved development order and remaining physical, UI/UX and API gates
+before dependent implementation. This reconciliation does not authorize Flyway or
+other implementation/testing/deployment work.

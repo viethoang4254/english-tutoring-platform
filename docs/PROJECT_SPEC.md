@@ -1,888 +1,375 @@
-# English Learning Platform
+# Development of an English Tutoring Platform
 
+# 1. Project Identity and Document Status
+
+**Vietnamese title:** Xây Dựng Nền Tảng Gia Sư Dạy Tiếng Anh
+**English title:** Development of an English Tutoring Platform
 **Document:** Project Specification
-**Version:** 0.1
-**Status:** Draft
+**Status:** Approved tutoring and Physical V1 direction; remaining execution clarifications below
 **Project Type:** Graduation Project
 
----
-
-# 1. Project Overview
-
-English Learning Platform is a responsive web-based platform designed to help users learn and practice English vocabulary through structured courses and interactive exercises.
-
-The platform focuses primarily on vocabulary learning, pronunciation, listening, vocabulary comprehension, practice, assessment, review, and learning-progress tracking.
-
-The system supports three primary roles:
-
-- Student
-- Teacher
-- Admin
-
-All roles access the system through a web browser.
-
-Students receive a mobile-first learning experience, while Teacher and Admin interfaces are optimized primarily for desktop management while remaining responsive and usable on mobile devices.
+This specification describes the approved tutoring scope. It does not approve
+unresolved business rules or authorize implementation.
 
 ---
 
-# 2. Project Objectives
+# 2. Product Overview and Context
 
-The platform aims to:
+The product is a responsive, multi-teacher English tutoring web platform.
+Students discover Teachers and their Courses, purchase an entire Course, and
+participate in scheduled Sessions through valid Enrollment where required.
 
-1. Provide structured English vocabulary learning based on CEFR levels.
-2. Organize vocabulary into Courses and topic-based Lessons.
-3. Provide vocabulary pronunciation, definitions, meanings, examples, and audio.
-4. Allow Students to practice vocabulary through multiple exercise types.
-5. Track Student learning results and vocabulary mastery.
-6. Allow Students to search and save vocabulary independently from Courses.
-7. Support vocabulary review based on learning activity.
-8. Allow multiple Teachers to create and manage Courses and Lessons.
-9. Allow Teachers to use vocabulary data from approved dictionary sources.
-10. Provide Standard and Premium learning experiences.
-11. Support subscription-based Premium access.
-12. Provide Admin management and system/revenue statistics.
+Teachers publish and manage owned Courses, learning content and Assignments.
+Admin manages and monitors the platform within approved administrative boundaries.
+The platform connects these activities without providing built-in video
+conferencing or holding Course tuition for distribution to Teachers.
 
 ---
 
-# 3. User Roles
+# 3. Project Objectives
 
-## 3.1 Student
+- Help Students discover Teachers, their experience and suitable Courses.
+- Support Teacher-owned Courses with tuition, schedules and individual Sessions.
+- Support whole-Course purchasing with tuition paid directly to the owning Teacher.
+- Govern protected participation through backend-authoritative Enrollment.
+- Support Session content, Assignments, submissions, results and learning progress.
+- Provide Course-level access to externally created Google Meet meetings.
+- Support system-account Google Calendar synchronization without blocking core scheduling.
+- Support one 1–5 feedback entry per completed Enrollment.
+- Provide authorized account, category, Course, Enrollment and transaction oversight.
 
-Students are the primary learners of the platform.
+Prioritize correctness, usability, security, maintainability, testability and
+demonstrable functionality appropriate to a graduation project.
+
+---
+
+# 4. Actors and High-Level Capabilities
+
+The authorization roles are STUDENT, TEACHER and ADMIN.
+
+## Student
 
 Students can:
 
-- create an account
-- log in and log out
-- manage their profile
-- browse CEFR levels
-- browse Courses
-- view Teacher information
-- enroll in Courses
-- access My Courses
-- study Lessons
-- learn vocabulary
-- listen to vocabulary pronunciation
-- complete Fill Word exercises
-- complete Listening exercises
-- complete Quizzes
-- view scores
-- view learning progress
-- view learning history
-- search vocabulary
-- save vocabulary
-- manage My Vocabulary
-- review vocabulary
-- identify weak vocabulary
-- use Standard access
-- upgrade to Premium
-- view subscription information
+- register/log in using email and manage their personal profile;
+- discover, search and filter Teachers and Courses;
+- view Teacher profiles, specialization, teaching experience and introduction;
+- view Course information, tuition/price and learning schedule;
+- register for/purchase an entire Course and pay tuition to its owning Teacher's
+  configured payment destination;
+- access appropriately enrolled Courses, Sessions and Session learning content;
+- access and submit Assignments according to later-defined rules;
+- view their own Assignment results and learning progress;
+- access the authorized Course Meet URL;
+- use the approved system-account Calendar scheduling capability;
+- review/rate a completed Enrollment under the approved feedback rules.
+
+Detailed search filters, editable profile fields and interaction design are not
+defined here.
+
+## Teacher
+
+Teachers can:
+
+- register/log in and manage Teacher profile information, including specialization,
+  teaching experience and introduction;
+- maintain/configure their own payment receiving information/account at a high level;
+- create, manage and publish multiple owned Courses;
+- configure Course information, tuition/price, learning schedule and maximum
+  Student count where applicable;
+- create/manage Sessions with topic, date, start time, end time and learning content;
+- create/manage Assignments for Sessions in their Courses;
+- manage enrolled-Student teaching information for owned Courses;
+- review Assignment submissions/results and monitor learning progress for owned Courses;
+- view relevant Course payment transaction/status information;
+- receive Course tuition directly through their configured payment destination.
+
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
+
+## Admin
+
+Admin can manage Student/Teacher accounts and relevant profile information,
+lock/unlock accounts where authorized, oversee Courses, manage categories/topics,
+monitor Enrollments and appropriate payment transaction/status information, and
+view platform statistics.
+
+High-level statistics include total users, Students, Teachers and Courses, plus
+appropriate Enrollment and transaction statistics. Exact dashboards, formulas,
+reports and aggregation periods are not defined here.
+
+Admin verifies submitted full-refund completion. Admin is not the owner of Teacher
+Courses, recipient or intermediary holder of Teacher tuition, or default grader. Monitoring
+transactions
+does not imply receiving or controlling Teacher Course revenue. Exact override
+and moderation permissions remain unresolved.
 
 ---
 
-# 4. Student Account Types
+# 5. Core Scope and Domain Relationships
 
-Student accounts support two access levels:
+- A Teacher owns many Courses, has Teacher profile information and has their own
+  payment receiving information/account.
+- Each Course belongs to exactly one Teacher, contains many Sessions and has many
+  Students through Enrollment.
+- A Course has tuition/price, learning schedule information and exactly one
+  manually supplied Google Meet URL.
+- A Session belongs to one Course, represents an individual learning occurrence,
+  contains learning content and may contain Assignments.
+- Each Assignment belongs to one Session.
+- Enrollment represents the Student-Course participation relationship.
+- Payment and Enrollment are related but distinct concepts.
 
-## 4.1 Standard
+Course is the teaching and commercial unit. Students purchase entire Courses,
+never individual Sessions.
 
-Standard is the free learning tier.
-
-Standard must provide meaningful learning functionality.
-
-Standard Students should be able to access core learning features such as:
-
-- vocabulary learning
-- pronunciation
-- basic definitions
-- Vietnamese meanings
-- examples
-- audio
-- basic exercises
-- vocabulary search
-- saved vocabulary
-- basic learning progress
-
-The final content and feature limitations will be defined in Business Rules.
+These business relationships are realized by the 22-table Physical V1 design in
+DATABASE_DESIGN.md, subject to its remaining migration clarifications.
+No TeachingService concept is introduced.
 
 ---
 
-## 4.2 Premium
+# 6. Course Discovery, Purchasing and Participation
 
-Premium provides deeper learning functionality and additional content.
+Every Course has one non-transferable owning Teacher and exactly one Category. Used
+Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,
+CANCELLED and ARCHIVED; teaching in progress remains PUBLISHED. Teacher explicitly completes
+a Course after backend validation. Cancellation and archival are distinct. Optional
+percentage-discount windows are supported; Payments retain their price snapshots.
 
-Potential Premium benefits include:
+Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
+COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
+Free Courses activate participation without fake Payments. Paid participation may reserve a
+seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
+new Enrollment or Payment may begin after the first Session has started. Activation,
+reservation and late-payment handling must be concurrency-safe.
 
-- Premium Courses
-- specialized vocabulary Courses
-- advanced vocabulary information
-- multiple vocabulary senses
-- collocations
-- synonyms
-- antonyms
-- word families
-- advanced exercises
-- advanced listening practice
-- weak-vocabulary practice
-- personalized review
-- detailed learning analytics
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference.
 
-Premium access belongs to the platform rather than to an individual Teacher.
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking.
 
----
-
-# 5. Teacher
-
-Teachers are responsible for creating and managing educational content.
-
-The system supports multiple Teachers.
-
-A Teacher can:
-
-- manage Teacher profile
-- create Courses
-- update Courses
-- manage owned Courses
-- create Lessons
-- update Lessons
-- manage vocabulary used in Lessons
-- search vocabulary
-- use existing platform vocabulary
-- retrieve vocabulary information from approved dictionary sources when necessary
-- select appropriate vocabulary senses
-- configure exercises
-- publish learning content
-- view analytics for owned Courses
-
-A Teacher may own multiple Courses.
-
-A Course has one primary Teacher.
-
-Teachers do not receive direct Student payments in the current project scope.
+V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
+applicable full Payment amount under the approved workflow. Teacher performs the bank
+transfer back to the Student and submits proof; Admin verifies completion. Refund statuses
+are PENDING, SUBMITTED, COMPLETED and CANCELLED. Payment remains historical and has no
+REFUNDED status. This does not authorize platform custody, payouts, commissions, escrow or
+accounting.
 
 ---
 
-# 6. Admin
+# 7. Scheduling and External Integration Boundaries
 
-Admins manage the platform and business operations.
+## Course and Session Scheduling
 
-The Admin Overview Dashboard provides operational platform statistics.
-This scope excludes expense management, salaries, bookkeeping and profit/loss;
-it does not expand approved account or Course management permissions.
-Teachers are users filtered by TEACHER role; Admins may inspect permitted
-Teacher information and their Courses without a separate Teacher identity.
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking.
 
-Admin functionality includes:
+Absolute instants and Course-local weekly rules are distinct. Remaining timezone,
+numbering and lifecycle edge contracts require clarification before dependent work.
 
-- manage Students
-- manage Teachers
-- manage user accounts
-- oversee Courses
-- oversee learning content
-- manage subscription plans
-- monitor subscriptions
-- monitor transactions
-- view system statistics
-- view Student statistics
-- view Teacher statistics
-- view Course statistics
-- view Premium statistics
-- view revenue statistics over time
 
-Teacher payout and revenue sharing are outside the current project scope.
+## Google Meet
 
----
+The Teacher creates Google Meet externally and manually supplies exactly one
+Meet URL per Course. All Sessions of that Course use the same Course Meet URL.
 
-# 7. Learning Content Structure
+The URL is protected participation information subject to backend authorization.
+The application does not use the Google Meet API, create meetings automatically
+or create a separate meeting per Session. A dedicated GoogleMeet domain concept
+requires a later justified and approved requirement.
 
-The primary learning hierarchy is:
+## Google Calendar
 
-CEFR Level
-→ Course
-→ Lesson
-→ Vocabulary
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
 
----
-
-# 8. CEFR Levels
-
-The platform organizes English learning according to CEFR levels:
-
-- A1 — Beginner
-- A2 — Elementary
-- B1 — Intermediate
-- B2 — Upper Intermediate
-- C1 — Advanced
-- C2 — Proficiency
-
-CEFR Levels belong to the platform.
-
-Teachers do not create custom CEFR levels.
-
-Courses are associated with an appropriate CEFR level.
+This is approved architecture, not implemented integration.
 
 ---
 
-# 9. Course
+# 8. Assignments, Results, Progress and Participant Reviews
 
-A Course represents a structured collection of Lessons.
+Assignments belong to Sessions and use ACTIVE/CANCELLED. Any Submission prevents hard
+deletion of its Assignment. There is one current Submission per Student/Assignment, using
+DRAFT/SUBMITTED/GRADED; no revision-history, result or grading table is introduced. Score,
+feedback and grading metadata remain on Submission. Only the owning Teacher grades, and a
+score cannot exceed Assignment max_score. A numeric score is not made mandatory merely by
+GRADED status.
 
-Each Course:
+Supabase Storage holds Teacher avatars, Course thumbnails, Assignment files, Submission
+files and refund proof. PostgreSQL stores paths/references and applicable metadata, never
+file bytes, base64 or temporary signed URLs. Resolve each path within an explicitly
+configured bucket for its usage; exact bucket identifiers remain configuration, and the
+path/bucket mapping must be fixed before integration. Spring Boot authorizes access; Storage
+does not replace backend business authorization.
 
-- belongs to one CEFR Level
-- has one primary Teacher
-- contains multiple Lessons
-- may have Standard or Premium access
-- may contain enrollment and progress information
+Participant feedback is unique per Enrollment, can be created only for a COMPLETED
+Enrollment and has a rating from 1 to 5. No aggregate rating column is stored.
+Editing/moderation details not supplied by these decisions remain open.
 
-Example:
-
-A1
-→ Everyday English A1
-→ Teacher A
-
-Another Teacher may create another Course at the same CEFR level.
-
-Example:
-
-A1
-→ Basic Vocabulary A1
-→ Teacher B
+Students see their own results/progress; Teachers monitor only owned Courses.
+Progress/statistics are derived; exact formulas remain open. Retired assessment
+engines and attendance tracking are not introduced.
 
 ---
 
-# 10. Course Enrollment
-
-Students enroll in Courses before using them as part of their learning program.
-
-Enrollment allows the system to track:
-
-- My Courses
-- Course progress
-- Lesson progress
-- Student enrollment counts
-- Course learning activity
-- Course completion
-
-Free Courses may use a free enrollment action.
-
-Premium Courses require appropriate Premium access.
+V1 uses users.locked as its account-blocking mechanism: a locked account cannot authenticate
+or use normal account functionality. There is no separate disabled, enabled or
+account_status field/lifecycle. Email uses lowercase(trim(inputEmail)) for storage/login; a verified email
+change retains the old email until successful verification of the new one. Password reset
+revokes all refresh sessions; logged-in password change revokes other sessions while
+preserving the current session. Raw refresh, verification and reset secrets are not
+persisted.
 
 ---
 
-# 11. Lesson
+# 9. Access, Ownership and Administration Principles
 
-Courses are divided into Lessons.
+Spring Boot owns authentication, authorization and business rules. STUDENT,
+TEACHER and ADMIN are roles; payment or Enrollment state must not become a role.
 
-Lessons should primarily be organized by topic.
+Teacher ownership derives through the parent Course for Sessions, Assignments and
+related teaching resources. Teacher A must not manage Teacher B's Courses,
+Sessions, Assignments, submissions, enrolled-Student teaching information,
+protected participation information or protected payment information.
 
-Examples include:
+A Teacher's payment receiving information must not become manageable by another
+Teacher. Course transaction visibility respects ownership and authorized Admin
+access; it does not grant Admin control of Teacher revenue.
 
-- Greetings
-- Family
-- Food & Drinks
-- Daily Activities
-- School
-- Home
-- Clothes
-- Weather
-- Transportation
-- Shopping
+Student access to protected Course participation resources, including content,
+Assignments and the Meet URL, depends on authoritative Enrollment checks where
+required. Hiding controls in the frontend is insufficient authorization.
 
-Lessons should not primarily be divided only by grammatical part of speech.
-
-Part of speech is vocabulary metadata.
+Admin access is limited to approved administrative responsibilities. Exact
+override/moderation permissions and detailed access contracts belong to later rules.
 
 ---
 
-# 12. Lesson Learning Flow
+# 10. Web Experience and Technical Baseline
 
-The primary Lesson learning experience is:
+The application is responsive and browser-based.
 
-Learn Vocabulary
-→ Fill Word
-→ Listening
-→ Quiz
-→ Result
-→ Progress
-→ Review
+- Student workflows are mobile-first and usable from phone browsers, tablets and desktops.
+- Teacher workflows are responsive and primarily desktop-oriented for Course,
+  Session and Assignment management.
+- Admin workflows are responsive and primarily desktop-oriented for administration.
+- No native mobile application is required.
 
-The system may allow Students to repeat learning activities.
+Preserve the approved technical direction:
 
-The exact requirements for mandatory ordering and Lesson completion will be defined later in Business Rules.
+- Frontend: Next.js, TypeScript and responsive web.
+- Backend: Java Spring Boot, Spring Security/JWT and REST API.
+- Architecture: modular monolith with feature-based organization.
+- Database: PostgreSQL, with Supabase-hosted PostgreSQL for development.
+- Local PostgreSQL remains supported for established development/testing needs.
 
----
+Browser -> Next.js -> Spring Boot REST API -> PostgreSQL
 
-# 13. Vocabulary
+The backend owns authentication, authorization, business rules, ownership checks,
+Enrollment access checks and persistence access. The frontend must not directly
+access PostgreSQL/Supabase. Supabase provides database hosting, not application
+identity or authorization.
 
-Vocabulary is a core shared resource of the platform.
-
-Vocabulary should be reusable between different Lessons and Teachers when appropriate.
-
-A vocabulary entry may contain:
-
-- word
-- IPA / pronunciation
-- CEFR level
-- pronunciation audio
-- one or more vocabulary senses
+Do not introduce Supabase Auth, Data API, frontend database access, supabase-js or
+RLS as application authorization. Preserve existing connectivity and approved
+toolchain decisions; no new hosting/deployment choice is made here.
 
 ---
 
-# 14. Vocabulary Sense
+# 11. Out-of-Scope and Retired Capabilities
 
-A word may contain multiple senses.
+The retired business scope is not an active requirement:
 
-Each sense may contain:
+- Vocabulary learning and the CEFR vocabulary hierarchy;
+- Dictionary integration and vocabulary audio;
+- vocabulary Lessons, Fill Word, Listening exercises and Quiz;
+- the old exercise/attempt/scoring/mastery model and weak vocabulary;
+- saved vocabulary and vocabulary Review;
+- Standard/Premium tiers, Premium gating, subscription access and subscription revenue.
 
-- part of speech
-- English definition
-- Vietnamese meaning
-- example sentence
+Standard/Premium are not authorization roles and are absent from the active product.
 
-Example:
+External Meet-based tutoring is in scope. Built-in video conferencing, Meet API
+integration, automatic meeting creation and a meeting-per-Session design are not.
 
-`book`
+The platform does not hold Course tuition before distributing it. Direct payments
+to Teachers do not approve wallets, escrow, commission, platform payouts,
+withdrawals or revenue sharing. Full Teacher-performed refunds with Admin
+verification are approved; no accounting/expense subsystem is introduced.
 
-Sense 1:
-
-- Part of speech: noun
-- Meaning: a written or printed work
-
-Sense 2:
-
-- Part of speech: verb
-- Meaning: to reserve something
-
-When adding vocabulary to a Lesson, a Teacher may select the appropriate sense for the Lesson context.
+Do not add native applications, microservices, chat/social features, AI tutoring,
+certificates, leaderboards, complex gamification or unapproved infrastructure.
 
 ---
 
-# 15. Vocabulary Data Sources
+# 12. Unresolved Decisions
 
-Teachers may search for vocabulary.
+| Area | Remaining clarification; approved V1 decisions above are not reopened |
+| --- | --- |
+| Provider contracts | Physical V1 omits provider_account_ref/provider_order_id and provider-order uniqueness. Adapter mapping/authenticity and transaction idempotency remain integration work, not a physical gate; no unverified provider-wide transaction-ID guarantee. |
+| Accounts/security | Canonical email is lowercase(trim(inputEmail)); password encoding/transport/rotation/replay, resend controls and operation-specific review contracts remain implementation gates. Locked is the sole account-blocking mechanism. |
+| Physical restrictions | Resolved: nullable draft Meet URL with publication validation; required deadline; NUMERIC(5,2) scores; positive minimum; fixed planned Session count and unique numbering; complete 0<discount<100 window; VND only. |
+| Calendar | One organizational account and one configured Calendar; backend-configured calendar ID, one event per Session, unique non-null (provider, external_event_id). Execution/retry/reminder details remain integration work. |
+| Storage | Fixed bucket/path mapping, upload limits and file validation/delivery contracts; no binary or signed-URL persistence. |
+| Workflow edges | Detailed publication/completion validations, first-start cutoff under schedule changes, cancellation/re-entry and late-payment reconciliation; do not invent extra lifecycle states or refund eligibility policy. |
+| Progress/reporting | Indicators, formulas, filters and time boundaries; derive from authoritative data without progress/statistics tables. |
+| Privacy/operations | Detailed retention periods, feedback editing/moderation, unrelated Admin overrides, UI/API details and deployment/production operations. |
 
-The system should first determine whether appropriate vocabulary already exists in the platform vocabulary database.
-
-Conceptual flow:
-
-Teacher searches vocabulary
-→ Search Platform Vocabulary
-→ If found: reuse vocabulary
-→ If not found: request data from approved Dictionary Provider
-→ Teacher reviews/selects vocabulary data
-→ Vocabulary becomes available for Lesson use
-
-Potential dictionary data includes:
-
-- word
-- IPA
-- part of speech
-- English definition
-- example
-- pronunciation audio
-
-The final Dictionary Provider has not yet been selected.
-
-Licensing, caching, storage, and redistribution requirements must be reviewed before selecting a provider.
+These clarifications do not reopen the approved 22-table scope or authorize execution.
 
 ---
 
-# 16. Vocabulary Audio
-
-Vocabulary pronunciation may be obtained from an approved Dictionary Provider.
-
-Where supported, pronunciation may include:
-
-- UK pronunciation
-- US pronunciation
-
-Example sentence audio may later use a Text-to-Speech provider.
-
-The exact audio architecture and provider remain undecided.
-
----
-
-# 17. Exercise Types
-
-The initial system contains three primary exercise groups.
-
-## 17.1 Fill Word
-
-Fill Word evaluates vocabulary recall and spelling.
-
-A Fill Word question may show:
-
-- IPA
-- English definition
-- partially hidden vocabulary
-
-Example:
-
-IPA:
-
-`/ˈbjuː.tɪ.fəl/`
-
-Definition:
-
-`pleasing the senses or mind`
-
-Question:
-
-`b _ _ _ _ _ _ l`
-
-Student enters:
-
-`beautiful`
-
----
-
-## 17.2 Listening
-
-Listening evaluates recognition of spoken vocabulary.
-
-Possible formats include:
-
-### Listen and Choose
-
-Student listens to pronunciation and selects the correct vocabulary from multiple options.
-
-### Listen and Type
-
-Student listens to pronunciation and types the vocabulary word.
-
----
-
-## 17.3 Quiz
-
-Quiz evaluates vocabulary understanding.
-
-Quiz questions may include:
-
-- word → definition
-- definition → word
-- IPA → word
-- sentence/context → word
-
-Quiz design may evolve while remaining within vocabulary-learning objectives.
-
----
-
-# 18. Score and Attempts
-
-The system records Student exercise activity.
-
-Potential tracked information includes:
-
-- attempt
-- correct answers
-- incorrect answers
-- score
-- accuracy
-- completion status
-
-Exact score calculations will be defined in Business Rules.
-
----
-
-# 19. Vocabulary Mastery
-
-The platform should track learning performance at vocabulary level where possible.
-
-Example:
-
-beautiful — 95%
-environment — 82%
-education — 74%
-development — 42%
-
-Vocabulary-level performance can be used to identify weak vocabulary.
-
-The exact mastery calculation has not yet been finalized.
-
----
-
-# 20. Weak Vocabulary
-
-The system should identify vocabulary that a Student frequently answers incorrectly or has low mastery for.
-
-Weak vocabulary can be used for targeted review.
-
-Advanced personalized weak-vocabulary training may be a Premium feature.
-
----
-
-# 21. Vocabulary Search
-
-Vocabulary Search is a core Student feature.
-
-Students can search vocabulary outside the Course learning flow.
-
-Search results may provide:
-
-- word
-- IPA
-- pronunciation audio
-- part of speech
-- English definition
-- Vietnamese meaning
-- example
-- CEFR level
-
-Standard Students should receive useful basic dictionary information.
-
-Premium may provide deeper vocabulary information.
-
----
-
-# 22. Saved Vocabulary
-
-Students can save vocabulary.
-
-Saved vocabulary is stored in:
-
-`My Vocabulary`
-
-My Vocabulary allows Students to maintain a personal vocabulary collection.
-
-Saved vocabulary may be used as a source for future review and exercises.
-
----
-
-# 23. Vocabulary Review
-
-Review is part of the learning system.
-
-Review vocabulary may come from:
-
-- weak vocabulary
-- saved vocabulary
-- incorrectly answered vocabulary
-- recently learned vocabulary
-
-The first project version does not require a complex spaced-repetition algorithm.
-
-Spaced repetition may be considered as a future improvement.
-
----
-
-# 24. Learning Progress
-
-Students should be able to track their learning progress.
-
-Potential progress information includes:
-
-- Course progress
-- Lesson progress
-- exercise scores
-- accuracy
-- vocabulary mastery
-- weak vocabulary
-- completed Lessons
-- learning history
-
-Premium may provide more detailed analytics.
-
----
-
-# 25. Learning History
-
-The platform should retain relevant Student learning activity.
-
-Examples:
-
-- completed exercise
-- completed Quiz
-- Lesson activity
-- score
-- date/time
-- attempt
-
-Learning history must not be deleted simply because Premium access expires.
-
----
-
-# 26. Subscription
-
-Premium uses a subscription model.
-
-Initial subscription periods:
-
-- Monthly
-- Yearly
-
-Conceptual flow:
-
-Standard Student
-→ Upgrade Premium
-→ Choose Plan
-→ Payment
-→ Successful Transaction
-→ Activate Subscription
-→ Premium Access
-
----
-
-# 27. Subscription Expiration
-
-When Premium expires:
-
-- Student account remains active
-- Student returns to Standard access
-- learning history remains
-- Course history remains
-- saved vocabulary remains
-- learning progress remains
-- previous scores remain
-
-Premium-only functionality becomes unavailable until Premium is renewed.
-
----
-
-# 28. Payment
-
-The current business model uses Student Premium subscriptions as the platform revenue source.
-
-The project does not currently include:
-
-- Teacher commission
-- Teacher payout
-- Teacher withdrawal
-- Course-by-course Teacher revenue sharing
-- marketplace financial settlement
-
-The exact payment provider has not yet been selected.
-
----
-
-# 29. Admin Revenue Analytics
-
-Admin should be able to view total verified successful-payment revenue and
-revenue over a selected time range, separately by currency. Revenue grouping
-uses stored plan identity or purchased Monthly/Yearly evidence, not current prices.
-
-Potential metrics include:
-
-- revenue today
-- monthly revenue
-- yearly revenue
-- custom date-range revenue
-- number of successful transactions
-- number of active Premium subscriptions
-
----
-
-# 30. Teacher Analytics
-
-Teachers should be able to view analytics related to their own Courses.
-
-Potential information includes:
-
-- number of Courses
-- number of enrollments
-- active Students
-- Course completion
-- average score
-- difficult vocabulary
-
-Teachers should not have access to platform-wide revenue information.
-
----
-
-# 31. Admin System Analytics
-
-The operational Overview Dashboard shall include total Students, Teachers and
-Courses, distinct currently entitled Premium Students, total and selected-range
-verified revenue, new subscriptions, renewals, successful and confirmed-failed
-payment counts, and revenue by plan where historical data supports it.
-
-Other Admin analytics may include:
-
-## Users
-
-- total users
-- new users
-- active users
-- Standard Students
-- Premium Students
-
-## Teachers
-
-- total Teachers
-- active Teachers
-
-## Learning Content
-
-- Courses
-- Lessons
-- vocabulary
-- enrollments
-
-## Business
-
-- active subscriptions
-- transactions
-- revenue
-
----
-
-# 32. Web Platform Requirements
-
-The system is a web platform.
-
-No native mobile application is required.
-
-## Student UI
-
-- mobile-first
-- responsive
-- touch-friendly
-- optimized for vocabulary learning on smartphones
-- usable on desktop
-
-## Teacher UI
-
-- responsive
-- optimized for desktop content management
-- functional on mobile
-
-## Admin UI
-
-- responsive
-- optimized for desktop dashboards
-- functional on mobile
-
----
-
-# 33. Intended Technology Direction
-
-The intended technology direction is currently:
-
-## Frontend
-
-- Next.js
-- TypeScript
-- responsive web design
-
-## Backend
-
-- Java
-- Spring Boot
-
-## Database
-
-- PostgreSQL
-
-Additional technology choices will be made during architecture design.
-
----
-
-# 34. Current Core Scope
-
-The current core project includes:
-
-- authentication
-- Student / Teacher / Admin roles
-- Standard / Premium Student access
-- CEFR levels
-- multiple Teachers
-- Teacher-owned Courses
-- Course enrollment
-- topic-based Lessons
-- shared Vocabulary
-- vocabulary senses
-- IPA
-- pronunciation audio
-- dictionary integration
-- Learn Vocabulary
-- Fill Word
-- Listening
-- Quiz
-- score
-- attempts
-- progress
-- vocabulary mastery
-- weak vocabulary
-- vocabulary search
-- saved vocabulary
-- My Vocabulary
-- review
-- learning history
-- subscription
-- payment
-- transactions
-- Teacher analytics
-- Admin analytics
-- revenue analytics
-
----
-
-# 35. Out of Scope for Initial Version
-
-The following are currently outside the initial project scope:
-
-- native Android application
-- native iOS application
-- live video classes
-- video calls
-- Teacher/Student chat
-- social network
-- forum
-- Teacher marketplace
-- Teacher commission
-- Teacher payout
-- certificates
-- leaderboards
-- complex gamification
-- AI chatbot
-- AI speaking evaluation
-- placement test
-- complex spaced repetition
-
-These features may be considered future improvements.
-
----
-
-# 36. Open Decisions
-
-The following decisions remain intentionally unresolved:
-
-1. Dictionary API/provider
-2. Audio storage strategy
-3. Text-to-Speech provider
-4. Payment provider
-5. Premium pricing
-6. Exact Standard/Premium feature matrix
-7. Score calculation
-8. Vocabulary mastery calculation
-9. Course completion rules
-10. Lesson completion rules
-11. Content approval workflow
-12. Detailed Teacher permissions
-13. Detailed Admin permissions
-14. Database schema
-15. API architecture
-16. UI design system
-17. Deployment architecture
-
-These decisions should be addressed in later requirements, business-rule, architecture, and implementation stages.
-
----
-
-# 37. Project Principle
-
-The project should prioritize the complete core learning workflow:
-
-Discover
-→ Enroll
-→ Learn
-→ Practice
-→ Assess
-→ Track
-→ Review
-
-Teacher functionality exists to create and manage high-quality learning content.
-
-Admin functionality exists to manage the platform and its business operations.
-
-New features should not be added unless they clearly support these goals or are explicitly approved as part of the project scope.
+# 13. Documentation Workflow and Scope Control
+
+AGENTS.md is the current project instruction authority. This specification records
+high-level scope, including the explicitly approved direct-to-Teacher payment
+clarification. Conflicting legacy business content is not current approval.
+
+Canonical responsibilities remain:
+
+- REQUIREMENTS defines detailed functional/non-functional requirements.
+- BUSINESS_RULES defines approved business constraints.
+- USE_CASES defines actor interactions and workflows.
+- DOMAIN_MODEL defines domain concepts and relationships.
+- ARCHITECTURE, DATABASE_DESIGN and API_DESIGN define their respective later designs.
+
+Follow the established development order: Requirements, Business Rules, Use Cases,
+Domain Design, System Architecture, Database Design, UI/UX Design, API Design,
+Implementation, Testing and Deployment. Existing documents do not imply that
+their legacy business scope is approved for the tutoring platform.
+
+Preserve completed TASK-001, TASK-002 and TASK-003 infrastructure and verification
+evidence, including PostgreSQL/Supabase connectivity. This is a scope migration,
+not a repository restart or invalidation of completed foundations.
+
+Rewriting this specification does not authorize implementation, schema changes or
+downstream edits. Keep detailed designs, formal requirement IDs and implementation
+planning in their own documents, and obtain approval before expanding scope.

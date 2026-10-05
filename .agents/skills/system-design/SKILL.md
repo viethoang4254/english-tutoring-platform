@@ -1,13 +1,13 @@
 ---
 name: system-design
-description: Use when designing or reviewing the architecture, modules, boundaries, data flow, backend/frontend responsibilities, external integrations, authorization architecture, code organization, or technical structure of the English Learning Platform.
+description: Use when designing or reviewing the architecture, modules, boundaries, data flow, backend/frontend responsibilities, external integrations, authorization architecture, code organization, or technical structure of the English Tutoring Platform.
 ---
 
 # System Design
 
 ## Purpose
 
-Use this skill when translating approved English Learning Platform requirements into technical system design.
+Use this skill when translating approved English Tutoring Platform requirements into technical system design.
 
 Do not use architecture to invent new business requirements.
 
@@ -16,6 +16,13 @@ Architecture must serve the approved requirements and Business Rules.
 ---
 
 # Required Context
+
+Current AGENTS.md is authoritative during the tutoring-scope transition.
+Conflicting legacy business rules in other documents are superseded; consult
+reconciled requirements or compatible technical/security guidance. Report remaining
+ambiguities rather than treating historical plans as current approval.
+Preserve completed TASK-001/TASK-002/TASK-003 infrastructure and verification evidence.
+This skill does not authorize schema changes, implementation or unrelated edits.
 
 Before making major system-design decisions, consult:
 
@@ -30,7 +37,7 @@ When available, also consult:
 6. `docs/ARCHITECTURE.md`
 7. existing architecture documentation
 
-Use `english-learning-domain` when domain interpretation is required.
+Use `english-tutoring-domain` when domain interpretation is required.
 
 Use `requirements-analysis` when requirements are incomplete.
 
@@ -58,21 +65,17 @@ Backend:
 
 Database:
 
-- Supabase-hosted PostgreSQL (managed database hosting)
+- PostgreSQL, with Supabase-hosted development PostgreSQL
 
 Authentication:
 
 - JWT Access Token
 - Refresh Token
 
-External integrations may include:
-
-- Dictionary Provider
-- pronunciation/audio provider
-- Text-to-Speech provider
-- Payment Provider
-
-Exact providers remain undecided.
+VietQR is the direct-to-Teacher payment direction; Google Calendar uses a system/
+organization account with Session event mapping. Exact integration contracts remain
+gated. Supabase Storage is approved for bounded file uses. Google Meet remains one
+externally created, manually supplied protected Course URL, not a Meet API integration.
 
 ---
 
@@ -92,28 +95,8 @@ Spring Boot API
 PostgreSQL
 ```
 
-Spring Boot may communicate with approved external providers.
-
-Conceptually:
-
-```text
-                     Browser
-                        │
-                        ▼
-                     Next.js
-                        │
-                        ▼
-                   Spring Boot
-                        │
-          ┌─────────────┼─────────────┐
-          ▼             ▼             ▼
-     PostgreSQL     Dictionary      Payment
-                     Provider       Provider
-                        │
-                        ▼
-                  Audio / TTS
-                  when required
-```
+Spring Boot may communicate with external providers only under separately approved
+integration decisions. Keep core business state backend-authoritative.
 
 Do not introduce microservices by default.
 
@@ -129,25 +112,10 @@ The project uses feature-based organization.
 Code should primarily be organized around business capabilities rather than
 placing all unrelated features into global technical-layer directories.
 
-Backend examples:
-
-- auth
-- user
-- teacher
-- course
-- lesson
-- vocabulary
-- exercise
-- learning
-- progress
-- review
-- subscription
-- payment
-- analytics
-
-These are modules/features inside the modular monolith.
-
-They are not separate deployable microservices.
+Boundary candidates include auth/user, teacher, course, session/scheduling,
+enrollment, payment, assignment, review, category and calendar integration.
+These are candidates inside the modular monolith, not required packages, tables,
+separate services or authorization to implement them.
 
 Prefer high cohesion within a feature and low coupling between features.
 
@@ -167,27 +135,8 @@ course/
 └── mapper/
 ```
 
-instead of organizing the entire application primarily as:
-
-```text
-controller/
-├── CourseController
-├── LessonController
-├── VocabularyController
-└── PaymentController
-
-service/
-├── CourseService
-├── LessonService
-├── VocabularyService
-└── PaymentService
-
-repository/
-├── CourseRepository
-├── LessonRepository
-├── VocabularyRepository
-└── PaymentRepository
-```
+Group business capabilities rather than placing unrelated features into global
+controller/service/repository directories.
 
 Each feature may contain only the layers it actually needs.
 
@@ -200,7 +149,6 @@ Possible feature layers include:
 - dto
 - mapper
 - provider
-- evaluator
 - exception
 
 Do not create empty directories merely for structural symmetry.
@@ -209,121 +157,11 @@ Do not create empty directories merely for structural symmetry.
 
 # Backend Package Direction
 
-The intended conceptual Spring Boot package structure is:
-
-```text
-com.englishlearning
-│
-├── features/auth/
-│   ├── controller/
-│   ├── service/
-│   ├── dto/
-│   │   ├── request/
-│   │   └── response/
-│   ├── repository/
-│   ├── security/
-│   │   ├── JwtAuthenticationFilter
-│   │   └── JwtTokenProvider
-│   └── exception/
-│
-├── user/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   └── mapper/
-│
-├── teacher/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   └── mapper/
-│
-├── course/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   └── mapper/
-│
-├── lesson/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   └── mapper/
-│
-├── vocabulary/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   ├── mapper/
-│   └── provider/
-│
-├── exercise/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   ├── mapper/
-│   └── evaluator/
-│
-├── learning/
-│   ├── service/
-│   ├── repository/
-│   └── entity/
-│
-├── progress/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   └── dto/
-│
-├── review/
-│   ├── controller/
-│   ├── service/
-│   └── dto/
-│
-├── subscription/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   └── dto/
-│
-├── payment/
-│   ├── controller/
-│   ├── service/
-│   ├── repository/
-│   ├── entity/
-│   ├── dto/
-│   └── provider/
-│
-├── analytics/
-│   ├── controller/
-│   ├── service/
-│   └── dto/
-│
-└── common/
-    ├── exception/
-    ├── response/
-    ├── validation/
-    └── util/
-```
-
-This structure is conceptual.
-
-Do not automatically create every directory shown above.
-
-Only create a package/layer when implementation requires it.
+Preserve existing technical packages and feature-based organization.
+Authentication-specific security belongs under `features/auth/security/`.
+Use the Course example only when implementation needs those layers.
+New business boundaries are candidates, not a scaffold or database design.
+Do not rename `com.englishlearning` merely because the product title changed.
 
 ---
 
@@ -456,30 +294,10 @@ Provider abstractions isolate external systems from core application logic.
 
 Examples:
 
-- DictionaryProvider
-- TextToSpeechProvider
-- PaymentProvider
+- a payment adapter, if the eventual method requires one
+- a calendar adapter, if the eventual integration requires one
 
 Vendor-specific code should remain behind appropriate provider boundaries.
-
----
-
-## Evaluator
-
-Exercise evaluation logic may use dedicated evaluator components when useful.
-
-Examples:
-
-```text
-exercise/
-└── evaluator/
-    ├── FillWordEvaluator
-    ├── ListeningEvaluator
-    └── QuizEvaluator
-```
-
-Do not introduce evaluator abstractions unless they improve clarity or avoid
-large conditional business logic.
 
 ---
 
@@ -501,7 +319,6 @@ is preferable to:
 auth/AuthUserRepository
 user/UserRepository
 payment/PaymentUserRepository
-subscription/SubscriptionUserRepository
 ```
 
 when all represent the same User persistence concept.
@@ -559,10 +376,10 @@ The frontend must not be the sole authority for:
 
 - authentication validity
 - authorization
-- Premium entitlement
+- Enrollment-based participation access
 - Course ownership
 - payment verification
-- score integrity
+- persisted submission/result integrity
 - protected business rules
 
 The browser is an untrusted client for protected business state.
@@ -587,12 +404,8 @@ src/
 ├── features/
 │   ├── auth/
 │   ├── course/
-│   ├── lesson/
-│   ├── vocabulary/
-│   ├── exercise/
 │   ├── progress/
 │   ├── review/
-│   ├── subscription/
 │   ├── payment/
 │   └── analytics/
 │
@@ -652,14 +465,11 @@ Spring Boot should be authoritative for:
 - account status
 - role enforcement
 - Course ownership
-- Premium entitlement
+- Enrollment-based participation access
 - business rules
 - enrollment rules
 - learning submissions
-- scoring
 - progress updates
-- mastery calculation
-- subscription state
 - payment verification
 - protected data access
 
@@ -674,36 +484,20 @@ Next.js uses the Spring Boot REST API for core data; Spring Boot accesses the da
 through Spring Data JPA / Hibernate. PostgreSQL nodes in diagrams refer to this database.
 Keep the schema portable PostgreSQL where practical and domain concepts application-owned.
 
-Follow `docs/ARCHITECTURE.md` section 50 for Supabase service boundaries: retain Spring
+Follow current AGENTS.md and compatible infrastructure decisions for Supabase
+service boundaries: retain Spring
 Security + JWT in `features/auth/security/`; do not introduce Supabase Auth, duplicate
 application users into it, or add direct frontend database access or other Supabase
 services without explicit approval and documented requirements. RLS does not replace
 Spring Boot authorization. Use secure environment-based connections, never hardcoded
-secrets. Local PostgreSQL remains possible for development/testing.
+secrets. Preserve verified Session Pooler/TLS configuration and local PostgreSQL
+support. Do not enable Supabase Data API, Auth, frontend supabase-js or RLS as
+application authorization. Preserve TASK-003 evidence; no reconnection or schema
+mutation is required by the domain change.
 
-PostgreSQL should persist approved platform data such as:
-
-- users
-- roles
-- Student information
-- Teacher information
-- Courses
-- Lessons
-- Vocabulary
-- Vocabulary Senses
-- Course enrollments
-- exercises
-- attempts
-- answers
-- learning progress
-- Saved Vocabulary
-- subscriptions
-- transactions
-- authentication-related persistent state when required
-
-The exact schema belongs to database-design work.
-
-Do not prematurely create tables during high-level architecture design.
+Persistence must follow the later approved database design. Domain concepts do
+not mandate tables; do not generate schema from the legacy design or infer a new
+table count. No new entities, migrations or database objects are authorized here.
 
 ---
 
@@ -724,12 +518,7 @@ The architecture must support:
 - TEACHER
 - ADMIN
 
-STANDARD/PREMIUM is separate from role authorization.
-
-Do not model:
-
-- ROLE_STANDARD
-- ROLE_PREMIUM
+Payment and Enrollment state are separate from role authorization.
 
 Authentication answers:
 
@@ -739,9 +528,9 @@ Authorization answers:
 
 > What is this user allowed to do?
 
-Premium entitlement answers:
+Participation authorization asks:
 
-> Does this Student currently have Premium access?
+> Does this Student have the required valid Enrollment for this resource?
 
 Keep these concerns separate.
 
@@ -831,8 +620,8 @@ The Access Token must not contain:
 - API secrets
 - unnecessary sensitive personal information
 
-Premium state should not be considered permanently authoritative solely because
-a JWT contains a Premium-related claim.
+Mutable ownership, account eligibility and Enrollment access must not be treated
+as permanently authoritative solely because a JWT contains a claim.
 
 ---
 
@@ -848,8 +637,9 @@ Refresh Tokens should:
 - support rotation according to the approved security design
 - become invalid when required by security-sensitive account events
 
-The exact Refresh Token persistence model belongs to detailed Auth and
-database design.
+Use the approved hashed refresh_sessions persistence; no access JWT table.
+Reset revokes all refresh sessions; logged-in password change revokes other sessions
+while preserving the current one. Transport/replay details remain gated.
 
 Conceptual flow:
 
@@ -876,8 +666,8 @@ produce a valid Access Token.
 
 Do not store long-lived authentication credentials in `localStorage` by default.
 
-For this web application, prefer secure cookie-based token transport/storage
-where appropriate.
+Browser token transport remains unresolved. If cookies are selected, evaluate
+their security properties together; this skill does not select transport.
 
 Security design must consider:
 
@@ -945,21 +735,14 @@ Do not duplicate User persistence inside Auth.
 
 # Public Registration
 
-Public registration is intended for Students.
+Each User has exactly one role: STUDENT, TEACHER or ADMIN. Student and Teacher registration
+are separate; V1 has no Student-to-Teacher promotion. Teacher business authority requires
+TEACHER role, verified email, an unlocked account and approved onboarding. Application
+snapshots/history are retained, with at most one PENDING application per Teacher; the
+current public TeacherProfile is created after approval and does not rewrite application
+snapshots.
 
-A public user must not be able to register directly as:
-
-- TEACHER
-- ADMIN
-
-A newly registered Student conceptually receives:
-
-```text
-Role: STUDENT
-Access Tier: STANDARD
-```
-
-Teacher and Admin account provisioning must follow authorized project workflows.
+Admin provisioning remains an authorized administrative/system concern.
 
 ---
 
@@ -983,7 +766,7 @@ Do not:
 
 The initial authentication architecture should support:
 
-- Student registration
+- Student and Teacher registration subject to approved workflows
 - Login
 - Logout
 - Current User
@@ -1011,19 +794,16 @@ without explicit approval.
 
 # Account Status
 
-Authentication architecture should support appropriate account states.
+V1 uses users.locked as its account-blocking mechanism: a locked account cannot authenticate
+or use normal account functionality. There is no separate disabled, enabled or
+account_status field/lifecycle. Email uses lowercase(trim(inputEmail)) for storage/login; a verified email
+change retains the old email until successful verification of the new one. Password reset
+revokes all refresh sessions; logged-in password change revokes other sessions while
+preserving the current session. Raw refresh, verification and reset secrets are not
+persisted.
 
-Initial concepts include:
-
-- PENDING_VERIFICATION
-- ACTIVE
-- LOCKED
-- DISABLED
-
-Backend authentication and authorization must consider account status.
-
-A disabled account must not gain access merely because stale frontend state
-claims the account is active.
+Do not invent an AccountStatus enum, disabled or enabled column. Apply current
+eligibility during authentication, refresh and protected access.
 
 ---
 
@@ -1074,7 +854,7 @@ Authorization checks may include:
 - role
 - resource ownership
 - account state
-- active Premium entitlement
+- valid Enrollment where required
 - Course accessibility
 
 Important authorization must be enforced by Spring Boot.
@@ -1121,291 +901,118 @@ Authenticated
 AND
 Role == TEACHER
 AND
+Email verified, unlocked, approved onboarding
+AND
 Course belongs to authenticated Teacher
 ```
 
 A Teacher must not modify another Teacher's Course unless requirements
 explicitly permit it.
 
----
-
-# Premium Authorization
-
-Premium is not a security role.
-
-Premium functionality should conceptually verify:
-
-```text
-Authenticated
-AND
-Role == STUDENT
-AND
-Premium entitlement is active
-```
-
-Premium state must originate from authoritative backend data.
-
-Do not trust:
-
-```text
-premium=true
-```
-
-supplied by the browser.
-
-Do not use a long-lived JWT Premium claim as the sole source of truth for
-subscription entitlement.
+Traverse Session -> Course and Assignment -> Session -> Course for child resources.
+Apply this boundary to submissions, results, enrolled-Student information, progress
+and related payment data; do not infer arbitrary Admin overrides.
 
 ---
 
-# Student Learning Architecture
+# Enrollment Authorization
 
-Student learning should support the conceptual flow:
+Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
+COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
+Free Courses activate participation without fake Payments. Paid participation may reserve a
+seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
+new Enrollment or Payment may begin after the first Session has started. Activation,
+reservation and late-payment handling must be concurrency-safe.
 
-```text
-Course
-→ Lesson
-→ Vocabulary
-→ Exercise
-→ Attempt
-→ Answer
-→ Result
-→ Progress
-→ Mastery
-→ Review
-```
-
-Design data flow so that exercise results can contribute to progress and
-vocabulary-level learning information where required.
+Enforce backend resource/Student authorization; claims and browser success grant no access.
 
 ---
 
-# Exercise Submission
+# Tutoring Participation Architecture
 
-Exercise submission should conceptually follow:
+Assignments belong to Sessions and use ACTIVE/CANCELLED. Any Submission prevents hard
+deletion of its Assignment. There is one current Submission per Student/Assignment, using
+DRAFT/SUBMITTED/GRADED; no revision-history, result or grading table is introduced. Score,
+feedback and grading metadata remain on Submission. Only the owning Teacher grades, and a
+score cannot exceed Assignment max_score. A numeric score is not made mandatory merely by
+GRADED status.
 
-```text
-Student
-   ↓
-Submit answers
-   ↓
-Backend validates authentication
-   ↓
-Backend validates Course/Lesson access
-   ↓
-Backend evaluates answers
-   ↓
-Backend stores attempt/results
-   ↓
-Backend updates applicable learning information
-   ↓
-Response returned to Student
-```
-
-Do not rely on the browser as the trusted scorer for persisted results.
-
----
-
-# Exercise Feature Boundary
-
-Exercise-specific implementation belongs primarily to the `exercise` feature.
-
-Potential structure:
-
-```text
-exercise/
-├── controller/
-├── service/
-├── repository/
-├── entity/
-├── dto/
-└── evaluator/
-```
-
-Exercise evaluation may vary by exercise type.
-
-Core exercise concepts currently include:
-
-- Fill Word
-- Listening
-- Quiz
-
-Do not introduce major exercise categories without approved requirements.
-
----
-
-# Vocabulary Architecture
-
-Vocabulary is shared platform data.
-
-Avoid architecture where every Lesson unnecessarily stores independent copies
-of the same vocabulary information.
-
-Support:
-
-```text
-Vocabulary
-→ Vocabulary Sense
-```
-
-and:
-
-```text
-Lesson
-→ selected Vocabulary/Sense
-```
-
-Exact relationship modeling belongs to database design.
-
-Vocabulary should remain reusable across Lessons and Teachers where appropriate.
-
----
-
-# Vocabulary Feature Boundary
-
-Vocabulary-specific implementation belongs primarily to the `vocabulary`
-feature.
-
-Conceptually:
-
-```text
-vocabulary/
-├── controller/
-├── service/
-├── repository/
-├── entity/
-├── dto/
-├── mapper/
-└── provider/
-```
-
-Provider-specific dictionary integration should not leak throughout the
-Vocabulary domain.
-
----
-
-# Dictionary Integration
-
-External Dictionary access should be isolated behind an application abstraction.
-
-Conceptually:
-
-```text
-VocabularyService
-       ↓
-DictionaryProvider
-       ↓
-Provider Implementation
-       ↓
-External Dictionary API
-```
-
-Do not couple the entire application directly to one provider's response structure.
-
-Provider replacement should not require redesigning the core Vocabulary domain.
-
-Map external responses into internal application representations.
-
----
-
-# Dictionary Licensing Boundary
-
-Architecture must not assume that external dictionary content may automatically
-be stored permanently.
-
-Before deciding to cache, persist, redistribute, or serve provider content,
-consider provider licensing.
-
-This applies especially to:
-
-- definitions
-- example sentences
-- pronunciation audio
-- provider-specific metadata
-
-The final provider and storage strategy remain separate architecture decisions.
-
----
-
-# Audio Architecture
-
-Do not assume all vocabulary has audio.
-
-The design must allow audio availability to vary.
-
-Possible sources may include:
-
-- Dictionary Provider
-- approved stored audio
-- Text-to-Speech
-
-The final strategy depends on licensing and provider decisions.
-
-Listening functionality must define appropriate behavior when required audio
-is unavailable.
+Supabase Storage holds Teacher avatars, Course thumbnails, Assignment files, Submission
+files and refund proof. PostgreSQL stores paths/references and applicable metadata, never
+file bytes, base64 or temporary signed URLs. Resolve each path within an explicitly
+configured bucket for its usage; exact bucket identifiers remain configuration, and the
+path/bucket mapping must be fixed before integration. Spring Boot authorizes access; Storage
+does not replace backend business authorization.
 
 ---
 
 # Review Architecture
 
-Review may use learning information such as:
+Participant feedback is unique per Enrollment, can be created only for a COMPLETED
+Enrollment and has a rating from 1 to 5. No aggregate rating column is stored.
+Editing/moderation details not supplied by these decisions remain open.
 
-- Weak Vocabulary
-- Saved Vocabulary
-- incorrectly answered vocabulary
-- recently learned vocabulary
-
-The initial architecture does not require a complex spaced-repetition engine.
-
-Do not introduce complex SRS infrastructure without approved requirements.
+Do not reuse retired vocabulary-practice models.
 
 ---
 
 # Progress Architecture
 
-Progress should derive from authoritative learning activity.
+Derive authorized progress from authoritative participation/submission information.
+No progress or statistics tables; formulas remain open and browser claims are not results.
 
-Potential concepts include:
+---
 
-- Lesson progress
-- Course progress
-- exercise scores
-- accuracy
-- attempts
-- vocabulary performance
-- mastery
-- Weak Vocabulary
-- Learning History
+# Scheduling and Meeting Boundaries
 
-Do not allow the frontend to directly overwrite authoritative progress state.
+Recurring weekly Course rules generate concrete Sessions before publication. Session
+statuses are SCHEDULED and CANCELLED only. Rescheduling updates the same Session and appends
+old/new times to schedule history. Cancellation preserves the row and session_number,
+optionally records a reason and synchronizes cancellation to its Calendar event.
+V1 has no replacement or automatic make-up Sessions; cancellation never regenerates
+the schedule or changes the fixed planned session_count. Session content is nullable
+protected learning content, never public preview content. V1 has no attendance tracking.
+
+One manual protected Course Meet URL serves all Sessions; no Meet API or Meeting entity.
+
+Google Calendar uses one system/organization account and one configured Calendar,
+not per-user OAuth token storage. The Calendar ID belongs to backend configuration/secrets,
+not Session rows. Each concrete Session maps to one event; Session remains authoritative.
+Synchronize publication, rescheduling and cancellation through durable status/retry;
+external failure must not roll back core Course/Session changes. Attendee emails derive
+from Users and Enrollments without duplicated email or attendee tables; verified email
+changes update relevant future attendees. UNIQUE(session_id, provider) and non-null
+(provider, external_event_id) uniqueness apply within V1's single-calendar boundary.
+Multi-calendar support requires a future migration. Calendar never creates Meet URLs.
 
 ---
 
 # Payment Architecture
 
-Payment must use trusted backend verification.
+Students pay the owning Teacher directly using the VietQR integration direction; the
+platform/Admin does not hold tuition or perform payouts. Payments are separate from
+Enrollments, have immutable price snapshots and use PENDING, CONFIRMED, EXPIRED or
+CANCELLED. An Enrollment may have historical attempts but at most one PENDING Payment.
+Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
+keep their historical account reference.
 
-Conceptually:
+Actual provider/bank transactions may be unmatched. They retain receiving-account context
+when resolvable, independently of Payment matching; an unresolved receiver remains a
+reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
+Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
+transfers are not summed automatically, and late transactions cannot cause overbooking.
 
-```text
-Student
-   ↓
-Checkout
-   ↓
-Payment Provider
-   ↓
-Trusted verification / callback
-   ↓
-Spring Boot
-   ↓
-Transaction
-   ↓
-Subscription
-```
+V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
+applicable full Payment amount under the approved workflow. Teacher performs the bank
+transfer back to the Student and submits proof; Admin verifies completion. Refund statuses
+are PENDING, SUBMITTED, COMPLETED and CANCELLED. Payment remains historical and has no
+REFUNDED status. This does not authorize platform custody, payouts, commissions, escrow or
+accounting.
 
-Do not activate Premium from a frontend redirect alone.
-
-Design payment integration behind a provider abstraction when practical.
+Conceptual provider fields and identifier scopes require verification or omission
+before executable migration. Do not fabricate provider API contracts.
 
 ---
 
@@ -1425,64 +1032,25 @@ payment/
 └── provider/
 ```
 
-Provider-specific payment payloads should not spread throughout Subscription
-or User logic.
+If a provider is selected, its payloads should not spread through core business
+logic. The example does not approve a provider integration.
 
 ---
 
 # Payment Provider Boundary
 
-Conceptually:
-
-```text
-PaymentService
-      ↓
-PaymentProvider
-      ↓
-External Payment Provider
-```
-
-The core application should consume internal payment representations rather
-than depend everywhere on vendor-specific payloads.
+Isolate verified VietQR/provider payloads from core payment/Enrollment logic.
+Conceptual provider fields are not verified API contracts; do not scaffold an
+adapter or resolve unknown authenticity/identifier details without evidence.
 
 ---
 
-# Subscription Architecture
+# Payment and Enrollment Separation
 
-Subscription state should be distinct from Student role.
-
-Conceptually:
-
-```text
-User
-→ Student
-→ Subscription
-→ Plan / Entitlement
-```
-
-The system must be able to determine whether Premium is currently active.
-
-Historical learning data must not depend on an active subscription for existence.
-
-When Premium expires, approved learning history should remain intact according
-to Business Rules.
-
----
-
-# Subscription and Payment Separation
-
-Subscription answers:
-
-> What access entitlement does this Student currently have?
-
-Payment answers:
-
-> What verified financial transaction occurred?
-
-Do not make these the same domain concept.
-
-A successful verified payment may cause subscription activation or extension,
-but transaction history and subscription state remain distinct concerns.
+Payment records the relevant financial transaction; Enrollment governs Course
+participation. Successful confirmation may activate/validate the corresponding
+Enrollment, but these remain distinct concepts. Use approved Payment/Enrollment
+states and retained history; exact edge-transition contracts remain gated.
 
 ---
 
@@ -1509,9 +1077,11 @@ Admin analytics may include:
 - total Students
 - Courses
 - enrollments
-- active subscriptions
 - transactions
-- revenue over time
+- authorized transaction statistics
+
+Do not label Teacher Course payments as Admin revenue. Admin is not the Course
+owner, payment recipient or default Assignment grader; overrides remain unresolved.
 
 Avoid storing redundant aggregate data unless there is a demonstrated need.
 
@@ -1544,43 +1114,18 @@ Student functionality must remain usable from smartphone browsers.
 
 # External Integration Boundaries
 
-External services should be isolated from core business logic.
-
-Potential abstractions:
-
-```text
-DictionaryProvider
-TextToSpeechProvider
-PaymentProvider
-```
-
-Core domain code should not depend heavily on vendor-specific payloads.
-
-Map external data into internal application/domain representations.
-
-External provider failure must not automatically corrupt core platform state.
+Isolate approved external interactions from core logic and map vendor-specific
+payloads into internal representations where needed. Provider failure must not
+corrupt core state. Payment and Calendar implementations remain undecided; a
+manually supplied Course Meet URL does not require an external API adapter.
 
 ---
 
 # API Design Direction
 
-API endpoints should represent application capabilities clearly.
-
-Do not design APIs solely as direct CRUD wrappers around database tables.
-
-Examples of capability-oriented endpoints may include:
-
-```text
-POST /api/auth/login
-POST /api/auth/refresh
-POST /api/courses/{courseId}/enroll
-POST /api/exercises/{exerciseId}/attempts
-POST /api/subscriptions/checkout
-```
-
-These examples are conceptual.
-
-Exact endpoint definitions belong to API-design work.
+Design REST APIs around approved use cases, not database-table CRUD.
+Exact routes and DTOs belong to reconciled API design. Historical endpoint counts
+and legacy business routes do not constrain the tutoring model.
 
 ---
 
@@ -1618,9 +1163,9 @@ consider transactional consistency.
 Potential examples include:
 
 - Student enrollment
-- exercise submission
+- approved Assignment submission
 - verified payment processing
-- subscription activation
+- approved Enrollment activation
 - password-reset completion
 
 Exact transaction boundaries belong to detailed implementation design.
@@ -1636,10 +1181,9 @@ Architecture should account for failures such as:
 - unauthorized access
 - resource ownership violations
 - missing resources
-- inactive/disabled account
-- Premium restriction
-- external Dictionary failure
-- missing audio
+- locked account or ineligible Teacher onboarding
+- participation access denied
+- approved external integration failure
 - payment failure
 - database failure
 - invalid or expired authentication token
@@ -1685,7 +1229,7 @@ System design must consider:
 - authorization
 - role enforcement
 - resource ownership
-- Premium entitlement
+- Enrollment-based participation access
 - validation
 - secret management
 - protected API endpoints
@@ -1716,7 +1260,7 @@ Safe security events may be logged where appropriate, such as:
 - successful login
 - failed login
 - password changed
-- account disabled
+- account locked
 
 subject to privacy and security requirements.
 
@@ -1730,8 +1274,7 @@ Prioritize:
 
 - sensible database queries
 - pagination for large management lists
-- efficient Vocabulary Search
-- reasonable audio delivery
+- efficient approved discovery queries
 - avoiding obvious N+1 query problems
 - avoiding unnecessary repeated external API calls
 
@@ -1786,19 +1329,14 @@ full browser execution.
 
 Important areas include:
 
-- Student registration
+- Student and Teacher registration subject to approved workflows
 - authentication
 - JWT validation
 - Refresh Token behavior
 - authorization
 - Course ownership
-- Premium access
 - enrollment
-- exercise evaluation
-- scoring
 - progress
-- mastery
-- subscription
 - payment verification
 
 Detailed testing strategy belongs to testing design.
@@ -1837,9 +1375,8 @@ Examples:
 
 - auth
 - course
-- vocabulary
-- exercise
-- subscription
+- session/scheduling
+- assignment
 - payment
 
 Avoid placing functionality in `common` merely because ownership is unclear.
@@ -1857,8 +1394,8 @@ Examples:
 - authentication
 - authorization
 - Course ownership
-- Premium entitlement
-- score
+- Enrollment-based participation access
+- persisted results
 - payment verification
 
 ## 7. Identify Data Flow
@@ -1880,17 +1417,15 @@ Determine whether the operation requires:
 - role check
 - ownership check
 - account-state check
-- Premium entitlement
+- Enrollment-based participation access
 - Course accessibility
 
 ## 9. Identify External Dependencies
 
 Determine whether the feature depends on:
 
-- Dictionary
-- audio
-- TTS
-- payment
+- an approved payment mechanism
+- an approved Calendar mechanism
 
 ## 10. Evaluate Alternatives
 
@@ -1939,8 +1474,7 @@ Do not finalize the following until the project reaches the relevant design stag
 - exact database schema
 - exact hosting providers for Next.js and Spring Boot
 - exact deployment topology
-- exact Dictionary Provider
-- exact Text-to-Speech Provider
+- exact Calendar integration
 - exact Payment Provider
 - Redis
 - Kafka
