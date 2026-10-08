@@ -215,6 +215,31 @@ References: FR-STU-004, FR-STU-005, FR-TEA-002, FR-TEA-003, FR-DIS-004;
 BR-PROFILE-002, BR-AUTHN-012, BR-AUTH-007; DM-TEA-001.
 
 
+### Teacher Certificate Contract Planning
+
+**APPROVED RESPONSIBILITY:** FR-CERT-001, FR-CERT-002, FR-CERT-003;
+BR-CERT-001, BR-CERT-002, BR-CERT-003; UC-CERT-OWN-01, UC-CERT-REVIEW-01,
+UC-CERT-PUBLIC-01; DM-CERT-001.
+These are separate TASK-046 responsibilities, not TASK-005 completion.
+
+| Operation responsibility | Authority / DTO boundary |
+| --- | --- |
+| Add certificate | Eligible Teacher; name and validated image/PDF evidence reference only. Backend sets owner and PENDING. |
+| List own certificates | Authenticated eligible Teacher; own records and verification status only. |
+| Delete/replace certificate | Owning eligible Teacher; replacement resets PENDING atomically. No owner/status binding. |
+| List pending/retrieve review evidence | Authorized Admin; PENDING review projection and controlled evidence access. |
+| Verify/reject pending certificate | Authorized Admin; approve only the actual reviewed current evidence, reject stale review. |
+| Public profile certificates | Student/anonymous reader of an eligible public profile; VERIFIED-only projection/evidence. |
+
+**DEFERRED CONTRACT:** Exact methods/routes, payload/null/omission semantics,
+pagination/filter/sort, success/error statuses, retry identity, review concurrency
+and evidence upload/delivery. Do not copy persistence rows as DTOs. Reuse approved
+Section 19 conventions. Do not return raw file paths as unrestricted public access,
+private review data or expose pending/rejected evidence through another route.
+Certificate visibility is approved; general Teacher-profile discoverability remains
+G-DISCOVERY. G-FILES covers evidence delivery/cleanup and cache/link invalidation.
+No product endpoint, upload implementation or UI is introduced by this planning.
+
 ## 7. Course
 
 Every Course has one non-transferable owning Teacher and exactly one Category. Used
@@ -583,9 +608,10 @@ Keep credentials out of source control, ordinary DTOs and logs. No unnecessary
 Meet URL, receiving-information or sensitive payment-evidence logging is justified.
 Supabase RLS is not application authorization.
 
-No upload API, multipart contract, presigned URL, image proxy/download, S3,
-Cloudinary or Supabase Storage integration is approved. Assignment/Submission
-files, avatars and Course media remain subject to storage decisions.
+Supabase Storage is the approved file-byte direction, now including Teacher
+certificate image/PDF evidence. Exact upload APIs, multipart/presigned delivery,
+image processing and bucket/path/access contracts remain unapproved. Storage
+integration is not implemented by this documentation.
 
 Preserve required learning, security and transaction information under current
 rules. Exact retention/archive/delete behavior remains deferred; no blanket
@@ -761,9 +787,12 @@ require one endpoint family or table per concept. References use current meaning
 Meet remains protected Course information; Calendar is an external boundary.
 Admin/statistics are permitted views/actions, not new identity or reporting entities.
 
+TeacherCertificate (DM-CERT-001) extends TeacherProfile through additive V2;
+Section 6 owns its separate management/review/public contract planning.
+
 ### Complete active use-case coverage
 
-All 44 active use cases map to responsibilities, not invented endpoint contracts.
+All 47 active use cases map to responsibilities, not invented endpoint contracts.
 The references in Sections 3-21 supply targeted governing FR/NFR/INT/BR/INV/AR
 authority; this table supplies the actor-goal connection. Decision gates in the
 source use cases remain applicable even where the capability is approved.
@@ -782,6 +811,9 @@ source use cases remain applicable even where the capability is approved.
 | UC-AUTH-ME-01 | 3 and 6: Current identity/profile; permitted fields deferred. |
 | UC-AUTH-PROFILE-01 | 6: Eligible own-profile management; exact field/update contract deferred. |
 | UC-DIS-TEACHERS-01 | 5-6: Discovery/public teaching information; fields/matching deferred. |
+| UC-CERT-OWN-01 | 6: Own certificate add/view/delete/replace; ownership and PENDING reset; exact API/file contracts deferred. |
+| UC-CERT-REVIEW-01 | 6: Admin pending review/verify/reject; current-evidence concurrency and delivery deferred. |
+| UC-CERT-PUBLIC-01 | 6: VERIFIED-only public certificates; exact projection/delivery and profile eligibility deferred. |
 | UC-STU-BROWSE-COURSES-01 | 5: Course discovery; filtering/visibility deferred. |
 | UC-STU-VIEW-COURSE-01 | 5: Public Course projection; protected information excluded. |
 | UC-TEA-COURSE-01 | 7: Owned creation/inspection/editing; lifecycle/field details deferred. |

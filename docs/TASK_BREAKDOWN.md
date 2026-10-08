@@ -227,6 +227,21 @@ advance implementation.
 - **Verification:** Test own-profile updates, wrong-owner denial and public/private DTO serialization; responsive browser checks after UI approval.
 - **Completion evidence:** Record actual files, checks, remaining work and available commit references in FEATURE_STATUS.md under TASK-033; no evidence is claimed here.
 
+### TASK-046 — Teacher certificate persistence and management
+
+- **Planning readiness:** TODO; only documentation and V2 preparation are currently authorized.
+- **Objective:** Support multiple Teacher-owned certificates, Admin verification and VERIFIED-only public-profile visibility.
+- **Source authority:** FR-CERT-001, FR-CERT-002, FR-CERT-003; BR-CERT-001, BR-CERT-002, BR-CERT-003; UC-CERT-OWN-01, UC-CERT-REVIEW-01, UC-CERT-PUBLIC-01; DM-CERT-001; DATABASE_DESIGN Section 26; API_DESIGN Section 6.
+- **Prerequisites:** TASK-004 for additive migration; TASK-006, TASK-007, TASK-033 and TASK-011 for full application integration.
+- **Decision gates:** G-API, G-UI, G-FILES, G-PROFILE, G-DISCOVERY; approved Admin review authority is bounded to certificates. Exact review concurrency/validation remains open.
+- **Allowed scope:** Prepare additive V2 without changing V1; separately approved deployment and later own add/list/delete/replace, Admin pending review/verify/reject and public VERIFIED-only reads.
+- **Forbidden scope:** No certificate types/categories, issuer, issue/expiry dates, scores, self-verification, Teacher onboarding effects, migration execution without approval or merging into TASK-005.
+- **Expected areas:** Additive migration, later Teacher feature persistence/DTO/services and authorized evidence integration, Teacher/Admin/public frontend and tests.
+- **Acceptance:** V2 preserves V1/data and creates only the seven-column child table; an eligible Teacher manages only own certificates; Admin reviews current pending evidence; replacement resets PENDING; public reads/delivery never expose pending/rejected evidence.
+- **Negative acceptance:** Wrong-owner/role, forged status/owner and stale review fail without protected disclosure or unauthorized changes. Rejected records cannot appear verified.
+- **Verification:** Static SQL/FK/naming checks now; isolated migration/repeat-validation tests only under later approval; later backend ownership/lifecycle/concurrency/redaction and approved frontend/browser checks.
+- **Completion evidence:** FEATURE_STATUS.md owns actual evidence/status. Prepared migration is not deployed schema or completed feature. This scope does not complete TASK-005; preserve completed TASK-001 through TASK-004 evidence.
+
 ## 6. Public Discovery
 
 ### TASK-011 — Public Teacher and Course discovery
@@ -672,7 +687,7 @@ Build/typecheck/lint and responsive narrow/wide checks apply when the affected f
 - **Planning readiness:** TODO; decision gates below remain binding.
 - **Objective:** Verify integrated approved tutoring journeys and release readiness with truthful scope/evidence.
 - **Source authority:** NFR-MNT-003, NFR-UI-001, NFR-UI-002, NFR-UI-003, NFR-UI-004, NFR-UI-005, NFR-UI-006, NFR-UI-007, NFR-PERF-001; BR-WEB-001, BR-WEB-002, BR-WEB-003, BR-WEB-004; API_DESIGN Sections 21 and 24.
-- **Prerequisites:** TASK-008, TASK-009, TASK-011, TASK-016, TASK-018, TASK-022, TASK-023, TASK-024, TASK-025, TASK-026, TASK-027, TASK-032, TASK-033, TASK-034, TASK-036, TASK-037, TASK-038, TASK-039, TASK-040, TASK-042, TASK-043, TASK-044, TASK-045.
+- **Prerequisites:** TASK-008, TASK-009, TASK-011, TASK-016, TASK-018, TASK-022, TASK-023, TASK-024, TASK-025, TASK-026, TASK-027, TASK-032, TASK-033, TASK-034, TASK-036, TASK-037, TASK-038, TASK-039, TASK-040, TASK-042, TASK-043, TASK-044, TASK-045, TASK-046.
 - **Decision gates:** G-API, G-UI, G-REPORTING, G-DEPLOY.
 - **Allowed scope:** Auth, discovery, ownership, participation, Sessions,
   Assignments/Submissions/results, Meet, Calendar, bounded Storage, payments/full refunds
@@ -781,6 +796,12 @@ Prerequisites in the task entries and the graph describe integration/completion 
 - TASK-028 covers the approved release scope. Deferred capabilities are not silently removed: obtain an explicit release-scope decision before omitting them.
 - TASK-030 safe CI starts from completed foundations. Release automation additionally waits for TASK-028 evidence and TASK-029 operational approval; TASK-029 does not depend on TASK-030.
 
+TASK-046 V2 preparation may proceed independently of authentication/profile
+implementation; deployment still needs explicit approval. Its complete business
+integration depends on TASK-006, TASK-007, TASK-033 and TASK-011.
+This adds no reverse dependency to TASK-005. TASK-028 includes certificate success,
+ownership, review and public-disclosure checks in the approved release scope.
+
 ### Dependency graph
 
 Arrows mean prerequisite -> dependent task. The conditional/progressive integrations above qualify the graph; decision gates are independent prerequisites, not extra task IDs.
@@ -829,6 +850,12 @@ flowchart TD
     T1 --> T5
     T2 --> T5
     T1 --> T6
+    T4 --> T46["TASK-046"]
+    T6 --> T46
+    T7 --> T46
+    T33 --> T46
+    T11 --> T46
+    T46 --> T28
     T5 --> T6
     T4 --> T7
     T6 --> T7
@@ -958,7 +985,7 @@ Active source references in each task are the implementation rationale, not a cl
 | Section 3: account/authentication | TASK-006, TASK-007, TASK-008, TASK-009, TASK-032 |
 | Section 4: authorization | TASK-006; resource enforcement in each feature; TASK-045 verification |
 | Section 5: public discovery | TASK-011; Teacher public projection in TASK-033 |
-| Section 6: Teacher profile | TASK-033; shared own-profile boundary in TASK-009 |
+| Section 6: Teacher profile | TASK-033; shared own-profile boundary in TASK-009; certificate extension in TASK-046 |
 | Section 7: Course management | TASK-010; Admin oversight in TASK-024 |
 | Section 8: category/topic | TASK-034 |
 | Section 9: Session/scheduling | TASK-035, TASK-036, TASK-037 |

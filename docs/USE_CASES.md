@@ -420,6 +420,46 @@ role/lock/verification/onboarding binding.
 
 ---
 
+## UC-CERT-OWN-01 --- Manage Own Certificates
+
+**Actor:** Eligible authenticated Teacher.
+**Goal:** Add/view/delete/replace certificates belonging to the Teacher's profile.
+**Flow:** Resolve identity and Teacher eligibility; accept permitted name and validated
+image/PDF evidence reference; assign owner and PENDING in the backend. Own listing
+includes verification status. For deletion/replacement, check existing ownership.
+Replacement atomically changes the evidence/name and resets status to PENDING.
+**Denials:** Reject cross-owner access, forged owner/status, invalid evidence or
+ineligible accounts without mutation/disclosure.
+**Postcondition:** Only the caller's permitted certificate changes; no self-verification.
+**References:** FR-CERT-001, FR-CERT-002; BR-CERT-001, BR-CERT-002.
+**Gates:** Upload/path validation, exact DTO/null semantics, replacement concurrency
+and Storage cleanup/retention.
+
+## UC-CERT-REVIEW-01 --- Review Pending Teacher Certificate
+
+**Actor:** Authorized authenticated Admin.
+**Flow:** Retrieve pending certificates and authorized evidence; verify or reject the
+selected pending certificate after checking current state and the evidence reviewed.
+**Denials:** Reject Teacher/non-Admin review, non-pending or stale evidence decisions;
+do not verify a replacement using an earlier review.
+**Postcondition:** The reviewed record is VERIFIED or REJECTED; onboarding is unchanged.
+**References:** FR-CERT-002; BR-CERT-001, BR-CERT-002, BR-CERT-003.
+**Gates:** Exact review DTO, stale-review protocol, pending-list bounds and evidence delivery.
+
+## UC-CERT-PUBLIC-01 --- View Verified Teacher Certificates
+
+**Actor:** Student or anonymous visitor.
+**Flow:** Resolve an appropriately public Teacher profile; return only its VERIFIED
+certificate projection under backend filtering and authorized evidence delivery.
+**Denials:** Pending/rejected/deleted certificates are not disclosed through alternate
+IDs or application-controlled evidence delivery.
+**Postcondition:** Read-only public information; no participation or review authority.
+**References:** FR-CERT-003; BR-CERT-003; UC-DIS-TEACHERS-01.
+**Gates:** Public Teacher-profile eligibility and exact evidence/name projection,
+delivery/cache policy and UI design.
+
+---
+
 # 4. Teacher Discovery
 
 ## UC-DIS-TEACHERS-01 --- Discover Teachers and View Public Information

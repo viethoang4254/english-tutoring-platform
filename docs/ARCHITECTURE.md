@@ -781,3 +781,26 @@ API contracts and later implementation must consume current tutoring requirement
 and the explicit gates above. Preserve completed foundation IDs/evidence when
 future plans change. No schema, application code, configuration, dependency or live
 status is changed by this architecture reconciliation.
+
+## 21. Approved Teacher Certificate Extension
+
+Teacher Certificate Management belongs with the Teacher-profile capability in the
+existing modular monolith. Controllers handle DTOs/HTTP; services enforce Teacher
+eligibility, ownership, Admin review and VERIFIED-only public disclosure; repositories
+access PostgreSQL via JPA/Hibernate. Certificate verification is not onboarding approval.
+
+TeacherProfile -> many TeacherCertificates. Additive V2 references the existing
+TeacherProfile key; accepted V1 and its implementation evidence remain unchanged.
+Application-supplied timestamps and status transitions remain authoritative.
+Replacement and review must prevent stale evidence verification transactionally.
+
+Supabase Storage holds image/PDF evidence; PostgreSQL holds stable file_path only.
+Bucket/path mapping, upload limits, MIME/content validation, cleanup/retention and
+public-versus-private delivery/cache invalidation must be resolved before integration.
+No direct frontend database access or public bucket bypass of verification filtering.
+No new provider, service, queue, generalized document engine or authentication policy.
+
+Exact API/UI contracts remain gated. This addition authorizes documentation and V2
+preparation, not deployment or certificate application implementation.
+References: DM-CERT-001; BR-CERT-001, BR-CERT-002, BR-CERT-003; FR-CERT-001,
+FR-CERT-002, FR-CERT-003.

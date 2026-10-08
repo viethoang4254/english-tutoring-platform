@@ -185,6 +185,25 @@ UC-AUTH-PROFILE-01, UC-DIS-TEACHERS-01.
 
 ---
 
+## DM-CERT-001 --- TeacherCertificate
+
+TeacherProfile has zero or many TeacherCertificates; each certificate has exactly
+one owning TeacherProfile using its shared User key. A certificate holds a name,
+stable image/PDF evidence path and PENDING/VERIFIED/REJECTED status. Teachers manage
+only owned certificates; Admin reviews pending evidence. Replacement resets PENDING
+and cannot preserve prior verification. Public profile projections include only
+VERIFIED certificates. Certificate verification is separate from Teacher onboarding.
+
+V2 adds teacher_certificates with seven columns, including identity and application-owned
+created/updated timestamps. No issuer, dates, score, category/type or review-history
+entity is introduced. Storage owns bytes; references and verification state remain
+backend-authoritative. FK existence is not proof of Teacher eligibility.
+
+**References:** FR-CERT-001, FR-CERT-002, FR-CERT-003; BR-CERT-001, BR-CERT-002,
+BR-CERT-003; UC-CERT-OWN-01, UC-CERT-REVIEW-01, UC-CERT-PUBLIC-01.
+
+---
+
 # 5. Course
 
 ## DM-COURSE-001 --- Course

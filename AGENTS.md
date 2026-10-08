@@ -384,7 +384,15 @@ of the new domain.
 The former blanket exclusion of online tutoring and Student-to-Teacher Course
 payments no longer applies to the approved capabilities above. This does not approve
 built-in video infrastructure, chat/social features, native apps, AI tutors,
-certificates, leaderboards or other speculative extensions. Apply YAGNI.
+student completion certificates, leaderboards or other speculative extensions. Apply YAGNI.
+
+Teacher Certificate Management is an approved exception: a TeacherProfile may own
+multiple named image/PDF evidence records. Eligible Teachers add/view/delete/replace
+only their own certificates; Admin reviews pending evidence and verifies or rejects it.
+New/replaced certificates require PENDING review; Teachers cannot verify their own.
+Students/visitors see only VERIFIED certificates on public Teacher profiles.
+This is separate planned scope from TASK-005. V2 adds teacher_certificates without
+changing the accepted 22-table V1; preparation does not authorize deployment.
 
 ---
 

@@ -192,6 +192,45 @@ by the backend; unspecified field limits are not invented.
 
 ---
 
+## BR-CERT-001 — Certificate Ownership and Review Authority
+
+Each certificate belongs to one TeacherProfile; a Teacher may own many. Resolve
+authenticated eligible Teacher identity and certificate ownership before add, own
+read, delete or replace. Teacher role alone grants no cross-owner authority.
+Admin may inspect pending evidence and verify/reject certificates. A Teacher cannot
+self-verify; ordinary Teacher inputs cannot assign owner or verification status.
+Certificates do not create another login identity or change onboarding requirements.
+
+**Requirements:** FR-CERT-001, FR-CERT-002, FR-AUTH-006, FR-AUTH-013.
+
+## BR-CERT-002 — Verification Lifecycle and Replacement
+
+Spring Boot assigns PENDING on creation. Admin review of a pending certificate
+sets VERIFIED or REJECTED. Replacement updates the owned certificate's name/evidence
+and atomically resets status to PENDING; prior verification cannot survive replacement.
+A stale review must not verify evidence different from that actually reviewed.
+The transactional concurrency/review identity protocol remains an implementation
+decision. Deletion removes that certificate from future application reads; Storage
+object cleanup/retention and already-issued delivery links require a delivery contract.
+No verification history fields/table or additional lifecycle state is introduced.
+
+**Requirements:** FR-CERT-001, FR-CERT-002.
+
+## BR-CERT-003 — Certificate Disclosure and Evidence
+
+Public Teacher-profile certificate reads include only VERIFIED records. Pending and
+rejected evidence is limited to its owning Teacher and approved Admin review.
+Name/evidence replacement removes public eligibility until reverified.
+Store stable evidence paths, never file bytes, base64 or temporary signed URLs.
+Use the approved Supabase Storage boundary for image/PDF evidence, subject to
+configured bucket/path, file validation and authorized delivery decisions. Do not
+publish private account, bank, security or application-review data with certificates.
+Certificate status neither approves a Teacher nor grants Course participation.
+
+**Requirements:** FR-CERT-001, FR-CERT-002, FR-CERT-003, FR-AUTH-012.
+
+---
+
 # 4. Teacher and Course Ownership
 
 ## BR-COURSE-001 — Single Course Owner
@@ -656,7 +695,8 @@ as BRs unless an ownership, privacy or other governing invariant is needed.
 | Inactive: retired/superseded/deferred | 98 | Listed below |
 
 The earlier tutoring reconciliation added 23 BR IDs and had 61 active rules.
-Phase 2 adds BR-PAY-011 for approved full refunds, bringing the active total to 62.
+Phase 2 adds BR-PAY-011 for approved full refunds, bringing that stage to 62. Teacher Certificate Management adds BR-CERT-001 through
+BR-CERT-003, bringing the current active total to 65.
 No original ID is reused for unrelated semantics.
 
 

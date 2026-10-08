@@ -110,6 +110,22 @@ and moderation permissions remain unresolved.
 
 ---
 
+## Teacher Certificate Management — Approved Scope Addition
+
+A Teacher may own multiple certificates, each with a name, image/PDF evidence path
+and PENDING/VERIFIED/REJECTED status. Teachers add, view, delete or replace only their
+own certificates. Admin views pending evidence and verifies or rejects it; Teachers
+cannot self-verify. Replacement requires verification again. Students and anonymous
+visitors see only VERIFIED certificates on public Teacher profiles.
+Public evidence delivery, upload limits and review concurrency need detailed design.
+
+No certificate category/type, issuer, issue/expiry date or score is introduced.
+Certificates are teaching credentials, not student completion awards. This extends
+accepted V1 through additive V2; it does not change onboarding eligibility or make
+certificates mandatory for Teacher approval.
+
+---
+
 # 5. Core Scope and Domain Relationships
 
 - A Teacher owns many Courses, has Teacher profile information and has their own
@@ -326,7 +342,7 @@ withdrawals or revenue sharing. Full Teacher-performed refunds with Admin
 verification are approved; no accounting/expense subsystem is introduced.
 
 Do not add native applications, microservices, chat/social features, AI tutoring,
-certificates, leaderboards, complex gamification or unapproved infrastructure.
+student completion certificates, leaderboards, complex gamification or unapproved infrastructure.
 
 ---
 

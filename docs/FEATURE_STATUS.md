@@ -30,10 +30,10 @@ Flyway and the approved 22-table Physical V1 migration are implemented and verif
 | DONE | 5 |
 | TODO | 23 |
 | BLOCKED | 8 |
-| IN_PROGRESS | 1 |
-| Total | 37 |
+| IN_PROGRESS | 2 |
+| Total | 38 |
 
-Planning readiness: 26 TODO, 8 DEFERRED and 3 preserved completed foundations. Eight retired task IDs are tracked separately. TASK-031 is DONE for documentation/operational guidance only. This documentation reconciliation does not establish application implementation or verification.
+Planning readiness: 27 TODO, 8 DEFERRED and 3 preserved completed foundations. Eight retired task IDs are tracked separately. TASK-031 is DONE for documentation/operational guidance only. This documentation reconciliation does not establish application implementation or verification.
 
 ## 3. Active Task Ledger
 
@@ -78,6 +78,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-043 | Calendar schedule/reminder capability | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-044 | ParticipantFeedback and rating | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-045 | Continuous cross-feature authorization and trust verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-046 | Teacher certificate persistence and management | IN_PROGRESS | TODO | Documentation and V2 preparation only; deployment/application implementation not performed. See Section 8, TASK-046. |
 
 TASK-031 is complete for downstream tracking and README operational guidance. Its planning readiness remains TODO as recorded in TASK_BREAKDOWN; completion does not count as business implementation.
 
@@ -117,8 +118,13 @@ Compatible existing feature IDs retain their current meaning below. Their scope 
 | FEAT-020 | Admin transaction/status monitoring and refund verification | TODO | TASK-026 |
 | FEAT-021 | Admin operational statistics | TODO | TASK-027 |
 | FEAT-022 | Tutoring release verification, operations and safe CI | TODO | TASK-028, TASK-029, TASK-030 |
+| FEAT-023 | Teacher certificate management | IN_PROGRESS | TASK-046 |
 
-All unfinished feature rows have no implementation evidence; component work remains unimplemented and subject to the associated task blockers. FEAT-022 has queued meaningful verification/CI work despite its deployment task being blocked. Task completion and combined feature completion are assessed separately. New tutoring responsibilities are tracked by TASK-031 through TASK-045 and Section 6, without reusing retired feature IDs.
+Other unfinished feature rows have no implementation evidence; component work remains unimplemented and subject to the associated task blockers. FEAT-022 has queued meaningful verification/CI work despite its deployment task being blocked. Task completion and combined feature completion are assessed separately. New tutoring responsibilities are tracked by TASK-031 through TASK-046 and Section 6, without reusing retired feature IDs.
+
+FEAT-023 components: Backend TODO; Frontend TODO; Persistence IN_PROGRESS;
+Tests TODO. Only V2 migration preparation has started; no deployed certificate
+table, runtime integration or executed migration test is claimed.
 
 ## 5. Blocked / Deferred-Readiness Work
 
@@ -146,6 +152,7 @@ Approved/designed responsibilities below are not implemented or verified. Exact 
 | Authentication/account security | Student/Teacher registration, login, JWT, RefreshSession, refresh/logout, email verification/resend and password change/forgot/reset are not implemented. No Spring Security/JWT implementation is present. Teacher onboarding remains blocked. | TASK-006, TASK-007, TASK-008, TASK-032 |
 | User/Teacher profiles | Current account, own personal profile, specialization/experience/introduction and safe Teacher public projection are not implemented; exact fields remain gated. | TASK-009, TASK-033 |
 | Public discovery | Teacher/Course search/filter and public Course detail are not implemented; protected participation data must remain separate. | TASK-011 |
+| Teacher certificates | V2 prepared only; own management, Admin review and VERIFIED-only public projection are unimplemented. | TASK-046 |
 | Courses | Teacher-owned Course creation/management/publication is not implemented; owner derives from backend identity and five-state lifecycle is approved but detailed operation contracts remain gated. | TASK-010 |
 | Categories/topics | Admin management and Teacher selection are not implemented. | TASK-034 |
 | Enrollment | Whole-Course participation and protected access are not implemented. Payment is distinct; no lifecycle/status/uniqueness implementation is claimed. | TASK-016 |
@@ -267,6 +274,14 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - Verification (agent-observed): Oracle Java 17.0.12; focused ApiBoundaryTests passed, and mvnw.cmd -f backend/pom.xml -B -ntp verify reported BUILD SUCCESS: 20 tests, 0 failures/errors, 2 opt-in database tests skipped (18 passed), executable JAR packaged. MockMvc test-only fixtures cover lossless Long/money round trips, ISO timestamps, rejection of numeric/offsetless timestamps, malformed input, scalar coercion, unknown/protected fields and safe structured errors. DATABASE_URL/USERNAME/PASSWORD were removed from the test process; datasource/Flyway are excluded from the boundary tests. No database or Supabase access occurred.
 - Frontend verification: Node 24.21.0; node --test frontend/tests/api.spec.ts passed 6/6 with stubbed fetch (no server/network). npm run typecheck, npm run lint and npm run build passed; output remains the neutral / and built-in /_not-found. Native Node reported module-type reparsing; no package-wide module change was made merely to suppress the warning.
 - Remaining acceptance: the first real approved use-case request/response and error case has not been implemented; test fixtures do not satisfy that criterion. G-UI stays open; pagination and operation-specific authorization/privacy mappings remain deferred. No product endpoint/DTO/UI, auth implementation, schema/migration/datasource configuration change or provider integration. No staging/commit/push.
+
+### TASK-046 — Teacher certificate documentation and V2 preparation
+
+- Status: IN_PROGRESS (2026-10-08), limited to approved documentation and additive migration preparation. TASK-005 remains IN_PROGRESS and is not completed by this feature.
+- Prepared backend/src/main/resources/db/migration/V2__create_teacher_certificates.sql: seven columns, TeacherProfile FK, status CHECK and Teacher/pending-review lookup indexes. V1 remains unchanged. V1 has 22 application tables; V1 plus applied V2 would have 23. Supabase V2 deployment is not claimed.
+- Reconciled scope, requirements/rules/use cases, domain, architecture, database/API planning and task ownership. FEAT-023 tracks the separate feature; backend/frontend application work remains TODO.
+- Verification is static only: compare V1 bytes, FK target/key type, migration order, columns/status constraints and changed-file scope; no Flyway/backend/database execution. Exact final check results are reported with this preparation.
+- Remaining: review and deployment approval, isolated migration verification, upload/bucket/path/delivery/cleanup contracts, public-profile eligibility, exact API/UI and stale-review handling. No controllers, services, repositories, UI or provider integration.
 
 ## 9. Decision-Gate Relationship
 

@@ -204,6 +204,30 @@ snapshots.
 
 ---
 
+## FR-CERT-001 — Own Teacher Certificates
+
+An eligible Teacher shall add and view multiple certificates and delete or replace
+only certificates owned by that Teacher. Each certificate shall have a name,
+image/PDF evidence file path and verification status. Required text shall be
+nonblank; no certificate categories/types, issuer, issue/expiration dates or scores
+shall be added.
+
+## FR-CERT-002 — Admin Certificate Verification
+
+Admin shall view pending certificates and their evidence and verify or reject them.
+New and replaced certificates shall require review as PENDING. Only authorized
+Admin review shall set VERIFIED or REJECTED; Teachers shall not self-approve.
+Certificate review shall not grant Teacher onboarding approval or other privileges.
+
+## FR-CERT-003 — Public Verified Certificates
+
+Students and anonymous visitors shall see only VERIFIED certificates on public
+Teacher profiles. PENDING and REJECTED certificates shall not appear as verified
+or leak through public detail/evidence delivery. Teacher-profile discoverability
+and the exact public evidence projection remain separately gated.
+
+---
+
 # 4. Teacher and Course Discovery
 
 ## FR-DIS-003 — View Course Information
@@ -1103,7 +1127,7 @@ keep retired requirements active.
 
 Preserved existing-ID families: `FR-AAN`, `FR-ACC`, `FR-ACR`, `FR-ADM`, `FR-ATR`, `FR-AUTH`, `FR-DIS`, `FR-ENR`, `FR-PAY`, `FR-PRO`, `FR-STU`, `FR-TAN`, `FR-TCR`, `FR-TEA`, `NFR-DATA`, `NFR-MNT`, `NFR-PERF`, `NFR-SEC`, `NFR-UI`.
 
-99 existing IDs remain active; 40 new IDs are allocated; 128 old IDs are retired/superseded. Every one of the 227 old definitions is accounted for exactly once as preserved or retired.
+99 existing IDs remain active; 43 new IDs are allocated; 128 old IDs are retired/superseded. Every one of the 227 old definitions is accounted for exactly once as preserved or retired.
 
 The following documents require separately approved reconciliation:
 BUSINESS_RULES.md, USE_CASES.md, DOMAIN_MODEL.md, ARCHITECTURE.md,
