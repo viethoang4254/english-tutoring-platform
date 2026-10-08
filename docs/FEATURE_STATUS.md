@@ -28,9 +28,9 @@ Flyway and the approved 22-table Physical V1 migration are implemented and verif
 | Active task status | Count |
 |---|---:|
 | DONE | 5 |
-| TODO | 24 |
+| TODO | 23 |
 | BLOCKED | 8 |
-| IN_PROGRESS | 0 |
+| IN_PROGRESS | 1 |
 | Total | 37 |
 
 Planning readiness: 26 TODO, 8 DEFERRED and 3 preserved completed foundations. Eight retired task IDs are tracked separately. TASK-031 is DONE for documentation/operational guidance only. This documentation reconciliation does not establish application implementation or verification.
@@ -45,7 +45,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-002 | Frontend technical foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-002. |
 | TASK-003 | PostgreSQL connectivity foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-003. |
 | TASK-004 | Physical Database V1 migration and persistence integrity | DONE | TODO | Flyway V1 and isolated PostgreSQL verification passed; see Section 8, TASK-004. |
-| TASK-005 | Shared API and client boundary conventions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-005 | Shared API and client boundary conventions | IN_PROGRESS | TODO | Shared boundary slice verified; first real approved use-case request/response remains outstanding. See Section 8, TASK-005. |
 | TASK-006 | Authentication and backend authorization foundation | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-007 | Student registration and shared authentication sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-008 | Dedicated password change and recovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -259,6 +259,14 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 
 - Supabase development baseline (2026-10-05, agent-observed deployment/read-only verification; user-accepted): V1 is deployed through the Session Pooler. Independent catalog queries in BEGIN READ ONLY confirmed exactly the expected 22 application tables, no missing/unexpected tables, and exactly one flyway_schema_history entry: version 1 / V1__initial_schema.sql / success=true.
 - Supabase catalog verification: 22 PKs, 28 FKs, 14 UNIQUE constraints, 51 CHECKs and 59 valid/ready indexes (23 explicit plus 36 PK/UNIQUE backing indexes). Required Session, Submission, Feedback, Calendar, canonical-email, payment relationships and partial-unique constraints matched V1; no replacement-session column or Session self-FK, and no catalog mismatch. This completes the separate development database rollout noted above, not production deployment or business implementation. Existing task/feature statuses remain unchanged.
+
+### TASK-005 — Shared API/client boundary slice
+
+- Status: IN_PROGRESS (2026-10-05). Scoped G-API conventions are approved in API_DESIGN Section 19; FEAT-001 remains IN_PROGRESS with Backend/Frontend/Tests IN_PROGRESS and foundation Persistence DONE. TASK-001 through TASK-004 evidence/statuses are preserved.
+- Implementation: common/api ApiError, ApiExceptionHandler, ApiJsonConfiguration, ApiId and ApiMoney; frontend/src/lib/api.ts reuses NEXT_PUBLIC_API_ORIGIN/native fetch. Added Boot-managed spring-boot-starter-validation for DTO Bean Validation. frontend/tsconfig.json permits .ts imports for dependency-free native Node tests; no frontend dependency was added.
+- Verification (agent-observed): Oracle Java 17.0.12; focused ApiBoundaryTests passed, and mvnw.cmd -f backend/pom.xml -B -ntp verify reported BUILD SUCCESS: 20 tests, 0 failures/errors, 2 opt-in database tests skipped (18 passed), executable JAR packaged. MockMvc test-only fixtures cover lossless Long/money round trips, ISO timestamps, rejection of numeric/offsetless timestamps, malformed input, scalar coercion, unknown/protected fields and safe structured errors. DATABASE_URL/USERNAME/PASSWORD were removed from the test process; datasource/Flyway are excluded from the boundary tests. No database or Supabase access occurred.
+- Frontend verification: Node 24.21.0; node --test frontend/tests/api.spec.ts passed 6/6 with stubbed fetch (no server/network). npm run typecheck, npm run lint and npm run build passed; output remains the neutral / and built-in /_not-found. Native Node reported module-type reparsing; no package-wide module change was made merely to suppress the warning.
+- Remaining acceptance: the first real approved use-case request/response and error case has not been implemented; test fixtures do not satisfy that criterion. G-UI stays open; pagination and operation-specific authorization/privacy mappings remain deferred. No product endpoint/DTO/UI, auth implementation, schema/migration/datasource configuration change or provider integration. No staging/commit/push.
 
 ## 9. Decision-Gate Relationship
 

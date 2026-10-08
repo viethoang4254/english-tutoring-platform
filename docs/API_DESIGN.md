@@ -462,18 +462,17 @@ BR-ADM-001, BR-ADM-002, BR-ADM-005; INV-022.
 **APPROVED DIRECTION:** JSON, explicit DTOs, backend validation, allowlisted inputs,
 structured safe errors, appropriate ISO-8601 timestamps and exact monetary values.
 
-**CANDIDATE CONTRACT:** Retain camelCase JSON keys and string identifiers as wire
-conventions. If numeric identifiers exceed safe JavaScript integer precision,
-encode them losslessly as decimal strings. BIGINT / Java Long is the approved database
-key type for approved tables; TeacherProfile intentionally shares its User key. Validate
-identifiers according to the eventually selected
-contract, not arbitrary numeric coercion.
+**APPROVED SHARED CONTRACT (TASK-005):** Use /api/v1 and camelCase JSON keys.
+All API identifiers are decimal strings at the wire boundary; persistence remains
+BIGINT / Java Long, including TeacherProfile's shared User key. Backend validation
+is authoritative: reject invalid types/values without silent coercion. Explicit
+allowlisted DTOs are required; never serialize JPA entities as public contracts.
 
-Represent money losslessly as decimal strings with relevant currency information.
+Represent money as { amount: decimal string, currency: explicit currency }; never use floating-point money.
 NUMERIC(15,2)/BigDecimal, VND-only currency and historical price snapshots are approved.
 Discounts require a complete window, 0 < percent < 100 and start < end; zero tuition
 represents free Courses. Rounding remains an implementation contract; no conversion is added.
-Absolute timestamps use ISO-8601 with an explicit offset. Weekly local times use
+Absolute timestamps use ISO-8601 strings with an explicit offset or Z. Weekly local times use
 Course timezone; exact wire format, DST and reporting boundaries remain deferred.
 
 Each finalized request must list permitted fields, types, requiredness, null/omission
@@ -490,12 +489,28 @@ provider secrets or raw sensitive payment payloads in ordinary DTOs.
 Dedicated credential delivery remains governed by the deferred security transport;
 this exclusion does not remove authentication/recovery responsibilities.
 
-A compatible **CANDIDATE CONTRACT** for structured errors is:
+The **APPROVED SHARED CONTRACT** for structured errors is:
 
 ~~~text
 { code: string, message: string,
-  fieldErrors?: [{ field: string, code: string, message: string }] }
+  fieldErrors?: { [field: string]: string } }
 ~~~
+
+Shared boundary codes are INVALID_REQUEST for malformed/invalid requests,
+REQUEST_REJECTED for other framework HTTP rejections (preserving their status),
+and INTERNAL_ERROR for unexpected failures. Field validation uses safe messages,
+never rejected values or internal exception details. This does not choose an
+operation-specific 403-versus-404 privacy policy.
+
+TASK-005 provides ApiId and ApiMoney for explicit DTO fields and strict Instant
+JSON parsing/ISO serialization; ordinary numeric counts are not globally stringified.
+Domain-specific fields, limits, rounding and null/omission rules still require their
+own contracts. No production fixture endpoint or product DTO is introduced.
+
+The frontend shared client reuses NEXT_PUBLIC_API_ORIGIN and native fetch,
+preserving wire strings without numeric/date conversion. It does not add mutation
+retries, JWT/cookie/refresh behavior, redirects, stores or product UI. G-UI remains
+open. Test-only fixtures prove shared boundaries, not a completed use-case API.
 
 Messages and field errors must not echo secrets or private values. Authentication
 recovery responses remain neutral; provider delivery failure cannot expose a
@@ -531,6 +546,9 @@ private information and requires the same appropriate scope.
 Relevant areas include Teacher/Course discovery, Teacher-owned Courses and Student
 lists, My Courses, Sessions, Assignments, Submissions, related transactions,
 Admin users/Courses/Enrollments and permitted statistics.
+
+Pagination remains deferred until the first approved collection use case requires it;
+TASK-005 adds no pagination infrastructure.
 
 **DEFERRED:** Exact parameter names, matching, page/cursor choice, defaults, limits,
 sort fields/tie-breakers and report time filters. Do not copy obsolete filters or
@@ -597,7 +615,8 @@ INV-018, INV-023, INV-024; AR-008, AR-016.
 | Progress/reporting | Indicators, formulas, filters and time boundaries; derive from authoritative data without progress/statistics tables. |
 | Privacy/operations | Detailed retention periods, feedback editing/moderation, unrelated Admin overrides, UI/API details and deployment/production operations. |
 
-Exact method/route/DTO/error/pagination contracts remain design work where not approved.
+The TASK-005 shared conventions in Section 19 are approved. Exact operation
+method/route/DTO/error mappings and pagination remain design work where not approved.
 No endpoint catalogue is finalized by these physical decisions. No raw arbitrary JSON
 provider continuation object, infrastructure or additional schema is inferred.
 
