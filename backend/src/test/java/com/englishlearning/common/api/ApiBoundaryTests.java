@@ -30,6 +30,15 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.flyway.enabled=false"
 })
 class ApiBoundaryTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.service.StudentRegistrationService registration;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.service.RefreshSessionService refreshSessions;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.user.service.CurrentAccountService accounts;
+
     @Autowired JsonMapper mapper;
     @Autowired Validator validator;
     MockMvc mvc;

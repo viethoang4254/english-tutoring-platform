@@ -25,7 +25,7 @@ and authentication-security project-local skills within that authority.
 
 Sections 3-18 describe approved responsibility areas with their dependent contracts
 deferred as stated. Section 19 includes limited candidate wire conventions.
-No new method/path catalogue is selected in this rewrite. Section 23 contains
+Section 3.1 approves one bounded current-account contract; no broader method/path catalogue is finalized. Section 23 contains
 historical method/path pairs only; it is not a current endpoint catalogue.
 There is no final current endpoint count or assertion that all contracts are ready.
 
@@ -74,38 +74,133 @@ No separate Student, Teacher or Admin login identity is introduced.
 
 | Responsibility | Actor/authority | Required boundary; deferred detail |
 | --- | --- | --- |
-| Student registration | Visitor seeking a Student account | Backend assigns STUDENT; validate approved account information and initiate applicable verification. Required fields and detailed initial transitions remain DEFERRED. |
+| Student registration | Visitor seeking a Student account | Backend assigns STUDENT; required email/password/fullName and initial verification follow Section 3.3. |
 | Teacher registration | Prospective Teacher | Separate registration assigns TEACHER through the backend; verified email, unlocked account and approved onboarding are required for business authority. Review-operation details remain DEFERRED. Client role input cannot grant TEACHER privilege. |
 | Email verification | Eligible account-verification context | Purpose-specific, account-bound, expiring credential; consume according to approved flow. Verification cannot override administrative restrictions or define Teacher activation. |
-| Resend verification | Eligible verification context | Eligibility, expiry, resend limits and delivery contract remain DEFERRED; avoid unnecessary account-existence disclosure. |
-| Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Transport and detailed pending-account behavior remain DEFERRED. |
+| Resend verification | Eligible verification context | Initial verification uses Section 3.3; other verification purposes remain deferred. Avoid unnecessary account-existence disclosure. |
+| Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Batch 2 contract below governs verified, unlocked account authentication; Teacher business approval remains separate. |
 | Refresh | Holder of usable refresh authority | Validate server-side expiry, revocation and current account/session eligibility; do not require an unexpired Access Token as proof of refresh eligibility. |
-| Logout | Applicable authenticated/session context | Invalidate applicable refresh/session authority and clear applicable client state; frontend deletion alone is insufficient. Session selection and invalid-state handling remain DEFERRED. |
+| Logout | Applicable authenticated/session context | Invalidate applicable refresh/session authority and clear applicable client state; frontend deletion alone is insufficient. Batch 2 contract below defines targeted, idempotent cookie-based revocation. |
 | Change password | Authenticated eligible User | Dedicated security operation; satisfy approved checks and protect credentials. Revoke other refresh sessions while preserving the current one; password policy remains DEFERRED. |
 | Forgot password | Visitor/account holder unable to authenticate | Neutral recovery response; no password change here and no claim of delivery after failure. Delivery/security details remain DEFERRED. |
 | Reset password | Valid reset-credential holder | Validate purpose, account, expiry and usability; successful consumption prevents reuse. Revoke all refresh sessions on successful reset. |
 | Current account/profile | Authenticated eligible User | Subject comes from backend identity. Return only permitted information; current-account viewing does not grant Admin self-profile editing. |
 | Own-profile change | Eligible Student or Teacher | Only permitted own fields; dedicated password security and protected privileges cannot be bypassed. Exact editable DTO remains DEFERRED; email change requires new-email verification before replacing the old email. |
 
+### 3.1 Approved Current Account Contract
+
+- GET /api/v1/users/me: read authenticated account identity only.
+- Authority: FR-ACC-007, BR-AUTHN-012, BR-AUTHN-018, UC-AUTH-ME-01.
+- Require validated Bearer JWT and current User resolution. Allow STUDENT,
+  TEACHER and ADMIN; missing/locked accounts receive safe 401.
+- Unverified Users and pending Teachers may read this projection. This does not
+  grant Teacher business eligibility, profile editing or token-issuance eligibility.
+- No query parameters or non-empty request body; reject with 400 INVALID_REQUEST.
+  Authentication/account checks take precedence over request-input validation.
+- Success: 200 OK with exactly id (decimal string), role (STUDENT/TEACHER/ADMIN)
+  and emailVerified (boolean), derived from the current database-backed principal.
+  Never expose profiles, entities, hashes, tokens or internal data.
+- Shared ApiError responses: 400 INVALID_REQUEST ("Request could not be processed.");
+  401 AUTHENTICATION_REQUIRED ("Authentication required.");
+  503 AUTHENTICATION_UNAVAILABLE ("Authentication temporarily unavailable.");
+  500 INTERNAL_ERROR ("An unexpected error occurred."). No private values.
+  Missing accounts do not return 404; all three roles are allowed.
+- Read-only/repeatable, with no pagination or mutation. This GET route and the approved Batch 2 auth routes are permitted;
+  other production routes/methods remain default-deny.
+- Approved sequencing exception: TASK-009's bounded account-read slice may precede
+  TASK-007. This does not complete TASK-009 or authorize other profile/onboarding work.
+
+~~~json
+{"id":"123","role":"STUDENT","emailVerified":true}
+~~~
+
 RefreshSession is server-authoritative security state, distinct from its credential.
 No API exposes its persistence rows or makes them ordinary CRUD resources.
 Support approved rotation; replaced credentials are invalidated under that design.
-Rotation timing, replay, concurrency and session limits remain unresolved.
+Rotate on every successful refresh with a new configurable seven-day lifetime.
+Consume/revoke the old row and insert the replacement atomically at READ COMMITTED
+with row locking; exactly one concurrent request wins. No per-user session limit,
+family tracking, automatic retry or unrelated-session revocation. Signing occurs
+after current eligibility checks and before commit; expose credentials only after
+commit. Known rollback preserves the old credential; uncertain commits return no
+credentials and lost responses cannot recover a replacement through the old token.
 Logout does not imply immediate revocation of every issued Access Token.
 
 Retain configurable defaults: Access Token 15 minutes, Refresh Token 7 days and
 password-reset credential 15 minutes. These are not hardcoded storage constraints.
-Verification lifetime/resend policy is not selected.
+Initial verification uses the approved 24-hour lifetime and resend policy in Section 3.3; other purposes remain deferred.
 
 Validate JWT signature and expiry with supported security facilities. Use supported
 password protection; do not invent cryptography or select undocumented encoder
 parameters. users.locked is the only blocking mechanism: locked Users cannot
 authenticate or perform normal account use. No separate disabled/account_status lifecycle.
 
-Credential delivery, cookie versus header/body transport, signing details,
-CORS/CSRF and broader security policy remain DEFERRED. Do not default to long-lived
-credentials in localStorage. If cookies are selected, address HttpOnly, Secure in
-production, SameSite, CORS and CSRF together. Do not add social login or OAuth flows.
+### 3.2 Approved Batch 2 Login, Refresh, Logout and Browser Transport
+
+All paths below include /api/v1. These contracts do not approve registration, email
+delivery, verification/resend or Teacher onboarding implementation.
+
+| Method/path | Request and authority | Success |
+| --- | --- | --- |
+| POST /api/v1/auth/login | JSON with exactly required string email/password; canonical email, approved password input; CSRF required, no access JWT required. | 200 access-token response and refresh cookie. |
+| POST /api/v1/auth/refresh | Refresh cookie plus CSRF; no query parameters or non-empty body; no access JWT required. | 200 access-token response and rotated refresh cookie. |
+| POST /api/v1/auth/logout | Refresh cookie plus CSRF; no query parameters or non-empty body; no access JWT required. | 204 and cleared refresh cookie on confirmed success/no-op. |
+| GET /api/v1/auth/csrf | Public bootstrap; no query parameters or non-empty body. | 200 JSON { token: string } and Spring CSRF cookie. |
+
+Login rejects missing/null/blank email, malformed email, invalid password input and
+unknown/protected properties with 400 INVALID_REQUEST. No query parameters are
+accepted. Email is trimmed before syntax validation; matching remains lowercase(trim(email)).
+Password input is never trimmed or normalized. Credentials must not be supplied in URLs.
+Access-token response has exactly accessToken, tokenType ("Bearer"), issuedAt and
+expiresAt (ISO-8601 UTC). Never return refresh credentials or hashes in JSON.
+Credential responses and CSRF bootstrap use Cache-Control: no-store.
+
+Login and refresh require an existing, unlocked, email-verified User. Pending/rejected
+Teacher onboarding does not block account-only authentication and never grants
+Teacher business authority. Incorrect credentials and locked/missing accounts use
+401 AUTHENTICATION_REQUIRED. Only correctly password-authenticated, unlocked but
+unverified login uses 403 EMAIL_VERIFICATION_REQUIRED; ineligible refresh uses 401.
+
+Safe errors retain the shared ApiError shape: 400 INVALID_REQUEST;
+401 AUTHENTICATION_REQUIRED; 403 EMAIL_VERIFICATION_REQUIRED or ACCESS_DENIED;
+503 AUTHENTICATION_UNAVAILABLE for known transient failures;
+503 AUTHENTICATION_OUTCOME_UNKNOWN for uncertain commit; 500 INTERNAL_ERROR.
+No response contains private values or internal causes. CSRF/CORS denial precedes
+authentication mutations. Refresh failures do not clear a possibly newer refresh cookie.
+Clients must not automatically retry login/refresh mutations.
+
+Logout revokes only the identified session, even for a locked account. Missing,
+malformed, expired, unknown or already-revoked credentials are idempotent 204.
+Database failures are not successful logout. No family revocation: an old rotated
+credential cannot revoke its replacement. Existing access JWTs remain valid until
+expiry, subject to current-account checks.
+
+Production frontend/API must be same-site HTTPS, not necessarily same-origin.
+app.security.browser.allowed-origins is an exact comma-separated frontend-origin
+allowlist; no wildcard origins or credentialed wildcard CORS. Empty configuration
+permits no cross-origin callers. Approved CORS methods are GET/POST/OPTIONS and
+headers Content-Type, Authorization and X-XSRF-TOKEN. Credentials are enabled.
+
+Refresh cookie name is refresh_token: host-only (no Domain), HttpOnly, SameSite=Lax,
+Path=/api/v1/auth and Max-Age bounded by remaining refresh lifetime. Secure is enabled
+by default. app.security.browser.local-http=true is an explicit local-development
+exception: only HTTP localhost/loopback origins and loopback HTTP API requests are
+accepted, never a production Secure=false option. Use a consistent localhost hostname
+for frontend/API; mixing localhost and 127.0.0.1 is not a same-site topology.
+Example local origins are http://localhost:3000 frontend and http://localhost:8080 API;
+the frontend origin must be explicitly configured, not implicitly trusted.
+Actual production origins and trusted reverse-proxy HTTPS handling are deployment
+configuration; a cross-site topology requires a new decision, not SameSite weakening.
+
+Spring CookieCsrfTokenRepository stores a host-only HttpOnly XSRF-TOKEN cookie with
+the same secure/site/path rules. Bootstrap returns the BREACH-masked token in JSON,
+so cross-origin frontend code need not read the API-host cookie. Fetch uses
+credentials: include; mutations submit that returned token in X-XSRF-TOKEN.
+Require the header plus matching cookie; no form/query-token fallback.
+Protect unsafe methods throughout /api/v1/auth/**, including future cookie-backed
+auth mutations. Separate protected API routes remain stateless header-Bearer only.
+Access JWTs stay in frontend memory, never localStorage/sessionStorage; no frontend
+implementation is included in Batch 2. Do not add social login or OAuth flows.
 Admin accounts are not publicly self-registered; authorized administrative/system
 setup does not establish a Teacher onboarding mechanism.
 
@@ -119,6 +214,75 @@ BR-AUTHN-015, BR-AUTHN-016, BR-AUTHN-017, BR-AUTHN-018, BR-AUTHN-019,
 BR-AUTHN-020, BR-AUTHN-023, BR-AUTHN-024, BR-PROFILE-002;
 NFR-SEC-001, NFR-SEC-007, NFR-SEC-008, NFR-SEC-009, NFR-SEC-010,
 NFR-SEC-011, NFR-SEC-012, NFR-SEC-013, NFR-SEC-014, NFR-SEC-015, NFR-SEC-017.
+
+### 3.3 Student Registration and Initial Email Verification — Batch 3
+
+All three operations use Batch 2 HTTPS/local-loopback, exact CORS allowlist,
+CSRF cookie/header and no-store policies. They require JSON, accept no query
+parameters and reject unknown/protected properties. No access JWT is required.
+No access/refresh credentials, hashes or User entities are returned.
+
+| Method/path | Exact request DTO | Success |
+| --- | --- | --- |
+| POST /api/v1/auth/register/student | Required string email, password, fullName. | 201 {"verificationRequired":true}. |
+| POST /api/v1/auth/email-verification | Required nonblank string token; INITIAL_VERIFICATION only. | 204, no body. |
+| POST /api/v1/auth/email-verification/resend | Required string email. | 202, no body; also for unknown, locked, already-verified or non-initial-verification accounts. |
+
+Email is trimmed before syntax validation and lowercased with Locale.ROOT before
+storage/lookup; no provider-specific normalization. fullName is nonblank, rejects
+PostgreSQL-forbidden NUL and is otherwise preserved. Current V1 TEXT has no approved
+fixed name-length limit; retired profile limits are not reinstated. Password is
+preserved exactly, with the approved 8–64 Unicode-code-point/72-UTF-8-byte limits and
+BCrypt cost 12. Backend creates unlocked, unverified STUDENT accounts. No public
+Admin registration, Teacher registration or onboarding changes are included.
+
+User and initial credential are persisted in one READ COMMITTED transaction.
+Canonical-email uniqueness prevents duplicate overwrites, including races.
+Credentials use 32 SecureRandom bytes, canonical unpadded Base64URL and a
+purpose-separated SHA-256 lowercase hexadecimal hash. Only the hash, User, canonical
+target email, purpose, expiry and single-use metadata are persisted. Lifetime is
+24 hours; now >= expires_at is expired. Raw credentials are accepted in the body,
+never in URLs, API responses or logs.
+
+Verification locks User before reading mutable credential state, checks current
+email, purpose, expiry, unused state, lock and verification status, then atomically
+consumes the credential and sets email_verified. One concurrent verification wins.
+Existing login eligibility then permits verified/unlocked accounts; verification
+never changes roles or approves Teacher onboarding.
+
+Resend uses the same User lock. Cooldown is 60 seconds since the last committed
+issuance, including registration. Five accepted resends per rolling 24 hours are
+allowed: SMTP failures count; initial registration and rejected requests do not.
+The earliest INITIAL_VERIFICATION row is registration; retain credential history
+for rate accounting. An entry exactly at the window start is outside the window.
+Earlier unexpired credentials remain usable until verification succeeds; afterwards
+current account state prevents further initial-verification use. No per-IP or
+production-grade distributed abuse protection is claimed.
+
+SMTP delivery occurs after confirmed commit only. Mail contains a verification
+code and expiry notice; no frontend verification-link route is invented. Configure
+SMTP_HOST, SMTP_PORT (default 587), SMTP_USERNAME, SMTP_PASSWORD and SMTP_FROM via
+runtime environment. Boot-managed mail support uses authenticated STARTTLS,
+required TLS, server identity validation, bounded timeouts and disabled mail debug.
+No credentials/fallback sender are committed. Failed delivery retains the
+unverified account and accepted credential so resend can recover after cooldown.
+There is no durable delivery queue or automatic mail/transaction retry.
+
+Safe errors: 400 INVALID_REQUEST; 400 INVALID_VERIFICATION_CREDENTIAL;
+409 REGISTRATION_CONFLICT; 429 VERIFICATION_RATE_LIMITED;
+503 VERIFICATION_DELIVERY_UNAVAILABLE (explicitly states persisted account is not
+rolled back and resend is available); 503 AUTHENTICATION_UNAVAILABLE;
+503 AUTHENTICATION_OUTCOME_UNKNOWN; 500 INTERNAL_ERROR. No internal causes/private
+values are returned. Uncertain commit returns no success and sends no email.
+Generic resend no-ops reduce disclosure, but rate-limit/delivery responses do not
+claim perfect account-enumeration resistance.
+
+References: FR-STU-001, FR-STU-002, FR-ACC-008, FR-ACC-009, FR-ACC-016,
+NFR-SEC-001, NFR-SEC-004, NFR-SEC-015; BR-AUTHN-002, BR-AUTHN-006,
+BR-AUTHN-017, BR-AUTHN-020; UC-AUTH-REGISTER-01, UC-AUTH-VERIFY-EMAIL-01,
+UC-AUTH-LOGIN-01. Email change, password recovery and frontend flows remain separate.
+
+---
 
 ## 4. Authorization and Resource Ownership
 
@@ -552,7 +716,7 @@ codes for unresolved state machines.
 
 GET is read-only: no implicit payment confirmation, participation activation or
 result mutation. Use creation/update/deletion success semantics appropriate to
-the eventual operation; no specific operation's success status is frozen here.
+the eventual operation; Section 3.1 fixes current-account success at 200.
 POST is not automatically retry-safe; PUT/PATCH/DELETE selection must match an
 approved resource identity and effect. Do not impose retry keys, duplicate rules
 or physical uniqueness before dependent policy is resolved. A timeout alone does
@@ -799,9 +963,9 @@ source use cases remain applicable even where the capability is approved.
 
 | Current use case | Responsibility section and remaining contract boundary |
 | --- | --- |
-| UC-AUTH-REGISTER-01 | 3: Student registration; required fields/transitions/security deferred. |
+| UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and initial verification. |
 | UC-AUTH-REGISTER-TEACHER-01 | 3: Teacher registration; separate registration and approved onboarding; operation details deferred. |
-| UC-AUTH-VERIFY-EMAIL-01 | 3: Verification and eligible resend; expiry/resend/transitions deferred. |
+| UC-AUTH-VERIFY-EMAIL-01 | 3.3: initial verification/resend approved; other purposes remain deferred. |
 | UC-AUTH-LOGIN-01 | 3: Shared authentication with locked checks; transport details deferred. |
 | UC-AUTH-REFRESH-01 | 3: Validated refresh; transport/replay/concurrency deferred. |
 | UC-AUTH-LOGOUT-01 | 3: Applicable server-side invalidation; session/transport details deferred. |

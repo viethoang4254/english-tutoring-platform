@@ -23,14 +23,14 @@ The planning-readiness column is a reference snapshot of TASK_BREAKDOWN. Complet
 
 The repository contains the Spring Boot technical foundation, Next.js technical foundation, environment-bound datasource/JPA/PostgreSQL connectivity setup, foundation tests and a neutral frontend shell. Completed connectivity includes recorded local and Supabase development verification.
 
-Flyway and the approved 22-table Physical V1 migration are implemented and verified on disposable local PostgreSQL under TASK-004. Supabase development V1 is deployed, independently verified read-only and accepted as the development database baseline; see Section 8, TASK-004. Tutoring business controllers, entities/repositories, authentication, production deployment and CI remain unimplemented.
+Flyway and the approved 22-table Physical V1 migration are implemented and verified on disposable local PostgreSQL under TASK-004. Supabase development V1 is deployed, independently verified read-only and accepted as the development database baseline; see Section 8, TASK-004. The current-account controller and Batch 2 login/refresh/logout/CSRF HTTP endpoints are implemented; Batch 3 Student registration/initial-email verification/resend are implemented and locally verified; other business controllers, production deployment and CI remain unimplemented; TASK-006 supplies JWT validation/default deny and a minimal read-only User mapping for current-account resolution.
 
 | Active task status | Count |
 |---|---:|
-| DONE | 5 |
-| TODO | 23 |
+| DONE | 6 |
+| TODO | 20 |
 | BLOCKED | 8 |
-| IN_PROGRESS | 2 |
+| IN_PROGRESS | 4 |
 | Total | 38 |
 
 Planning readiness: 27 TODO, 8 DEFERRED and 3 preserved completed foundations. Eight retired task IDs are tracked separately. TASK-031 is DONE for documentation/operational guidance only. This documentation reconciliation does not establish application implementation or verification.
@@ -45,11 +45,11 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-002 | Frontend technical foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-002. |
 | TASK-003 | PostgreSQL connectivity foundation | DONE | Preserved foundation | Preserved evidence: Section 8, TASK-003. |
 | TASK-004 | Physical Database V1 migration and persistence integrity | DONE | TODO | Flyway V1 and isolated PostgreSQL verification passed; see Section 8, TASK-004. |
-| TASK-005 | Shared API and client boundary conventions | IN_PROGRESS | TODO | Shared boundary slice verified; first real approved use-case request/response remains outstanding. See Section 8, TASK-005. |
-| TASK-006 | Authentication and backend authorization foundation | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-007 | Student registration and shared authentication sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-005 | Shared API and client boundary conventions | DONE | TODO | Shared boundary and real current-account response/error verified. See Section 8, TASK-005. |
+| TASK-006 | Authentication and backend authorization foundation | IN_PROGRESS | TODO | Phases 1-3 and real current-account boundary verified; Teacher eligibility and other security gates remain outstanding. See Section 8, TASK-006. |
+| TASK-007 | Student registration and shared authentication sessions | IN_PROGRESS | TODO | Backend registration/verification/resend and login/refresh/logout verified; frontend and production mail delivery remain outstanding. See Section 8, TASK-007. |
 | TASK-008 | Dedicated password change and recovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-009 | Current account and own personal profile | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-009 | Current account and own personal profile | IN_PROGRESS | TODO | Bounded account-read exception implemented before TASK-007; profile work remains. See Section 8, TASK-009. |
 | TASK-010 | Teacher-owned Course management | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-011 | Public Teacher and Course discovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-016 | Whole-Course Enrollment and participation authorization | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -92,10 +92,10 @@ TASK-001, TASK-002 and TASK-003 remain DONE. Their original evidence is retained
 
 ### FEAT-001 — Development/runtime foundation
 
-- Overall status: IN_PROGRESS.
-- Component status: Backend IN_PROGRESS; Frontend IN_PROGRESS; Persistence DONE; Tests IN_PROGRESS.
+- Overall status: DONE.
+- Component status: Backend DONE; Frontend DONE; Persistence DONE; Tests DONE.
 - Related tasks: TASK-001, TASK-002, TASK-003 and TASK-005.
-- Remaining work: TASK-005 shared API/client conventions and their required verification; applicable G-API/G-UI decisions remain in TASK_BREAKDOWN.
+- Foundation acceptance for TASK-001/002/003/005 is verified. Product UI and unrelated G-API/G-UI decisions remain open; foundation DONE does not claim product completion.
 - Persistence DONE means foundation connectivity only. It does not mark the separate migration foundation or any domain persistence complete.
 - Evidence: Section 8. The business-scope migration does not invalidate these completed checks.
 
@@ -104,9 +104,9 @@ Compatible existing feature IDs retain their current meaning below. Their scope 
 | Feature | Current responsibility | Overall status | Related current tasks |
 |---|---|---|---|
 | FEAT-002 | Physical Database V1 migration/persistence foundation | DONE | TASK-004 |
-| FEAT-003 | Authentication/authorization foundation | TODO | TASK-006 |
-| FEAT-004 | Student registration, shared sessions and password security | TODO | TASK-007, TASK-008 |
-| FEAT-005 | Current account and own personal profile | TODO | TASK-009 |
+| FEAT-003 | Authentication/authorization foundation | IN_PROGRESS | TASK-006 |
+| FEAT-004 | Student registration, shared sessions and password security | IN_PROGRESS | TASK-007, TASK-008 |
+| FEAT-005 | Current account and own personal profile | IN_PROGRESS | TASK-009 |
 | FEAT-006 | Public Teacher/Course discovery | TODO | TASK-011 |
 | FEAT-007 | Teacher-owned Course management | TODO | TASK-010 |
 | FEAT-011 | Whole-Course Enrollment and participation access | TODO | TASK-016 |
@@ -145,12 +145,12 @@ These entries record missing decisions, not failures of the completed infrastruc
 
 ## 6. Current Capability Summary
 
-Approved/designed responsibilities below are not implemented or verified. Exact candidate API and physical contracts remain gated as described upstream.
+The table distinguishes implemented responsibilities from remaining gated work. Unapproved operation contracts remain gated as described upstream.
 
 | Capability | Current implementation/evidence boundary | Task ownership |
 |---|---|---|
-| Authentication/account security | Student/Teacher registration, login, JWT, RefreshSession, refresh/logout, email verification/resend and password change/forgot/reset are not implemented. No Spring Security/JWT implementation is present. Teacher onboarding remains blocked. | TASK-006, TASK-007, TASK-008, TASK-032 |
-| User/Teacher profiles | Current account, own personal profile, specialization/experience/introduction and safe Teacher public projection are not implemented; exact fields remain gated. | TASK-009, TASK-033 |
+| Authentication/account security | Student/Teacher registration, email verification/resend and password change/forgot/reset are not implemented. TASK-007 supplies verified login/refresh/logout HTTP endpoints, CSRF bootstrap and configured cookie/CORS controls over its atomic issuance/refresh core. TASK-006 validates bearer JWTs, resolves current User role/locked state and preserves default deny; Teacher onboarding eligibility and other feature authorization remain outstanding; bounded current-account viewing is authorized. Teacher onboarding remains blocked. | TASK-006, TASK-007, TASK-008, TASK-032 |
+| User/Teacher profiles | Minimal current-account identity viewing is implemented; own-profile editing, teaching information and public Teacher projection remain unimplemented/gated. | TASK-009, TASK-033 |
 | Public discovery | Teacher/Course search/filter and public Course detail are not implemented; protected participation data must remain separate. | TASK-011 |
 | Teacher certificates | V2 prepared only; own management, Admin review and VERIFIED-only public projection are unimplemented. | TASK-046 |
 | Courses | Teacher-owned Course creation/management/publication is not implemented; owner derives from backend identity and five-state lifecycle is approved but detailed operation contracts remain gated. | TASK-010 |
@@ -269,11 +269,242 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 
 ### TASK-005 — Shared API/client boundary slice
 
-- Status: IN_PROGRESS (2026-10-05). Scoped G-API conventions are approved in API_DESIGN Section 19; FEAT-001 remains IN_PROGRESS with Backend/Frontend/Tests IN_PROGRESS and foundation Persistence DONE. TASK-001 through TASK-004 evidence/statuses are preserved.
+- Status: DONE (2026-10-11), assessed after real current-account integration. Scoped G-API conventions are approved in API_DESIGN Section 19; FEAT-001 foundation and its components are DONE; this does not complete product UI. TASK-001 through TASK-004 evidence/statuses are preserved.
 - Implementation: common/api ApiError, ApiExceptionHandler, ApiJsonConfiguration, ApiId and ApiMoney; frontend/src/lib/api.ts reuses NEXT_PUBLIC_API_ORIGIN/native fetch. Added Boot-managed spring-boot-starter-validation for DTO Bean Validation. frontend/tsconfig.json permits .ts imports for dependency-free native Node tests; no frontend dependency was added.
 - Verification (agent-observed): Oracle Java 17.0.12; focused ApiBoundaryTests passed, and mvnw.cmd -f backend/pom.xml -B -ntp verify reported BUILD SUCCESS: 20 tests, 0 failures/errors, 2 opt-in database tests skipped (18 passed), executable JAR packaged. MockMvc test-only fixtures cover lossless Long/money round trips, ISO timestamps, rejection of numeric/offsetless timestamps, malformed input, scalar coercion, unknown/protected fields and safe structured errors. DATABASE_URL/USERNAME/PASSWORD were removed from the test process; datasource/Flyway are excluded from the boundary tests. No database or Supabase access occurred.
 - Frontend verification: Node 24.21.0; node --test frontend/tests/api.spec.ts passed 6/6 with stubbed fetch (no server/network). npm run typecheck, npm run lint and npm run build passed; output remains the neutral / and built-in /_not-found. Native Node reported module-type reparsing; no package-wide module change was made merely to suppress the warning.
-- Remaining acceptance: the first real approved use-case request/response and error case has not been implemented; test fixtures do not satisfy that criterion. G-UI stays open; pagination and operation-specific authorization/privacy mappings remain deferred. No product endpoint/DTO/UI, auth implementation, schema/migration/datasource configuration change or provider integration. No staging/commit/push.
+- Completion assessment: GET /api/v1/users/me supplies the first approved real request/response and 400/401/503/500 error cases, using explicit DTOs and shared conventions. Exact large IDs are verified; existing money/input/client evidence remains valid. Maven verify passed 61, failed 0, errors 0, skipped 3 opt-in database tests (64 total), including 37 security/API checks and 6 password checks. Frontend unchanged; prior frontend verification remains applicable. G-UI, pagination and unrelated operation contracts remain open outside this bounded foundation. No Supabase/schema/migration changes or commit/push.
+
+### TASK-006 — JWT boundary and current-account resolution
+
+- Status: IN_PROGRESS (2026-10-11); FEAT-003 IN_PROGRESS. Phases 1/2/3 bounded slices only: no registration/login/refresh/logout, token issuer or Teacher onboarding approval; bounded current-account viewing is added under TASK-009.
+- Implementation: features/auth/security/SecurityConfiguration, AccessTokenValidator and ApiSecurityErrors; Boot-managed resource-server JWT starter and test-scoped spring-security-test.
+- Contract: header Bearer only; RS256; required sub/iss/aud/iat/exp; positive decimal Long subject without numeric coercion; issuer english-tutoring-platform and audience english-tutoring-api defaults. app.security.jwt.clock-tolerance defaults to 60s; issuer/audience are configurable. Required app.security.jwt.public-key resolves an external X.509 PEM RSA public key (minimum 2048 bits); no fallback key. Missing/invalid configuration prevents servlet startup.
+- HTTP boundary: stateless/default deny; safe ApiError 401/403; no Basic/form login/logout, redirects or request cache. CSRF is disabled for this bearer-header-only phase; cookie authentication and browser CORS remain unimplemented. Token roles/scopes grant no production authority. Non-web database verification contexts do not load servlet security.
+- Verification: Oracle Java 17.0.12; mvnw.cmd -f backend/pom.xml -B -ntp verify passed: 44 tests, 0 failures/errors, 2 opt-in database tests skipped (42 passed; 24 security checks). Signature/claims/timestamps, malformed and unsigned tokens, subject coercion/overflow, safe errors, default deny, unsupported transports and test-only role boundaries were exercised. Runtime-generated keys and fixtures are test-only; no fixture classes packaged in the executable JAR. Database/Spring/PG environment overrides removed from the test process; no Supabase/database access. git diff --check passed.
+- Phase 2 implementation: features/user/entity/User maps only id/role/locked/email_verified read-only; UserRepository exposes lookup only; CurrentAccountService returns immutable AccountSnapshot in a read-only transaction. features/auth/security/CurrentAccountAuthenticationConverter resolves the validated subject on every authenticated request; AccountPrincipal contains no entity or credentials. No cross-request cache or new dependencies.
+- Phase 2 behavior: missing/locked User returns safe 401; authorities derive exclusively from current database role, never JWT role/scope claims. Database resource/transaction availability and timeout failures return 503 AUTHENTICATION_UNAVAILABLE; unexpected lookup failures return generic 500 INTERNAL_ERROR without SQL/private values. Production routes remain default deny except the approved current-account GET; ROLE_TEACHER alone establishes neither approved onboarding nor business permission.
+- Phase 2 verification: focused security/context tests passed 31/31 (30 security); full Java 17 Maven verify passed 48, failed 0, errors 0, skipped 3 opt-in database tests (51 total), with executable JAR packaging. The opt-in CurrentAccountPersistenceTests separately passed 1/1 on a fresh isolated PostgreSQL 18.6 cluster at 127.0.0.1:55432/task006_accounts using dedicated process-scoped credentials. Unchanged V1/V2 applied only there; Hibernate validated the mapping, precise BIGINT IDs/all roles/current flags/immutable snapshots and absence of lookup writes were checked. Cluster stopped afterward. Previous disposable cluster could not start (missing pg_notify); it was not repaired or reused. Initial fixture compilation/context failures were corrected before the passing runs.
+- Phase 2 safety: no Supabase access, frontend changes or new migrations; V1/V2 unchanged. Test fixtures excluded from the packaged JAR; git diff --check passed. Existing Phase 1 and TASK-046 evidence preserved.
+- Phase 3 implementation: PasswordConfiguration uses Spring DelegatingPasswordEncoder with BCrypt cost 12 and {bcrypt} storage identifiers; a small adapter validates inputs and rejects malformed/unsupported hashes without plaintext fallback. PasswordInput requires 8-64 Unicode code points and at most 72 UTF-8 bytes, preserving whitespace/case/Unicode form exactly; malformed UTF-16 is rejected rather than replaced during encoding. No dependency changes, credential lookup/writes or workflows.
+- Phase 3 verification: Java 17 Maven verify BUILD SUCCESS; 54 passed, 0 failures/errors, 3 opt-in database tests skipped (57 total), including 6 password tests and all 30 security regression checks. Tests cover independent salts, cost/storage format, matching, Unicode/code-point/UTF-8 boundaries, whitespace/case/normalization preservation and safe malformed/unsupported-hash rejection. Initial final-method compilation incompatibility was corrected using composition before the passing run. No database/Supabase access. BCrypt cost must be benchmarked on deployment hardware before production; unit-test timing is not production capacity evidence.
+- Remaining: Teacher eligibility integration, real feature permissions, production BCrypt benchmarking, browser transport/CORS/CSRF, key operations and TASK-007 lifecycle contracts. Current-account viewing now supplies real-boundary evidence; wider permissions remain incomplete. TASK-005 is DONE and TASK-046 remains IN_PROGRESS; no migrations/frontend changes or commit/push.
+
+### TASK-007 — Phase 1 internal refresh-session lifecycle
+
+- Status: IN_PROGRESS; FEAT-004 IN_PROGRESS. Explicitly approved bounded sequencing
+  exception permits this foundation while TASK-006 remains IN_PROGRESS.
+- Implementation: auth/entity/RefreshSession, repository/RefreshSessionRepository,
+  security/RefreshTokens and RefreshSessionConfiguration, service/RefreshCredential,
+  RefreshFailure and RefreshSessionService. No new dependency or endpoint.
+- Credentials: 32 SecureRandom bytes, canonical unpadded Base64URL (43 characters);
+  SHA-256 of the canonical ASCII token stored as lowercase hex only. Incoming tokens
+  must decode to exactly 32 bytes and re-encode identically; no trim/normalization.
+  Immutable internal result redacts its toString; exceptions retain no raw causes.
+- app.security.refresh.lifetime defaults to 7d; positive PostgreSQL-microsecond
+  representable Duration required. Injected UTC Clock; each rotation gets a fresh
+  lifetime. created_at/revoked_at use backend time at database timestamp precision.
+- READ COMMITTED row locking precedes expiry/revocation checks; now >= expires_at
+  rejects. Old row is revoked and replacement inserted atomically, retaining history.
+  A top-level TransactionTemplate commits before returning any replacement credential.
+  Ambient transactions are rejected to avoid returning before an outer commit.
+- Missing/locked Users and unknown/expired/revoked/replayed credentials fail closed.
+  These primitives do not approve login or decide unverified/pending-Teacher eligibility.
+  Targeted revocation affects only the identified usable credential. No session limit,
+  family tracking, unrelated-session revocation or automatic retries.
+- Typed failures: INVALID_CREDENTIAL, UNAVAILABLE, INTERNAL_FAILURE, COMMIT_UNCERTAIN.
+  Work/flush failures roll back; failures after successful flush during transaction
+  completion are conservatively uncertain. No successful credential is returned or
+  rollback claimed in that case. Lost responses cannot recover replacements via old tokens.
+- Verification: focused unit run initially passed 10/10; final Maven verify passed
+  73, failed 0, errors 0, skipped 12 opt-in database tests (85 total). This includes
+  12 refresh unit tests plus existing password/security/API regressions.
+- Separate PostgreSQL 18.6 verification passed 9/9, no failures/errors/skips, on a fresh
+  protected disposable cluster at 127.0.0.1:55432/task007_refresh with dedicated
+  process-scoped credentials. Unchanged V1/V2 applied only there; Hibernate validated
+  mappings. Tests proved one concurrent winner, duplicate-hash/NOT NULL insertion
+  rollback with the old credential still usable, historical retention, fresh expiry,
+  locked/missing User rejection, independent sessions, targeted revocation, committed
+  visibility and expiry checked after a verified lock wait. Deliberate constraint
+  failures produced expected PostgreSQL warnings. Cluster stopped after testing.
+- No database access during general verify; integration tests require explicit
+  TASK007_TEST_* settings and an empty allowlisted local database. No Supabase access.
+  JAR excludes test fixtures; V1/V2 unchanged; git diff --check/CRLF checks pass.
+- Remaining: private-key JWT issuance, full login/refresh eligibility, registration,
+  email verification, logout workflow, HTTP contracts and browser transport/CORS/CSRF.
+  No authentication grant is inferred from a successful lifecycle primitive.
+  TASK-006 stays IN_PROGRESS; TASK-007 is not DONE. No commit/push.
+
+### TASK-007 — Phase 2 internal access-token issuer (verified internal slice)
+
+- Status: TASK-006, TASK-007 and FEAT-004 remain IN_PROGRESS.
+- Prepared AccessTokenIssuer/AccessToken/AccessTokenConfiguration using existing
+  NimbusJwtEncoder, explicit RS256/JWT header, external file-URI PKCS#8 private key
+  and X.509 public key, minimum 2048 bits, modulus and sign/verify startup checks.
+  Required app.security.jwt.private-key has no fallback. Shared jwtClock drives
+  issuance and both validator timestamp checks; existing 60s tolerance is unchanged.
+- app.security.jwt.access-token-lifetime defaults to 15m; positive whole-second
+  Duration required. issue(Long) rejects null/non-positive IDs, uses exact decimal
+  subject and only sub/iss/aud/iat/exp. Result toString and signing failures are
+  redacted. No issuer calls from account resolution or refresh rotation.
+- Approved audience contract: exactly one configured audience; NimbusJwtEncoder
+  serializes aud as a JSON string. Decoded audience must equal the singleton
+  configured value; missing or multiple audiences are not issued. No array-only
+  requirement, custom serialization, signer or validator change.
+- Verification 2026-10-12: focused AccessTokenIssuerTests passed 8, failed 0,
+  errors 0, skipped 0. Final Maven verify BUILD SUCCESS: passed 81, failed 0,
+  errors 0, skipped 12 (93 total). The 12 opt-in database tests were skipped;
+  isolated database configuration is unchanged and no database was contacted.
+  Tests cover actual production-validator compatibility, exact five-claim payload,
+  RS256/JWT header, singleton audience, key startup failures, clock boundaries,
+  redaction and same-modulus/wrong-public-exponent challenge rejection.
+- Only runtime-generated temporary test keys used; no production key generated,
+  database/Supabase access, migration changes, endpoints or commit/push.
+  Key replacement/restart invalidation was tested; no multi-key/JWKS support.
+- Remaining: separately approve full eligibility and refresh-commit/signing failure
+  ordering before authentication workflow integration.
+  No authentication workflow integration is authorized by these primitives.
+
+### TASK-007 — Authentication workflow Batch 1 (internal only)
+
+- TASK-006, TASK-007 and FEAT-004 remain IN_PROGRESS; TASK-032 remains BLOCKED.
+- UserCredentialRepository/UserCredentialService provide User-owned private scalar
+  credential lookup with lowercase(trim(email)) canonicalization. Existing read-only
+  User mapping and current-account behavior are unchanged; hashes never enter public DTOs.
+- AuthenticationWorkflowService verifies the existing BCrypt password contract and
+  performs dummy BCrypt comparison for an unknown account. Missing/locked/unverified
+  accounts fail safely. Teacher onboarding is not account authentication eligibility;
+  Teacher business authority still requires separate checks. Registration remains
+  unimplemented and must create unverified accounts without token issuance.
+- RefreshSessionService adds two bounded internal workflow operations. Login locks and
+  rereads the User, rejecting changed email/password or ineligible state; refresh locks
+  the credential then the User and checks expiry after lock acquisition. Future password
+  reset/change workflows must coordinate this lock order. No generic callback API added.
+- JWT signing follows eligibility and precedes refresh persistence/commit. Only committed
+  immutable AuthenticationResult pairs leave the service. Signing/insert failures roll
+  back; uncertain commits return typed COMMIT_UNCERTAIN without credentials or retry.
+  INVALID_CREDENTIAL, UNAVAILABLE and INTERNAL_FAILURE are also safe typed outcomes;
+  results/credential snapshots redact toString. No session-family or unrelated revocation.
+- Verification 2026-10-12: focused unit/issuer regression tests passed 32, failed 0,
+  errors 0, skipped 0. Full Maven verify BUILD SUCCESS: passed 96, failed 0, errors 0,
+  skipped 20 (116 total). Opt-in persistence tests remain disabled in general verify.
+- Separate PostgreSQL 18.6 run passed 17, failed 0, errors 0, skipped 0: 9 existing
+  lifecycle regressions plus 8 workflow tests. Fresh isolated cluster bound only to
+  127.0.0.1:55432/task007_refresh; dedicated test-only credentials, unchanged V1/V2,
+  23 application tables and two successful Flyway entries. No development/remote database.
+  Evidence covers canonical login/all roles, pending/rejected Teachers, malformed hashes,
+  password whitespace, eligibility, one-winner refresh, signing/unique-collision rollback,
+  preserved history/independent sessions and committed account changes after lock waits.
+- Initial fixture issues (Mockito restubbing, database-free repository mocks and JUnit
+  temporary-key initialization) were corrected before final passing runs. The first
+  migrated disposable database was preserved; rerun used a fresh cluster, not a reset.
+  Both test clusters were stopped; encrypted test credentials remain outside Git.
+- No endpoint, cookie/CSRF/CORS, frontend, registration/email, onboarding, new migration,
+  Supabase access, dependency, commit or push. Remaining: approved HTTP/browser transport,
+  registration validation/privacy, verification/resend/delivery and logout contracts.
+  Internal failure reasons do not independently finalize HTTP status/error contracts.
+
+### TASK-007 — Batch 2 authentication HTTP and browser security (verified backend slice)
+
+- TASK-006, TASK-007 and FEAT-004 remain IN_PROGRESS; TASK-032 remains unchanged.
+- Implemented POST /api/v1/auth/login, POST /api/v1/auth/refresh,
+  POST /api/v1/auth/logout and GET /api/v1/auth/csrf. API_DESIGN Section 3.2
+  and ARCHITECTURE record approved contracts before implementation. No Batch 3.
+- Explicit login/access/CSRF DTOs reject invalid/protected input and redact diagnostics.
+  Login returns 403 EMAIL_VERIFICATION_REQUIRED only after correct password and unlocked
+  account checks; missing/locked/incorrect credentials and ineligible refresh remain 401.
+  Safe 400/401/403/503/500 mappings include uncertain outcomes; failure never sets or clears
+  refresh credentials. The existing RS256/BCrypt/current-account boundaries remain intact.
+- Refresh credentials are host-only HttpOnly SameSite=Lax cookies, Path=/api/v1/auth,
+  Secure by default, Max-Age bounded by remaining lifetime, never JSON. Credential/bootstrap
+  responses are no-store. Explicit local-http mode permits only loopback HTTP requests and
+  HTTP loopback origin configuration; production origins must be exact HTTPS origins.
+- Separate auth security chain uses Spring CookieCsrfTokenRepository and BREACH-masked
+  bootstrap JSON. X-XSRF-TOKEN plus matching cookie is required before unsafe auth requests;
+  query/form fallback is rejected. Exact-origin credentialed CORS runs before security;
+  all unapproved routes remain denied. Business routes remain stateless header-Bearer only.
+  No concrete local frontend API origin is currently configured; tested local pair is
+  http://localhost:3000 -> http://localhost:8080, with explicit origin allowlisting.
+  Tested HTTPS pair is https://web.example.test -> https://api.example.test.
+- Logout revokes only the credential's row without an account-eligibility lookup, including
+  locked accounts. Missing/malformed/unknown/expired/revoked input is idempotent; database or
+  commit failures are not success. An old rotated credential never revokes its replacement.
+  Logout does not invalidate signed access JWTs; current-account restrictions still apply.
+- Verification 2026-10-12: focused tests passed 87, failed 0, errors 0, skipped 0:
+  30 HTTP/HTTPS cookie-CSRF-CORS checks, 2 configuration checks, 18 workflow unit checks,
+  and 37 existing security/current-account regressions. Tests use real Spring filters and
+  real cookie/bootstrap exchanges in MockMvc; internal workflow dependencies are mocked.
+- Full Maven verify BUILD SUCCESS: passed 132, failed 0, errors 0, skipped 22 (154 total).
+  Separately, isolated PostgreSQL 18.6 passed 19, failed 0, errors 0, skipped 0, including
+  existing concurrency/rollback regressions and new targeted logout checks. Remaining three
+  opt-in database suites were not rerun. The fresh protected localhost-only cluster at
+  127.0.0.1:55432/task007_refresh used test credentials, unchanged V1/V2 and 23 application
+  tables, then was stopped and preserved. No development/remote database was contacted.
+- Initial compile/test-fixture issues were corrected before final passing verification.
+  JAR fixture/key exclusion, changed-file scope, CRLF and git diff --check were checked.
+  No dependencies, frontend, migration source, Supabase, staging, commit or push changes.
+- Remaining: Batch 3 registration validation/privacy, email provider/delivery, verification
+  lifetime/resend limits and approved UI work. Actual deployment origins and trusted proxy
+  HTTPS metadata still need operational configuration; no production topology/browser
+  deployment was tested and no frontend token storage/refresh logic was implemented.
+
+### TASK-007 — Batch 3 Student registration and initial verification
+
+- TASK-007, FEAT-004 and TASK-006 remain IN_PROGRESS. TASK-032 is unchanged.
+- Implemented POST /api/v1/auth/register/student, POST /api/v1/auth/email-verification
+  and POST /api/v1/auth/email-verification/resend with explicit DTOs, protected-field
+  rejection, CSRF/CORS and no-store. Registration returns 201 verificationRequired=true
+  without authentication tokens; duplicate canonical email returns 409 without overwrite.
+- StudentRegistrationService owns transaction boundaries; UserCredentialService/
+  Repository own User writes. EmailVerificationCredential/Repository reuse V1;
+  VerificationTokens hashes purpose-bound credentials. Verification and resend share
+  User-row locking. Registration and credential creation/consumption are atomic.
+- Approved resend clarification: five accepted resends per rolling 24 hours, including
+  SMTP failures, excluding initial registration/rejected requests; 60-second cooldown.
+  Earlier unexpired credentials remain usable until verification. Preserve credential
+  history for rate accounting. No per-IP limiter is claimed.
+- SmtpVerificationMail uses Boot-managed spring-boot-starter-mail and environment-only
+  SMTP configuration, required STARTTLS and bounded timeouts. Mail sends after commit;
+  failure preserves account state for resend. Tests use a mail double, not real SMTP.
+- Agent-observed verification (2026-10-12): focused Batch 3 plus Batch 2 HTTP checks:
+  57 passed, 0 failed/errors, 0 skipped. Full Maven verify BUILD SUCCESS: 192 total,
+  159 passed, 0 failed/errors, 33 skipped (30 opt-in workflow PostgreSQL checks plus
+  three other opt-in database checks).
+- Separate isolated PostgreSQL run: 30 passed, 0 failed/errors/skipped; all 19 earlier
+  checks preserved plus 11 Batch 3 tests. Covers canonical duplicates, hash-only storage,
+  unverified login rejection then verified login success, expiry/replay/locked/purpose
+  denial, delivery failure recovery, rollback, cooldown/rolling limit and concurrent
+  verification/resend. Unit tests prove commit-before-mail, uncertain-commit suppression
+  and safe failure mapping. Required negative-test constraint errors were expected.
+- Fresh disposable PostgreSQL 18.6 at 127.0.0.1:55432/task007_refresh used protected
+  test-only credentials and the empty-database guard. Unchanged V1/V2 applied locally;
+  23 application tables and two successful history entries confirmed. Cluster stopped
+  and preserved. No development/remote database or Supabase was contacted.
+- Remaining: frontend/authentication UX/browser integration, real SMTP operational
+  configuration/delivery verification, broader TASK-006 acceptance and separately
+  scoped Teacher registration. No schema/source migration, frontend, staging, commit
+  or push changes. Executable JAR excludes test fixtures and key files.
+
+### TASK-009 — Bounded current-account read
+
+- Status: IN_PROGRESS; FEAT-005 IN_PROGRESS. Approved sequencing exception permits
+  this read-only slice before TASK-007; other prerequisites remain binding.
+- Implementation: features/user/controller/CurrentAccountController and
+  dto/CurrentAccountResponse reuse current database-backed AccountPrincipal and
+  ApiId, without a duplicate persistence query or entity response.
+- GET /api/v1/users/me returns exactly id/role/emailVerified for unlocked
+  STUDENT/TEACHER/ADMIN, including unverified Users and pending Teachers.
+  Authentication/account rejection precedes forbidden query/body validation.
+  Only this exact GET route is permitted; other methods/routes remain denied.
+- Verification: Maven verify passed 61, failed 0, errors 0, skipped 3 (64 total).
+  Seven added production-route integration tests cover all roles, no onboarding
+  prerequisite, exact Long.MAX_VALUE, fresh role/verification state, forbidden input,
+  missing/locked accounts, invalid/expired JWTs, authentication-first precedence,
+  safe 503/500 and route isolation. Strict JSON comparisons verify the three-field
+  projection. Phase 1-3 regressions pass; packaged JAR excludes test fixtures.
+  git diff --check and CRLF checks pass. No database/Supabase access.
+- Remaining: broader profile viewing/editing, approved field contracts, frontend and
+  other TASK-007 dependencies. TASK-009 and TASK-006 remain IN_PROGRESS.
 
 ### TASK-046 — Teacher certificate documentation and V2 preparation
 
@@ -312,4 +543,4 @@ Removing a blocker requires the appropriate approved decision and reassessment o
 
 README.md reconciliation is complete under TASK-031. It uses the English Tutoring Platform identity, separates planned tutoring scope from completed foundations, documents current dependencies and datasource prerequisites for startup, and links authoritative scope/design/planning/status documents.
 
-Preserve its valid boundaries: business APIs/authentication are absent and the frontend is neutral. TASK-004 now installs Flyway as migration owner; Hibernate generation and Spring SQL initialization remain disabled. README's earlier Flyway-absent wording is historical and needs a separately scoped onboarding update. Do not rename existing Java packages, Maven artifacts, directories or database names merely to match the product title.
+Preserve its valid boundaries: current-account viewing and Batch 2 authentication HTTP endpoints exist, while the frontend remains neutral; TASK-006 Phases 1/2 add JWT validation/default deny and current-account role/lock resolution only. TASK-004 now installs Flyway as migration owner; Hibernate generation and Spring SQL initialization remain disabled. README's earlier Flyway-absent wording is historical and needs a separately scoped onboarding update. Do not rename existing Java packages, Maven artifacts, directories or database names merely to match the product title.

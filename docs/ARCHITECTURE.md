@@ -268,7 +268,9 @@ access tokens and 7 days for refresh tokens. Refresh validation/rotation, logout
 operations must follow the current rules; this architecture does not replace them
 with an invented session policy. The configurable default
 password-reset credential lifetime remains 15 minutes.
-Additional transport, concurrency and replay details remain explicit gates.
+Approved TASK-007 rotation uses row locking and atomic replacement, one concurrent
+winner, no automatic retries or unrelated-session revocation. Signing follows
+eligibility and precedes commit; credential pairs are returned only after commit.
 Validate JWT signature and expiration using supported framework mechanisms before
 establishing identity. Refresh issuance checks authoritative expiry, revocation and
 account/session eligibility. Logout invalidates applicable refresh/session state;
@@ -281,8 +283,23 @@ ordinary DTOs or logs. Reset credentials are purpose-specific, unpredictable,
 account-bound, expiring and unusable after successful consumption; recovery responses
 avoid unnecessary account-existence disclosure. Keep sensitive data out of JWT claims and use HTTPS in deployed
 environments. Do not default to long-lived credentials in browser localStorage.
-Cookie-based designs must address HttpOnly, Secure in production, SameSite, CORS
-and CSRF together; the final transport remains unresolved.
+Approved Batch 2 transport uses same-site HTTPS frontend/API deployments, which may
+be cross-origin. Access JWTs are returned in JSON and held in frontend memory only.
+Refresh credentials use a host-only HttpOnly Secure SameSite=Lax cookie at
+/api/v1/auth; Max-Age matches remaining refresh lifetime. Exact frontend origins
+come from app.security.browser.allowed-origins with credentialed CORS, never wildcard.
+Only explicit app.security.browser.local-http=true permits Secure=false, restricted
+to HTTP localhost/loopback development. Production origins remain configuration.
+
+Spring cookie-based CSRF protects unsafe /api/v1/auth/** requests, including login,
+refresh and logout. GET /api/v1/auth/csrf exposes a masked bootstrap token in JSON;
+the browser sends X-XSRF-TOKEN and the matching cookie using credentialed fetch.
+This supports cross-origin, same-site clients without reading an API-host cookie.
+Protected business APIs remain stateless header-Bearer routes. Both chains retain
+default deny; only approved methods/routes are opened. Credential/bootstrap responses
+are no-store, and failed refresh does not clear a newer cookie. API_DESIGN Section 3.2
+owns exact DTO/error/transport contracts. Cross-site deployment or incorrectly trusted
+proxy HTTPS metadata must be resolved before deployment, not bypassed with weaker cookies.
 
 Authentication establishes identity; authorization also checks current account
 eligibility, role, resource relationship and operation permission. STUDENT, TEACHER
