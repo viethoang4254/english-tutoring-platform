@@ -26,6 +26,14 @@ import tools.jackson.databind.json.JsonMapper;
 @EnableWebSecurity
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfiguration {
+    private static org.springframework.security.authorization.AuthorizationDecision verifiedAdmin(
+            java.util.function.Supplier<? extends org.springframework.security.core.Authentication> authentication,
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
+        var auth = authentication.get();
+        return new org.springframework.security.authorization.AuthorizationDecision(auth.isAuthenticated()
+                && auth.getPrincipal() instanceof AccountPrincipal account
+                && account.role() == com.englishlearning.features.user.entity.User.Role.ADMIN && account.emailVerified());
+    }
     @Bean
     JwtDecoder jwtDecoder(@Value("${app.security.jwt.public-key}") Resource publicKey,
             @Value("${app.security.jwt.issuer:english-tutoring-platform}") String issuer,
@@ -115,6 +123,12 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/teacher-applications/{applicationId}")
+                        .access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,
+                                "/api/v1/admin/teacher-applications/{applicationId}/approve",
+                                "/api/v1/admin/teacher-applications/{applicationId}/reject")
+                        .access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me")
                         .hasAnyRole("STUDENT", "TEACHER", "ADMIN")
                         .anyRequest().denyAll())

@@ -17,6 +17,16 @@ public class UserCredentialRepository {
     public Optional<CredentialSnapshot> lockById(Long id) {
         return query("id = :value FOR UPDATE", id);
     }
+    public Optional<com.englishlearning.features.user.service.AccountSnapshot> lockAccountById(Long id) {
+        List<?> rows = entityManager.createNativeQuery(
+                "SELECT id,role,locked,email_verified FROM public.users WHERE id=:id FOR UPDATE")
+                .setParameter("id", id).getResultList();
+        if (rows.isEmpty()) return Optional.empty();
+        Object[] row = (Object[]) rows.get(0);
+        return Optional.of(new com.englishlearning.features.user.service.AccountSnapshot(
+                ((Number) row[0]).longValue(), com.englishlearning.features.user.entity.User.Role.valueOf((String) row[1]),
+                (Boolean) row[2], (Boolean) row[3]));
+    }
     public Optional<Long> createStudent(String email, String hash, String fullName, java.time.Instant now) {
         return createAccount(email, hash, fullName, "STUDENT", now);
     }

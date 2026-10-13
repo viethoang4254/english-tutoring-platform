@@ -124,10 +124,16 @@ text is preserved without trimming or invented fixed lengths.
    Deliver SMTP verification only after commit; delivery failure preserves the records
    for the shared resend workflow. Canonical-email conflicts cannot overwrite accounts.
    Verification permits account-only authentication, never Teacher business authority.
-3. Authorized review records approval/rejection, reviewer and time, plus rejection reason
-   when rejected.
-4. After approval establish the current public Teacher profile separately; business
-   authority also requires verified email and unlocked account.
+3. An authenticated, verified, unlocked Admin inspects the application and reviews only
+   PENDING applications belonging to existing current TEACHER accounts. Applicant email
+   verification or unlock is not a review prerequisite. Backend records reviewer/time;
+   rejection requires a nonblank, NUL-free reason preserved exactly.
+4. Approval and TeacherProfile creation commit atomically. Copy specialization, teaching
+   experience and introduction from the snapshot, with null avatar path. An existing
+   profile causes conflict/rollback, never overwrite. Business authority still requires
+   current TEACHER role, verified email, unlocked account and persisted approval.
+5. Serialize concurrent review; a repeated or losing review returns 409
+   APPLICATION_ALREADY_REVIEWED. Reviewed history remains immutable.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
@@ -141,10 +147,12 @@ Reviewed snapshots remain separate from the current profile.
 
 **Business Rule Traceability:** `BR-AUTHN-024`, `BR-AUTHN-020`.
 
-**Implementation boundary:** API_DESIGN Section 3.4 approves the registration contract
-only. Steps 3–4 remain a future authorized review flow; this slice does not implement
-review, resubmission, onboarding status lookup or profile creation. Review-operation
-permissions/details remain gated; no identity-document workflow is invented.
+**Implementation boundary:** API_DESIGN Sections 3.4 and 3.5 define registration and
+bounded Admin detail/approve/reject contracts. Unauthorized access is denied before
+protected disclosure; unknown applications return 404 and existing-profile conflicts
+return a distinct 409. Database failures do not produce a successful response or expose
+internal details. Queue/list, resubmission, Teacher status lookup and frontend onboarding
+remain excluded; no identity-document workflow is introduced.
 
 ---
 

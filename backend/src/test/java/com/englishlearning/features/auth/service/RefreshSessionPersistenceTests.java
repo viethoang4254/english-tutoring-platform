@@ -678,4 +678,98 @@ class RefreshSessionPersistenceTests {
             assertEquals(1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
         }finally{pool.shutdownNow();}
     }
+
+    com.englishlearning.features.teacher.service.TeacherApplicationReviewService reviews() {
+        return context.getBean(com.englishlearning.features.teacher.service.TeacherApplicationReviewService.class);
+    }
+    com.englishlearning.features.teacher.service.TeacherBusinessEligibility teacherEligibility() {
+        return context.getBean(com.englishlearning.features.teacher.service.TeacherBusinessEligibility.class);
+    }
+    long pendingApplication() throws Exception {
+        String email=email(); registration((e,t)->{}).registerTeacher(email,"password","Teacher"," English "," Experience "," Intro ");
+        long teacher=credentials.findByEmail(email).orElseThrow().id();
+        return scalar("SELECT id FROM public.teacher_applications WHERE teacher_id="+teacher);
+    }
+    long applicant(long application) throws Exception {
+        return scalar("SELECT teacher_id FROM public.teacher_applications WHERE id="+application);
+    }
+    void reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason reason, Runnable action) {
+        assertEquals(reason,assertThrows(com.englishlearning.features.teacher.service.TeacherReviewFailure.class,action::run).reason());
+    }
+    @Test void approvalCopiesSnapshotAndDoesNotUnlockOrVerifyApplicant() throws Exception {
+        long id=pendingApplication(), teacher=applicant(id);
+        execute("UPDATE public.users SET locked=true WHERE id="+teacher);
+        reviews().review(12L,id,true,null);
+        var detail=reviews().detail(12L,id);
+        assertEquals("APPROVED",detail.status()); assertEquals("12",detail.reviewedBy().decimal());assertNotNull(detail.reviewedAt());
+        assertNull(detail.rejectionReason());
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher
+                +" AND avatar_path IS NULL AND specialization=' English ' AND teaching_experience=' Experience ' AND introduction=' Intro '"));
+        var account=accounts.findById(teacher).orElseThrow();assertTrue(account.locked());assertFalse(account.emailVerified());
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->teacherEligibility().requireEligible(teacher));
+        execute("UPDATE public.users SET locked=false,email_verified=true WHERE id="+teacher);
+        teacherEligibility().requireEligible(teacher);
+        execute("UPDATE public.users SET role='STUDENT' WHERE id="+teacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->teacherEligibility().requireEligible(teacher));
+    }
+
+    @Test void rejectionPreservesReasonAndReviewedHistoryIsImmutable() throws Exception {
+        long id=pendingApplication(), teacher=applicant(id);
+        reviews().review(12L,id,false," reason ");
+        var before=reviews().detail(12L,id);assertEquals("REJECTED",before.status());assertEquals(" reason ",before.rejectionReason());
+        assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher));
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_REVIEWED,()->reviews().review(12L,id,true,null));
+        assertEquals(before,reviews().detail(12L,id));
+        execute("UPDATE public.users SET email_verified=true WHERE id="+teacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->teacherEligibility().requireEligible(teacher));
+    }
+    @Test void existingProfileConflictDoesNotChangeApplicationOrProfile() throws Exception {
+        long id=pendingApplication(),teacher=applicant(id);
+        execute("INSERT INTO public.teacher_profiles(teacher_id,specialization,teaching_experience,introduction,created_at,updated_at) VALUES ("
+                +teacher+",'original','original','original',now(),now())");
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.PROFILE_EXISTS,()->reviews().review(12L,id,true,null));
+        assertEquals("PENDING",reviews().detail(12L,id).status());assertNull(reviews().detail(12L,id).reviewedAt());
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher+" AND introduction='original'"));
+        execute("UPDATE public.users SET email_verified=true WHERE id="+teacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->teacherEligibility().requireEligible(teacher));
+    }
+    @Test void concurrentOpposingReviewsHaveExactlyOneWinner() throws Exception {
+        long id=pendingApplication(),teacher=applicant(id);var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        Callable<Boolean> approve=()->{start.await();try{reviews().review(12L,id,true,null);return true;}
+            catch(com.englishlearning.features.teacher.service.TeacherReviewFailure e){assertEquals(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_REVIEWED,e.reason());return false;}};
+        Callable<Boolean> reject=()->{start.await();try{reviews().review(12L,id,false,"reason");return true;}
+            catch(com.englishlearning.features.teacher.service.TeacherReviewFailure e){assertEquals(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_REVIEWED,e.reason());return false;}};
+        try{var a=pool.submit(approve);var b=pool.submit(reject);start.countDown();
+            boolean approved=a.get(10,TimeUnit.SECONDS);assertNotEquals(approved,b.get(10,TimeUnit.SECONDS));
+            assertEquals(approved?"APPROVED":"REJECTED",reviews().detail(12L,id).status());
+            assertEquals(approved?1:0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher));
+        }finally{pool.shutdownNow();}
+    }
+    @Test void reviewPersistenceFailureRollsBackInsertedProfile() throws Exception {
+        long id=pendingApplication(),teacher=applicant(id);
+        var real=context.getBean(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class);
+        var broken=mock(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class,org.mockito.AdditionalAnswers.delegatesTo(real));
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("test-only flush failure")).when(broken).saveAndFlush(any());
+        var service=new com.englishlearning.features.teacher.service.TeacherApplicationReviewService(broken,
+                context.getBean(com.englishlearning.features.teacher.repository.TeacherProfileRepository.class),credentials,accounts,clock);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(manager);
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->tx.execute(s->{service.review(12L,id,true,null);return null;}));
+        assertEquals("PENDING",reviews().detail(12L,id).status());
+        assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher));
+    }
+    @Test void reviewChecksCurrentReviewerAndApplicantWithoutBusinessBypass() throws Exception {
+        long id=pendingApplication(),teacher=applicant(id);
+        for(long reviewer:new long[]{10L,11L,999999L})
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->reviews().review(reviewer,id,true,null));
+        try {
+            execute("UPDATE public.users SET email_verified=false WHERE id=12");
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->reviews().detail(12L,id));
+            execute("UPDATE public.users SET email_verified=true,locked=true WHERE id=12");
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->reviews().review(12L,id,true,null));
+        } finally { execute("UPDATE public.users SET email_verified=true,locked=false WHERE id=12"); }
+        execute("UPDATE public.users SET role='STUDENT' WHERE id="+teacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.INVALID_APPLICANT,()->reviews().review(12L,id,true,null));
+        assertEquals("PENDING",reviews().detail(12L,id).status());
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.NOT_FOUND,()->reviews().detail(12L,Long.MAX_VALUE));
+    }
 }

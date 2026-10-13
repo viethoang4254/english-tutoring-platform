@@ -27,6 +27,10 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
         "spring.flyway.enabled=false"})
 abstract class AuthenticationHttpTestSupport {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherBusinessEligibility teacherEligibility;
     @MockitoBean RegistrationService registration;
     @MockitoBean UserCredentialRepository credentials;
     @MockitoBean CurrentAccountService accounts;

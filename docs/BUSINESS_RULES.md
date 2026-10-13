@@ -170,7 +170,22 @@ snapshots/history are retained, with at most one PENDING application per Teacher
 current public TeacherProfile is created after approval and does not rewrite application
 snapshots. Review snapshots are immutable historical evidence after review. PENDING
 applications are unreviewed; APPROVED/REJECTED applications identify reviewer/time, and
-rejection records a reason. Detailed review-operation contracts remain open.
+rejection records a reason.
+
+The bounded Admin review contract permits only authenticated, verified, unlocked ADMIN
+accounts to inspect and review applications. Review transitions only PENDING to APPROVED
+or REJECTED, for an existing current TEACHER account. The applicant may still be unverified
+or locked; approval does not remove either restriction. Repeated/losing concurrent reviews
+return APPLICATION_ALREADY_REVIEWED without rewriting history. Rejection requires a
+nonblank, NUL-free reason, preserved exactly without an invented length limit.
+
+Approval atomically creates the current TeacherProfile from specialization, experience and
+introduction in the application snapshot, with null avatar_path. An existing profile causes
+conflict and rollback, never overwrite. Reviewer identity/time are backend-assigned; account
+and application state must be rechecked under consistent row locking. Teacher business
+access checks current TEACHER role, verified/unlocked state and persisted approval; no JWT
+approval claim substitutes for those checks. Status lookup, resubmission, pending queues
+and frontend onboarding remain outside this bounded review slice.
 
 **Requirements:** FR-TEA-005, FR-ACC-016.
 

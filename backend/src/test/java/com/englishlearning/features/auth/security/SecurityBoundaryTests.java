@@ -46,6 +46,10 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.flyway.enabled=false"})
 class SecurityBoundaryTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherBusinessEligibility teacherEligibility;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.auth.service.RegistrationService registration;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;

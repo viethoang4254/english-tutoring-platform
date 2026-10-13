@@ -12,6 +12,9 @@ public class UserCredentialService {
     private final UserCredentialRepository users;
     public UserCredentialService(UserCredentialRepository users) { this.users = users; }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<AccountSnapshot> lockAccountById(Long id) { return users.lockAccountById(id); }
+
     @Transactional(readOnly = true)
     public Optional<CredentialSnapshot> findByEmail(String input) {
         if (input == null) return Optional.empty();
