@@ -75,7 +75,7 @@ No separate Student, Teacher or Admin login identity is introduced.
 | Responsibility | Actor/authority | Required boundary; deferred detail |
 | --- | --- | --- |
 | Student registration | Visitor seeking a Student account | Backend assigns STUDENT; required email/password/fullName and initial verification follow Section 3.3. |
-| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Sections 3.5–3.6 define bounded Admin review and own onboarding status; queue/resubmission remain deferred. |
+| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Sections 3.5–3.7 define bounded Admin review, own onboarding status and the pending queue; resubmission remains deferred. |
 | Email verification | Eligible account-verification context | Purpose-specific, account-bound, expiring credential; consume according to approved flow. Verification cannot override administrative restrictions or define Teacher activation. |
 | Resend verification | Eligible verification context | Initial verification uses Section 3.3; other verification purposes remain deferred. Avoid unnecessary account-existence disclosure. |
 | Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Batch 2 contract below governs verified, unlocked account authentication; Teacher business approval remains separate. |
@@ -367,7 +367,8 @@ and rejected Teachers retain approved account-only authentication. This introduc
 API or other Teacher business permission; the reusable eligibility check must accompany
 operation-specific ownership/authorization when those routes are approved.
 
-No queue/list, resubmission or frontend is included. Own status lookup is separately approved in Section 3.6.
+Resubmission and frontend remain excluded. Own status lookup is separately approved in Section 3.6;
+the bounded pending queue is approved in Section 3.7.
 References: FR-TEA-005, FR-ACC-016, FR-AUTH-009, NFR-SEC-004;
 BR-AUTHN-024, BR-AUTHN-018, BR-AUTHN-020, BR-PROFILE-002;
 UC-AUTH-REGISTER-TEACHER-01; DM-TEA-001.
@@ -406,6 +407,41 @@ verified/unlocked. No queue, resubmission, history-list or frontend contract is 
 
 References: FR-TEA-005, FR-AUTH-009, NFR-SEC-004; BR-AUTHN-018, BR-AUTHN-020,
 BR-AUTHN-024; UC-AUTH-REGISTER-TEACHER-01; DM-TEA-001.
+
+---
+
+### 3.7 Approved Admin Pending Teacher Applications Queue — TASK-032 bounded slice
+
+GET /api/v1/admin/teacher-applications/pending requires a valid Bearer JWT and a current,
+unlocked, email-verified ADMIN account, using the same reviewer checks as Section 3.5.
+Authentication/authorization precedes input validation. No new role or browser policy.
+
+Accept only optional page (default 0) and size (default 20). Both are single unsigned
+decimal-integer query values within Java int range; page is zero-based and size is 1–100.
+Reject blank, signed, fractional, whitespace-padded, repeated, overflowing or unknown
+parameters and non-empty request bodies with 400 INVALID_REQUEST. Reject page * size
+greater than Integer.MAX_VALUE before persistence access; never overflow or silently coerce.
+
+Backend fixes status = PENDING and submittedAt ASC, id ASC. Applicant email verification
+and lock state do not filter the queue. Return 200 with Cache-Control: no-store and exactly
+items, page, size, hasNext. Each item contains only id, teacherId (decimal-string IDs),
+status (PENDING) and submittedAt (ISO-8601 timestamp). Full application text remains in
+the existing detail operation; no User/profile fields, review metadata or credentials.
+Empty/out-of-range pages return items: [] and hasNext: false, not 404.
+
+Fetch size + 1 rows and expose at most size; no count query, row locks, applicant User
+lookups or generic pagination framework. Use a read-only transaction. This is not a
+snapshot or exclusive review assignment: concurrent reviews can remove rows and shift
+later offset pages. Listing never guarantees review eligibility. Existing mutation locks,
+state checks and 409 APPLICATION_ALREADY_REVIEWED behavior remain authoritative.
+
+Reuse 401 AUTHENTICATION_REQUIRED for missing/invalid JWT or missing/locked current account;
+403 ACCESS_DENIED for non-ADMIN/unverified reviewers; 503 AUTHENTICATION_UNAVAILABLE for
+authentication lookup unavailability; safe 500 INTERNAL_ERROR for queue persistence or
+unexpected failures. Never disclose SQL or private values. Other routes remain default-deny.
+
+References: FR-TEA-005, FR-ACC-016, NFR-SEC-004, NFR-PERF-004;
+BR-AUTHN-024, BR-AUTHN-018, BR-AUTHN-020; UC-AUTH-REGISTER-TEACHER-01.
 
 ---
 
@@ -861,8 +897,8 @@ Relevant areas include Teacher/Course discovery, Teacher-owned Courses and Stude
 lists, My Courses, Sessions, Assignments, Submissions, related transactions,
 Admin users/Courses/Enrollments and permitted statistics.
 
-Pagination remains deferred until the first approved collection use case requires it;
-TASK-005 adds no pagination infrastructure.
+Section 3.7 approves bounded pagination only for the Admin pending-application queue.
+Other collection contracts remain deferred; TASK-005 adds no generic pagination infrastructure.
 
 **DEFERRED:** Exact parameter names, matching, page/cursor choice, defaults, limits,
 sort fields/tie-breakers and report time filters. Do not copy obsolete filters or
@@ -1089,7 +1125,7 @@ source use cases remain applicable even where the capability is approved.
 | Current use case | Responsibility section and remaining contract boundary |
 | --- | --- |
 | UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and initial verification. |
-| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.6: registration, bounded Admin review and own status approved; other onboarding operations remain deferred. |
+| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.7: registration, bounded Admin review, own status and pending queue approved; other onboarding operations remain deferred. |
 | UC-AUTH-VERIFY-EMAIL-01 | 3.3: initial verification/resend approved; other purposes remain deferred. |
 | UC-AUTH-LOGIN-01 | 3: Shared authentication with locked checks; transport details deferred. |
 | UC-AUTH-REFRESH-01 | 3: Validated refresh; transport/replay/concurrency deferred. |

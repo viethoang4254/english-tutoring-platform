@@ -140,6 +140,11 @@ text is preserved without trimming or invented fixed lengths.
    submittedAt, reviewedAt and rejectionReason; reviewer identity and credentials are excluded.
    No application returns 404 ONBOARDING_APPLICATION_NOT_FOUND. The operation is read-only;
    Student/Admin access and client-selected identity are rejected.
+7. A verified, unlocked Admin may browse the PENDING-only queue under API_DESIGN Section 3.7,
+   oldest submittedAt first with id tie-breaker and bounded pagination. Applicant verification
+   or lock state does not hide pending applications. Summaries expose only id, teacherId,
+   status and submittedAt; existing detail/review operations provide further authorized work.
+   The read-only queue does not reserve applications; concurrent review can shift pages.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
@@ -153,11 +158,11 @@ Reviewed snapshots remain separate from the current profile.
 
 **Business Rule Traceability:** `BR-AUTHN-024`, `BR-AUTHN-020`.
 
-**Implementation boundary:** API_DESIGN Sections 3.4–3.6 define registration,
-bounded Admin detail/approve/reject and own onboarding-status contracts. Unauthorized access is denied before
+**Implementation boundary:** API_DESIGN Sections 3.4–3.7 define registration,
+bounded Admin detail/approve/reject, pending queue and own onboarding-status contracts. Unauthorized access is denied before
 protected disclosure; unknown applications return 404 and existing-profile conflicts
 return a distinct 409. Database failures do not produce a successful response or expose
-internal details. Queue/list, resubmission and frontend onboarding
+internal details. Resubmission and frontend onboarding
 remain excluded; no identity-document workflow is introduced.
 
 ---

@@ -184,8 +184,11 @@ introduction in the application snapshot, with null avatar_path. An existing pro
 conflict and rollback, never overwrite. Reviewer identity/time are backend-assigned; account
 and application state must be rechecked under consistent row locking. Teacher business
 access checks current TEACHER role, verified/unlocked state and persisted approval; no JWT
-approval claim substitutes for those checks. Status lookup, resubmission, pending queues
-and frontend onboarding remain outside this bounded review slice.
+approval claim substitutes for those checks. Own status lookup is separately approved in
+API_DESIGN Section 3.6. The Section 3.7 pending queue is read-only for verified, unlocked
+ADMIN accounts, contains PENDING applications only (including unverified/locked applicants),
+and grants no review reservation or eligibility guarantee. Review mutations retain their
+existing transactional checks. Resubmission and frontend onboarding remain outside this slice.
 
 **Requirements:** FR-TEA-005, FR-ACC-016.
 

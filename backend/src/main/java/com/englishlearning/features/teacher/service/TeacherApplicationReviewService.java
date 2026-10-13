@@ -1,6 +1,8 @@
 package com.englishlearning.features.teacher.service;
 
 import com.englishlearning.features.teacher.dto.TeacherApplicationDetail;
+import com.englishlearning.features.teacher.dto.TeacherApplicationQueue;
+import com.englishlearning.common.api.ApiId;
 import com.englishlearning.features.teacher.repository.*;
 import com.englishlearning.features.user.service.*;
 import com.englishlearning.features.user.entity.User.Role;
@@ -28,6 +30,17 @@ public class TeacherApplicationReviewService {
         requireReviewer(accounts.findById(reviewerId).orElse(null));
         return TeacherApplicationDetail.from(applications.findById(applicationId)
                 .orElseThrow(() -> new TeacherReviewFailure(NOT_FOUND)));
+    }
+    @Transactional(readOnly = true)
+    public TeacherApplicationQueue pending(Long reviewerId, int page, int size) {
+        requireReviewer(accounts.findById(reviewerId).orElse(null));
+        long offset = (long) page * size;
+        if (page < 0 || size < 1 || size > 100 || offset > Integer.MAX_VALUE)
+            throw new TeacherReviewFailure(INVALID_REQUEST);
+        var rows = applications.findPending((int) offset, size + 1);
+        var items = rows.stream().limit(size).map(row -> new TeacherApplicationQueue.Item(
+                new ApiId(row.getId()), new ApiId(row.getTeacherId()), row.getStatus(), row.getSubmittedAt())).toList();
+        return new TeacherApplicationQueue(items, page, size, rows.size() > size);
     }
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void review(Long reviewerId, Long applicationId, boolean approve, String reason) {

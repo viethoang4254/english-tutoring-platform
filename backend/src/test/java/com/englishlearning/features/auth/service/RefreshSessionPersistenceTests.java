@@ -776,6 +776,31 @@ class RefreshSessionPersistenceTests {
     com.englishlearning.features.teacher.service.TeacherOnboardingService onboarding() {
         return context.getBean(com.englishlearning.features.teacher.service.TeacherOnboardingService.class);
     }
+    @Test void pendingQueueFiltersOrdersBoundsAndReflectsReviews() throws Exception {
+        long first=pendingApplication(),second=pendingApplication(),reviewed=pendingApplication();
+        execute("UPDATE public.teacher_applications SET submitted_at='1900-01-01T00:00:00Z' WHERE id IN ("+first+","+second+","+reviewed+")");
+        execute("UPDATE public.users SET locked=true WHERE id="+applicant(first));
+        reviews().review(12L,reviewed,false,"reviewed");
+        var page=reviews().pending(12L,0,1);
+        assertEquals(1,page.items().size());assertTrue(page.hasNext());
+        assertEquals(Long.toString(first),page.items().get(0).id().decimal());
+        assertEquals(Long.toString(applicant(first)),page.items().get(0).teacherId().decimal());
+        assertEquals("PENDING",page.items().get(0).status());
+        assertEquals(Instant.parse("1900-01-01T00:00:00Z"),page.items().get(0).submittedAt());
+        assertEquals(Long.toString(second),reviews().pending(12L,1,1).items().get(0).id().decimal());
+        long count=scalar("SELECT count(*) FROM public.teacher_applications WHERE status='PENDING'");
+        assertFalse(reviews().pending(12L,(int)count-1,1).hasNext());
+        var empty=reviews().pending(12L,(int)count,1);
+        assertTrue(empty.items().isEmpty());assertFalse(empty.hasNext());
+        assertTrue(reviews().pending(12L,Integer.MAX_VALUE,1).items().isEmpty());
+        reviews().review(12L,first,false,"reviewed after listing");
+        assertEquals(Long.toString(second),reviews().pending(12L,0,1).items().get(0).id().decimal());
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_REVIEWED,
+                ()->reviews().review(12L,first,true,null));
+        for(long denied:new long[]{10L,11L,Long.MAX_VALUE})
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,
+                    ()->reviews().pending(denied,0,20));
+    }
     @Test void ownStatusSupportsAllStatesAndNeverChangesApplication() throws Exception {
         for(boolean approve:new boolean[]{true,false}) {
             long id=pendingApplication(),teacher=applicant(id);

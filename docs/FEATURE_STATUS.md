@@ -64,7 +64,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-029 | Deployment and operational readiness | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-030 | Safe continuous build/test verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-031 | Reconcile downstream tracking and operational guidance | DONE | TODO | Documentation acceptance passed; see Section 8, TASK-031. |
-| TASK-032 | Teacher registration and controlled onboarding | IN_PROGRESS | DEFERRED | Registration, bounded Admin review and own onboarding status verified; queue/resubmission/frontend remain excluded. See Section 8, TASK-032. |
+| TASK-032 | Teacher registration and controlled onboarding | IN_PROGRESS | DEFERRED | Registration, bounded Admin review, own onboarding status and pending queue verified; resubmission/frontend remain excluded. See Section 8, TASK-032. |
 | TASK-033 | Teacher teaching profile and public projection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-034 | Admin category/topic management and Teacher selection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-035 | Teacher management of Course Sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -135,7 +135,7 @@ The following core implementation cannot proceed until the named decisions are a
 | TASK-018 | G-PROGRESS/G-RESULT: derived representation is settled; formulas, result availability and applicable API contracts remain open. |
 | TASK-022 | G-PAYMENT/G-CONFIRMATION/G-OUTCOME/G-PAYEFFECT: VietQR, trustworthy bank evidence and full refunds are settled directions; concrete provider/authenticity, retry/late and refund contracts remain open. |
 | TASK-029 | G-DEPLOY: approve production hosting, secrets and operational/release procedures. |
-| TASK-032 | Registration, bounded Admin review/profile creation and own onboarding status are implemented. G-TEACHER/G-API/G-UI remain for queue, resubmission and browser onboarding. |
+| TASK-032 | Registration, bounded Admin review/profile creation, own onboarding status and pending queue are implemented. G-TEACHER/G-API/G-UI remain for resubmission and browser onboarding. |
 | TASK-037 | G-TIME/G-RECURRENCE/G-SESSION: ISO weekly generation, IANA timezone, fixed unique numbering and no-replacement cancellation settled; DST/cutoff and operation exceptions remain open. |
 | TASK-041 | G-RECEIVING/G-PAYMENT: historical bank accounts and one ACTIVE settled; bank checks and verified adapter integration contracts remain open; conceptual provider fields are omitted. |
 | TASK-043 | G-CALENDAR: organizational synchronization settled; single configured Calendar/event-ID scope settled; execution/retry contracts remain open. |
@@ -601,6 +601,32 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - TASK-032 remains IN_PROGRESS. Pending queue/list, resubmission and frontend onboarding
   remain outside the approved slice. No migrations, dependencies, frontend, commit/push
   or unrelated task-status changes. TASK-046 evidence is preserved.
+
+**Admin pending queue slice (2026-10-13):**
+
+- GET /api/v1/admin/teacher-applications/pending reuses the verified/unlocked current
+  ADMIN boundary and reviewer service recheck. Fixed PENDING-only results include
+  unverified/locked applicants; no business permission or review reservation is granted.
+- Strict page/size validation: defaults 0/20, size 1–100, unsigned single integer values,
+  reject unknown/duplicate/invalid parameters, non-empty body and unsupported offsets.
+  Authentication/authorization precedes input validation. Safe existing 400/401/403/503/500 errors.
+- TeacherApplicationRepository selects only id, teacherId, status and submittedAt, ordered
+  submittedAt ASC, id ASC, with offset and size + 1 limit. No count query, row lock or
+  applicant User lookup. Explicit immutable TeacherApplicationQueue DTO uses decimal-string
+  IDs and ISO timestamps; empty pages return 200 with hasNext=false and no-store caching.
+- Focused queue/security verification: 84 passed, 0 failed/errors, 0 skipped. Includes
+  strict validation, exact projection, reviewer restrictions, bounded lookup and regressions.
+- Isolated PostgreSQL verification: 45 passed, 0 failed/errors, 0 skipped. Fresh protected
+  disposable PostgreSQL 18.6 cluster on 127.0.0.1:55432/task007_refresh, empty-database guard,
+  unchanged V1/V2 applied only locally; server stopped afterward. Queue tests cover status
+  filtering, locked applicant visibility, timestamp/ID ties, last/empty pages and review
+  removal/stale review conflicts; existing authentication/review concurrency checks pass.
+- Full Maven clean verify: BUILD SUCCESS, 277 total: 229 passed, 0 failed/errors, 48 skipped.
+  The 45 persistence skips passed separately above; DatabaseConnectivityTests,
+  DatabaseMigrationTests and CurrentAccountPersistenceTests were not rerun in this slice.
+- TASK-032 remains IN_PROGRESS. Resubmission and frontend onboarding remain unfinished.
+  Offset pages can shift during concurrent review; no snapshot guarantee. No new dependencies,
+  migrations, Supabase access, frontend changes, commit or push. TASK-046 evidence preserved.
 
 ### TASK-046 — Teacher certificate documentation and V2 preparation
 

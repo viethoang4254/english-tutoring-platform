@@ -30,6 +30,75 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
                 .subject("12").issuedAt(now).expiresAt(now.plusSeconds(900)).build());
         when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true)));
     }
+    static final String QUEUE="/api/v1/admin/teacher-applications/pending";
+    @Test void pendingQueueUsesDefaultsAndSafeProjection() throws Exception {
+        var item=new com.englishlearning.features.teacher.dto.TeacherApplicationQueue.Item(
+                new ApiId(9007199254740993L),new ApiId(9007199254740994L),"PENDING",now);
+        when(teacherReviews.pending(12L,0,20)).thenReturn(
+                new com.englishlearning.features.teacher.dto.TeacherApplicationQueue(List.of(item),0,20,true));
+        var response=mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("$.items[0].id").value("9007199254740993"))
+                .andExpect(jsonPath("$.items[0].teacherId").value("9007199254740994"))
+                .andExpect(jsonPath("$.items[0].submittedAt").value(now.toString()))
+                .andExpect(jsonPath("$.hasNext").value(true)).andReturn().getResponse();
+        var json=mapper.readTree(response.getContentAsString());
+        assertEquals(Set.of("items","page","size","hasNext"),json.propertyNames());
+        assertEquals(Set.of("id","teacherId","status","submittedAt"),json.get("items").get(0).propertyNames());
+        verify(teacherReviews).pending(12L,0,20);
+    }
+    @Test void pendingQueueSupportsExplicitPaginationAndEmptyResults() throws Exception {
+        when(teacherReviews.pending(12L,2,100)).thenReturn(
+                new com.englishlearning.features.teacher.dto.TeacherApplicationQueue(List.of(),2,100,false));
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam("page","2").queryParam("size","100"))
+                .andExpect(status().isOk()).andExpect(content().json(
+                        "{\"items\":[],\"page\":2,\"size\":100,\"hasNext\":false}",org.springframework.test.json.JsonCompareMode.STRICT));
+    }
+    @ParameterizedTest @ValueSource(strings={"","-1","+1","1.5"," 1","1 ","true","2147483648","999999999999999999999"})
+    void pendingQueueRejectsInvalidIntegers(String value) throws Exception {
+        for(String field:List.of("page","size"))
+            mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam(field,value))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        verifyNoInteractions(teacherReviews);
+    }
+    @Test void pendingQueueRejectsDuplicateUnknownBodyRangeAndOffset() throws Exception {
+        for(String field:List.of("page","size"))
+            mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam(field,"1","2"))
+                    .andExpect(status().isBadRequest());
+        for(String field:List.of("status","sort","teacherId"))
+            mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam(field,"1"))
+                    .andExpect(status().isBadRequest());
+        for(String size:List.of("0","101"))
+            mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam("size",size))
+                    .andExpect(status().isBadRequest());
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam("page","2147483647"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(teacherReviews);
+    }
+    @Test void pendingQueueRequiresEligibleAdminBeforeInputValidation() throws Exception {
+        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true),
+                new AccountSnapshot(12L,Role.TEACHER,false,true),new AccountSnapshot(12L,Role.ADMIN,false,false),
+                new AccountSnapshot(12L,Role.ADMIN,true,true))) {
+            when(accounts.findById(12L)).thenReturn(Optional.of(state));
+            mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam("size","bad"))
+                    .andExpect(status().is(state.locked()?401:403));
+        }
+        mvc.perform(get(QUEUE).queryParam("size","bad")).andExpect(status().isUnauthorized());
+        when(accounts.findById(12L)).thenReturn(Optional.empty());
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(teacherReviews);
+    }
+    @Test void pendingQueueFailuresAreSafe() throws Exception {
+        when(teacherReviews.pending(12L,0,20)).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("PRIVATE SQL"));
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token"))
+                .andExpect(status().isInternalServerError()).andExpect(content().json(
+                        "{\"code\":\"INTERNAL_ERROR\",\"message\":\"An unexpected error occurred.\"}",org.springframework.test.json.JsonCompareMode.STRICT));
+        when(accounts.findById(12L)).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("PRIVATE SQL"));
+        mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token"))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("AUTHENTICATION_UNAVAILABLE"));
+    }
     @Test void safeExactDetailProjectionAndDecimalIds() throws Exception {
         when(teacherReviews.detail(12L,9007199254740993L)).thenReturn(new TeacherApplicationDetail(
                 new ApiId(9007199254740993L),new ApiId(22L)," English ","Experience","Introduction",

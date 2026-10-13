@@ -131,7 +131,8 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/teacher-applications/{applicationId}")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/teacher-applications/pending",
+                                "/api/v1/admin/teacher-applications/{applicationId}")
                         .access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/admin/teacher-applications/{applicationId}/approve",

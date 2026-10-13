@@ -3,6 +3,7 @@ package com.englishlearning.features.teacher.controller;
 import com.englishlearning.common.api.ApiId;
 import com.englishlearning.features.auth.security.AccountPrincipal;
 import com.englishlearning.features.teacher.dto.TeacherApplicationDetail;
+import com.englishlearning.features.teacher.dto.TeacherApplicationQueue;
 import com.englishlearning.features.teacher.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -17,6 +18,23 @@ import org.springframework.web.bind.annotation.*;
 public class TeacherApplicationReviewController {
     private final TeacherApplicationReviewService service;
     public TeacherApplicationReviewController(TeacherApplicationReviewService service) { this.service = service; }
+    @GetMapping("/pending")
+    public ResponseEntity<TeacherApplicationQueue> pending(@AuthenticationPrincipal AccountPrincipal principal,
+            HttpServletRequest request) throws IOException {
+        if (request.getParameterMap().keySet().stream().anyMatch(key -> !key.equals("page") && !key.equals("size"))
+                || request.getInputStream().read() != -1) throw invalid();
+        int page = unsignedParameter(request, "page", 0);
+        int size = unsignedParameter(request, "size", 20);
+        if (size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE) throw invalid();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.pending(principal.id(), page, size));
+    }
+    private static int unsignedParameter(HttpServletRequest request, String name, int fallback) {
+        String[] values = request.getParameterValues(name);
+        if (values == null) return fallback;
+        if (values.length != 1 || !values[0].matches("[0-9]+")) throw invalid();
+        try { return Integer.parseInt(values[0]); }
+        catch (NumberFormatException exception) { throw invalid(); }
+    }
     @GetMapping("/{applicationId}")
     public ResponseEntity<TeacherApplicationDetail> detail(@AuthenticationPrincipal AccountPrincipal principal,
             @PathVariable String applicationId, HttpServletRequest request) throws IOException {
