@@ -93,7 +93,8 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
-                                "/api/v1/auth/register/student", "/api/v1/auth/email-verification",
+                                "/api/v1/auth/register/student", "/api/v1/auth/register/teacher",
+                                "/api/v1/auth/email-verification",
                                 "/api/v1/auth/email-verification/resend").permitAll()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper))

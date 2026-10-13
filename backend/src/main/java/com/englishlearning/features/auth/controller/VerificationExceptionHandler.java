@@ -7,7 +7,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = StudentRegistrationController.class)
+@RestControllerAdvice(assignableTypes = {StudentRegistrationController.class, TeacherRegistrationController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class VerificationExceptionHandler {
     @ExceptionHandler(VerificationFailure.class)

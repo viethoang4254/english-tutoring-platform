@@ -18,12 +18,18 @@ public class UserCredentialRepository {
         return query("id = :value FOR UPDATE", id);
     }
     public Optional<Long> createStudent(String email, String hash, String fullName, java.time.Instant now) {
+        return createAccount(email, hash, fullName, "STUDENT", now);
+    }
+    public Optional<Long> createTeacher(String email, String hash, String fullName, java.time.Instant now) {
+        return createAccount(email, hash, fullName, "TEACHER", now);
+    }
+    private Optional<Long> createAccount(String email, String hash, String fullName, String role, java.time.Instant now) {
         List<?> rows = entityManager.createNativeQuery("INSERT INTO public.users "
                 + "(email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) "
-                + "VALUES (:email,:hash,:name,'STUDENT',false,false,:now,:now) "
+                + "VALUES (:email,:hash,:name,:role,false,false,:now,:now) "
                 + "ON CONFLICT (email) DO NOTHING RETURNING id")
                 .setParameter("email", email).setParameter("hash", hash).setParameter("name", fullName)
-                .setParameter("now", now).getResultList();
+                .setParameter("role", role).setParameter("now", now).getResultList();
         return rows.isEmpty() ? Optional.empty() : Optional.of(((Number) rows.get(0)).longValue());
     }
     public void verifyEmail(Long id, java.time.Instant now) {

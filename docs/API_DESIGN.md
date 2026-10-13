@@ -75,7 +75,7 @@ No separate Student, Teacher or Admin login identity is introduced.
 | Responsibility | Actor/authority | Required boundary; deferred detail |
 | --- | --- | --- |
 | Student registration | Visitor seeking a Student account | Backend assigns STUDENT; required email/password/fullName and initial verification follow Section 3.3. |
-| Teacher registration | Prospective Teacher | Separate registration assigns TEACHER through the backend; verified email, unlocked account and approved onboarding are required for business authority. Review-operation details remain DEFERRED. Client role input cannot grant TEACHER privilege. |
+| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Review operations remain DEFERRED. |
 | Email verification | Eligible account-verification context | Purpose-specific, account-bound, expiring credential; consume according to approved flow. Verification cannot override administrative restrictions or define Teacher activation. |
 | Resend verification | Eligible verification context | Initial verification uses Section 3.3; other verification purposes remain deferred. Avoid unnecessary account-existence disclosure. |
 | Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Batch 2 contract below governs verified, unlocked account authentication; Teacher business approval remains separate. |
@@ -281,6 +281,39 @@ References: FR-STU-001, FR-STU-002, FR-ACC-008, FR-ACC-009, FR-ACC-016,
 NFR-SEC-001, NFR-SEC-004, NFR-SEC-015; BR-AUTHN-002, BR-AUTHN-006,
 BR-AUTHN-017, BR-AUTHN-020; UC-AUTH-REGISTER-01, UC-AUTH-VERIFY-EMAIL-01,
 UC-AUTH-LOGIN-01. Email change, password recovery and frontend flows remain separate.
+
+---
+
+### 3.4 Approved Teacher Registration — TASK-032 bounded slice
+
+POST /api/v1/auth/register/teacher uses the same public, JSON-only, CSRF-protected,
+configured CORS/transport and no-store boundary as Student registration. No query
+parameters are accepted. Exact required string fields: email, password, fullName,
+specialization, teachingExperience and introduction. Reject unknown/protected fields,
+including role, status, teacherId, emailVerified and review metadata.
+
+Reuse Section 3.3 email/password/fullName validation unchanged. Application fields
+are non-null, nonblank strings without NUL characters. Preserve supplied application
+text exactly, including surrounding whitespace; impose no invented fixed lengths.
+Success is 201 {"verificationRequired":true}, with no access/refresh credentials.
+Use Section 3.3 safe input, REGISTRATION_CONFLICT, persistence/commit and delivery
+error mappings; Student/Teacher registrations share canonical email uniqueness.
+
+Atomically persist an unlocked, unverified TEACHER User, hashed INITIAL_VERIFICATION
+credential and PENDING Teacher application. Backend assigns teacher_id, status,
+submitted_at/created_at/updated_at; review fields remain null. Application failure
+rolls back User and verification credential too. No TeacherProfile is created.
+SMTP runs only after commit; failure retains all three records for shared resend
+recovery. Existing 24-hour verification and resend limits apply unchanged.
+
+Verification never approves the application. Verified pending/rejected Teachers
+may authenticate for account-only access under Batch 2; default-deny Teacher business
+routes remain denied. Role alone is not business eligibility. This slice does not
+implement review, approval/rejection, resubmission, status lookup, profile creation
+or Course management. Those operation contracts remain separate gates.
+
+References: FR-TEA-005, FR-ACC-016, FR-AUTH-009, NFR-SEC-004;
+BR-AUTHN-024, BR-AUTHN-020, BR-AUTHN-006; UC-AUTH-REGISTER-TEACHER-01.
 
 ---
 
@@ -964,7 +997,7 @@ source use cases remain applicable even where the capability is approved.
 | Current use case | Responsibility section and remaining contract boundary |
 | --- | --- |
 | UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and initial verification. |
-| UC-AUTH-REGISTER-TEACHER-01 | 3: Teacher registration; separate registration and approved onboarding; operation details deferred. |
+| UC-AUTH-REGISTER-TEACHER-01 | 3.4: Teacher registration approved; review/onboarding operations remain deferred. |
 | UC-AUTH-VERIFY-EMAIL-01 | 3.3: initial verification/resend approved; other purposes remain deferred. |
 | UC-AUTH-LOGIN-01 | 3: Shared authentication with locked checks; transport details deferred. |
 | UC-AUTH-REFRESH-01 | 3: Validated refresh; transport/replay/concurrency deferred. |

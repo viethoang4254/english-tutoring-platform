@@ -23,6 +23,10 @@ public class UserCredentialService {
         return users.createStudent(email, hash, name, now);
     }
     @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Long> createTeacher(String email, String hash, String name, java.time.Instant now) {
+        return users.createTeacher(email, hash, name, now);
+    }
+    @Transactional(propagation = Propagation.MANDATORY)
     public void verifyEmail(Long id, java.time.Instant now) { users.verifyEmail(id, now); }
 
     @Transactional(propagation = Propagation.MANDATORY)

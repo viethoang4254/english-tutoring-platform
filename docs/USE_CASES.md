@@ -109,15 +109,21 @@ and verification delivery controls.
 **Trigger:** Prospective Teacher requests registration.
 
 **Preconditions:** Applicant uses the separate Teacher registration flow and supplies
-approved account/application information; a Student-to-Teacher promotion flow is not
-available.
+email, password, fullName, specialization, teachingExperience and introduction; a
+Student-to-Teacher promotion flow is not available. Account-field validation matches
+Student registration. Application strings are required, nonblank and NUL-free; stored
+text is preserved without trimming or invented fixed lengths.
 
 **Main Success Flow:**
 
 1. Validate/canonicalize the separate Teacher registration and assign TEACHER through
    trusted backend logic; no Student promotion flow exists.
-2. Retain a Teacher application snapshot, with at most one PENDING application; do not grant
-   business authority from role alone.
+2. Atomically create an unlocked, unverified TEACHER User, hashed initial-verification
+   credential and PENDING application snapshot, retaining at most one PENDING application.
+   Return 201 verificationRequired=true without authentication tokens or TeacherProfile.
+   Deliver SMTP verification only after commit; delivery failure preserves the records
+   for the shared resend workflow. Canonical-email conflicts cannot overwrite accounts.
+   Verification permits account-only authentication, never Teacher business authority.
 3. Authorized review records approval/rejection, reviewer and time, plus rejection reason
    when rejected.
 4. After approval establish the current public Teacher profile separately; business
@@ -135,8 +141,10 @@ Reviewed snapshots remain separate from the current profile.
 
 **Business Rule Traceability:** `BR-AUTHN-024`, `BR-AUTHN-020`.
 
-**Decision Gates / Deferred Details:** Review-operation permissions/details and required
-validation; no invented identity-document workflow.
+**Implementation boundary:** API_DESIGN Section 3.4 approves the registration contract
+only. Steps 3–4 remain a future authorized review flow; this slice does not implement
+review, resubmission, onboarding status lookup or profile creation. Review-operation
+permissions/details remain gated; no identity-document workflow is invented.
 
 ---
 

@@ -1,6 +1,8 @@
 package com.englishlearning.features.auth.service;
 
 import com.englishlearning.features.auth.entity.EmailVerificationCredential;
+import com.englishlearning.features.teacher.entity.TeacherApplication;
+import com.englishlearning.features.teacher.repository.TeacherApplicationRepository;
 import com.englishlearning.features.auth.repository.EmailVerificationRepository;
 import com.englishlearning.features.auth.security.VerificationTokens;
 import com.englishlearning.features.auth.security.PasswordInput;
@@ -19,7 +21,8 @@ import org.springframework.transaction.*;
 import org.springframework.transaction.support.*;
 
 @Service
-public class StudentRegistrationService {
+public class RegistrationService {
+    private final TeacherApplicationRepository applications;
     private final UserCredentialService users;
     private final EmailVerificationRepository credentials;
     private final VerificationTokens tokens;
@@ -27,9 +30,10 @@ public class StudentRegistrationService {
     private final VerificationMail mail;
     private final Clock clock;
     private final TransactionTemplate transaction;
-    public StudentRegistrationService(UserCredentialService users, EmailVerificationRepository credentials,
+    public RegistrationService(UserCredentialService users, EmailVerificationRepository credentials,
             VerificationTokens tokens, PasswordEncoder passwords, VerificationMail mail,
-            @Qualifier("refreshSessionClock") Clock clock, PlatformTransactionManager manager) {
+            @Qualifier("refreshSessionClock") Clock clock, PlatformTransactionManager manager, TeacherApplicationRepository applications) {
+        this.applications = applications;
         this.users = users; this.credentials = credentials; this.tokens = tokens; this.passwords = passwords;
         this.mail = mail; this.clock = clock; transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
@@ -43,6 +47,21 @@ public class StudentRegistrationService {
             Long id = users.createStudent(canonical, hash, fullName, now)
                     .orElseThrow(() -> failure(VerificationFailure.Reason.CONFLICT));
             return issue(id, canonical, now);
+        });
+        deliver(delivery);
+    }
+    public void registerTeacher(String email, String password, String fullName,
+            String specialization, String teachingExperience, String introduction) {
+        PasswordInput.validate(password);
+        String canonical = canonical(email);
+        String hash = passwords.encode(password);
+        Delivery delivery = committed(() -> {
+            Instant now = now();
+            Long id = users.createTeacher(canonical, hash, fullName, now)
+                    .orElseThrow(() -> failure(VerificationFailure.Reason.CONFLICT));
+            Delivery result = issue(id, canonical, now);
+            applications.saveAndFlush(new TeacherApplication(id, specialization, teachingExperience, introduction, now));
+            return result;
         });
         deliver(delivery);
     }

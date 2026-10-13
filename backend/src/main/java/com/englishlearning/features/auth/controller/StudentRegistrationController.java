@@ -2,7 +2,7 @@ package com.englishlearning.features.auth.controller;
 
 import com.englishlearning.features.auth.dto.StudentRegistrationRequest;
 import com.englishlearning.features.auth.security.PasswordInput;
-import com.englishlearning.features.auth.service.StudentRegistrationService;
+import com.englishlearning.features.auth.service.RegistrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -15,8 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1/auth")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class StudentRegistrationController {
-    private final StudentRegistrationService service;
-    public StudentRegistrationController(StudentRegistrationService service) { this.service = service; }
+    private final RegistrationService service;
+    public StudentRegistrationController(RegistrationService service) { this.service = service; }
     @PostMapping(value = "/register/student", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<RegistrationResponse> register(@Valid @RequestBody StudentRegistrationRequest body,
             HttpServletRequest request) {

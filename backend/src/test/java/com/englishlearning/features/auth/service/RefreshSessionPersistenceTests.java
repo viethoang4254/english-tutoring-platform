@@ -464,14 +464,15 @@ class RefreshSessionPersistenceTests {
     }
 
 
-    StudentRegistrationService registration(VerificationMail mail) {
+    RegistrationService registration(VerificationMail mail) {
         return registration(mail, new com.englishlearning.features.auth.security.VerificationTokens());
     }
-    StudentRegistrationService registration(VerificationMail mail,
+    RegistrationService registration(VerificationMail mail,
             com.englishlearning.features.auth.security.VerificationTokens source) {
-        return new StudentRegistrationService(credentials,
+        return new RegistrationService(credentials,
                 context.getBean(com.englishlearning.features.auth.repository.EmailVerificationRepository.class),
-                source, passwords, mail, clock, manager);
+                source, passwords, mail, clock, manager,
+                context.getBean(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class));
     }
     String email() { return "registration-" + UUID.randomUUID() + "@example.invalid"; }
     long scalar(String sql) throws SQLException {
@@ -605,5 +606,76 @@ class RefreshSessionPersistenceTests {
     @Test void unknownVerifiedAndLockedResendAreNonDisclosingNoOps() throws Exception {
         var registration=registration((e,t)->fail("No message permitted"));
         registration.resend(email());registration.resend("workflow10@example.invalid");registration.resend("two@example.invalid");
+    }
+
+    @Test void teacherRegistrationAtomicallyRetainsSnapshotAndUsesSharedVerificationLogin() throws Exception {
+        String email=email();var sent=new ArrayList<String>();var registration=registration((e,t)->sent.add(t));
+        registration.registerTeacher(email," test password ","Teacher"," English "," Experience "," Intro ");
+        var user=credentials.findByEmail(email).orElseThrow();
+        assertEquals("TEACHER",accounts.findById(user.id()).orElseThrow().role().name());
+        assertFalse(user.emailVerified());assertFalse(user.locked());assertEquals(0,count("user_id="+user.id()));
+        try(var c=connection();var st=c.prepareStatement("SELECT specialization,teaching_experience,introduction,status,reviewed_at,reviewed_by,rejection_reason,submitted_at=created_at AND created_at=updated_at FROM public.teacher_applications WHERE teacher_id=?")) {
+            st.setLong(1,user.id());try(var rs=st.executeQuery()) {
+                assertTrue(rs.next());assertEquals(" English ",rs.getString(1));assertEquals(" Experience ",rs.getString(2));
+                assertEquals(" Intro ",rs.getString(3));assertEquals("PENDING",rs.getString(4));
+                for(int i=5;i<=7;i++)assertNull(rs.getObject(i));assertTrue(rs.getBoolean(8));assertFalse(rs.next());
+            }
+        }
+        assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+user.id()));
+        assertEquals(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED,
+                assertThrows(AuthenticationFailure.class,()->workflow().login(email," test password ")).reason());
+        time.set(time.get().plusSeconds(60));registration.resend(email);assertEquals(2,sent.size());
+        registration.verify(sent.get(0));assertNotNull(workflow().login(email," test password "));
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+user.id()+" AND status='PENDING'"));
+        assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+user.id()));
+    }
+    @Test void teacherApplicationInsertFailureRollsBackUserAndCredential() throws Exception {
+        String email=email();long before=scalar("SELECT count(*) FROM public.email_verification_credentials");
+        var broken=mock(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class);
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("test-only application failure")).when(broken).saveAndFlush(any());
+        var registration=new RegistrationService(credentials,
+                context.getBean(com.englishlearning.features.auth.repository.EmailVerificationRepository.class),
+                new com.englishlearning.features.auth.security.VerificationTokens(),passwords,(e,t)->fail("No email"),clock,manager,broken);
+        verificationFailure(VerificationFailure.Reason.INTERNAL,
+                ()->registration.registerTeacher(email,"password","Teacher","English","Experience","Intro"));
+        assertTrue(credentials.findByEmail(email).isEmpty());
+        assertEquals(before,scalar("SELECT count(*) FROM public.email_verification_credentials"));
+    }
+    @Test void teacherCredentialFailureRollsBackAndSmtpFailurePreservesAllRows() throws Exception {
+        var source=mock(com.englishlearning.features.auth.security.VerificationTokens.class);
+        when(source.generate()).thenReturn("test");when(source.hash(any())).thenReturn(null);
+        String failed=email();verificationFailure(VerificationFailure.Reason.INTERNAL,
+                ()->registration((e,t)->fail("No email"),source).registerTeacher(failed,"password","Teacher","English","Experience","Intro"));
+        assertTrue(credentials.findByEmail(failed).isEmpty());
+        String persisted=email();verificationFailure(VerificationFailure.Reason.DELIVERY,
+                ()->registration((e,t)->{throw new IllegalStateException();}).registerTeacher(persisted,"password","Teacher","English","Experience","Intro"));
+        long id=credentials.findByEmail(persisted).orElseThrow().id();
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+id));
+        assertEquals(1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
+    }
+    @Test void concurrentTeacherRegistrationsHaveOneWinnerWithoutOverwriting() throws Exception {
+        String email=email();var sent=new CopyOnWriteArrayList<String>();var registration=registration((e,t)->sent.add(t));
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        Callable<Boolean> action=()->{start.await();try{registration.registerTeacher(" "+email.toUpperCase(Locale.ROOT)+" ","password","Teacher","English","Experience","Intro");return true;}
+            catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.CONFLICT,e.reason());return false;}};
+        try{var a=pool.submit(action);var b=pool.submit(action);start.countDown();
+            assertNotEquals(a.get(10,TimeUnit.SECONDS),b.get(10,TimeUnit.SECONDS));assertEquals(1,sent.size());
+            long id=credentials.findByEmail(email).orElseThrow().id();
+            assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+id));
+            assertEquals(1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
+        }finally{pool.shutdownNow();}
+    }
+    @Test void studentTeacherRegistrationRaceCannotPromoteOrDuplicateUser() throws Exception {
+        String email=email();var registration=registration((e,t)->{});var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        try{var student=pool.submit(()->{start.await();try{registration.register(email,"password","Student");return true;}
+                catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.CONFLICT,e.reason());return false;}});
+            var teacher=pool.submit(()->{start.await();try{registration.registerTeacher(email,"password","Teacher","English","Experience","Intro");return true;}
+                catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.CONFLICT,e.reason());return false;}});
+            start.countDown();boolean studentWon=student.get(10,TimeUnit.SECONDS);assertNotEquals(studentWon,teacher.get(10,TimeUnit.SECONDS));
+            long id=credentials.findByEmail(email).orElseThrow().id();
+            assertEquals(studentWon?"STUDENT":"TEACHER",accounts.findById(id).orElseThrow().role().name());
+            assertEquals(studentWon?0:1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+id));
+            assertEquals(1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
+        }finally{pool.shutdownNow();}
     }
 }

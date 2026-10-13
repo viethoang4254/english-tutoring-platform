@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration")
 class EnglishLearningApplicationTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    com.englishlearning.features.auth.service.StudentRegistrationService registration;
+    com.englishlearning.features.auth.service.RegistrationService registration;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
