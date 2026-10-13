@@ -134,6 +134,12 @@ text is preserved without trimming or invented fixed lengths.
    current TEACHER role, verified email, unlocked account and persisted approval.
 5. Serialize concurrent review; a repeated or losing review returns 409
    APPLICATION_ALREADY_REVIEWED. Reviewed history remains immutable.
+6. A verified, unlocked Teacher may read their own latest application status without
+   requiring approval, ordered by submittedAt DESC, id DESC. GET /api/v1/teacher/onboarding
+   resolves identity from the authenticated account only and returns applicationId, status,
+   submittedAt, reviewedAt and rejectionReason; reviewer identity and credentials are excluded.
+   No application returns 404 ONBOARDING_APPLICATION_NOT_FOUND. The operation is read-only;
+   Student/Admin access and client-selected identity are rejected.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
@@ -147,11 +153,11 @@ Reviewed snapshots remain separate from the current profile.
 
 **Business Rule Traceability:** `BR-AUTHN-024`, `BR-AUTHN-020`.
 
-**Implementation boundary:** API_DESIGN Sections 3.4 and 3.5 define registration and
-bounded Admin detail/approve/reject contracts. Unauthorized access is denied before
+**Implementation boundary:** API_DESIGN Sections 3.4–3.6 define registration,
+bounded Admin detail/approve/reject and own onboarding-status contracts. Unauthorized access is denied before
 protected disclosure; unknown applications return 404 and existing-profile conflicts
 return a distinct 409. Database failures do not produce a successful response or expose
-internal details. Queue/list, resubmission, Teacher status lookup and frontend onboarding
+internal details. Queue/list, resubmission and frontend onboarding
 remain excluded; no identity-document workflow is introduced.
 
 ---

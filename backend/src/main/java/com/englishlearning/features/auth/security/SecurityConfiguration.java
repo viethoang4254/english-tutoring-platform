@@ -34,6 +34,14 @@ public class SecurityConfiguration {
                 && auth.getPrincipal() instanceof AccountPrincipal account
                 && account.role() == com.englishlearning.features.user.entity.User.Role.ADMIN && account.emailVerified());
     }
+    private static org.springframework.security.authorization.AuthorizationDecision verifiedTeacher(
+            java.util.function.Supplier<? extends org.springframework.security.core.Authentication> authentication,
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
+        var auth = authentication.get();
+        return new org.springframework.security.authorization.AuthorizationDecision(auth.isAuthenticated()
+                && auth.getPrincipal() instanceof AccountPrincipal account
+                && account.role() == com.englishlearning.features.user.entity.User.Role.TEACHER && account.emailVerified());
+    }
     @Bean
     JwtDecoder jwtDecoder(@Value("${app.security.jwt.public-key}") Resource publicKey,
             @Value("${app.security.jwt.issuer:english-tutoring-platform}") String issuer,
@@ -129,6 +137,8 @@ public class SecurityConfiguration {
                                 "/api/v1/admin/teacher-applications/{applicationId}/approve",
                                 "/api/v1/admin/teacher-applications/{applicationId}/reject")
                         .access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/onboarding")
+                        .access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me")
                         .hasAnyRole("STUDENT", "TEACHER", "ADMIN")
                         .anyRequest().denyAll())

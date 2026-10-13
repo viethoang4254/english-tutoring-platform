@@ -31,6 +31,8 @@ abstract class AuthenticationHttpTestSupport {
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherBusinessEligibility teacherEligibility;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherOnboardingService teacherOnboarding;
     @MockitoBean RegistrationService registration;
     @MockitoBean UserCredentialRepository credentials;
     @MockitoBean CurrentAccountService accounts;

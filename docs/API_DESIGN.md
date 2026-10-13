@@ -75,7 +75,7 @@ No separate Student, Teacher or Admin login identity is introduced.
 | Responsibility | Actor/authority | Required boundary; deferred detail |
 | --- | --- | --- |
 | Student registration | Visitor seeking a Student account | Backend assigns STUDENT; required email/password/fullName and initial verification follow Section 3.3. |
-| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Section 3.5 defines bounded Admin review; queue/status/resubmission remain deferred. |
+| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Sections 3.5–3.6 define bounded Admin review and own onboarding status; queue/resubmission remain deferred. |
 | Email verification | Eligible account-verification context | Purpose-specific, account-bound, expiring credential; consume according to approved flow. Verification cannot override administrative restrictions or define Teacher activation. |
 | Resend verification | Eligible verification context | Initial verification uses Section 3.3; other verification purposes remain deferred. Avoid unnecessary account-existence disclosure. |
 | Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Batch 2 contract below governs verified, unlocked account authentication; Teacher business approval remains separate. |
@@ -311,7 +311,7 @@ may authenticate for account-only access under Batch 2; default-deny Teacher bus
 routes remain denied. Role alone is not business eligibility. This slice does not
 implement review, approval/rejection, resubmission, status lookup, profile creation
 or Course management. Section 3.5 separately approves bounded Admin review/profile creation;
-resubmission, status lookup and Course management remain outside that slice.
+resubmission and Course management remain outside that slice. Section 3.6 separately defines own onboarding status.
 
 References: FR-TEA-005, FR-ACC-016, FR-AUTH-009, NFR-SEC-004;
 BR-AUTHN-024, BR-AUTHN-020, BR-AUTHN-006; UC-AUTH-REGISTER-TEACHER-01.
@@ -367,10 +367,45 @@ and rejected Teachers retain approved account-only authentication. This introduc
 API or other Teacher business permission; the reusable eligibility check must accompany
 operation-specific ownership/authorization when those routes are approved.
 
-No queue/list, Teacher-facing status lookup, resubmission or frontend is included.
+No queue/list, resubmission or frontend is included. Own status lookup is separately approved in Section 3.6.
 References: FR-TEA-005, FR-ACC-016, FR-AUTH-009, NFR-SEC-004;
 BR-AUTHN-024, BR-AUTHN-018, BR-AUTHN-020, BR-PROFILE-002;
 UC-AUTH-REGISTER-TEACHER-01; DM-TEA-001.
+
+---
+
+### 3.6 Approved Teacher Own Onboarding Status — TASK-032 bounded slice
+
+GET /api/v1/teacher/onboarding requires a valid Bearer JWT and a current, unlocked,
+email-verified TEACHER account. Approved onboarding is not required. Resolve identity
+only from the authenticated account; do not accept userId, teacherId or applicationId.
+No query parameters or non-empty request body are accepted, consistent with existing
+read-only account endpoints. Authentication/role checks precede input validation.
+
+Select only that Teacher's latest application using submittedAt DESC, id DESC.
+Return 200 with Cache-Control: no-store and exactly these JSON properties:
+
+- applicationId: exact decimal-string BIGINT identifier.
+- status: PENDING, APPROVED or REJECTED.
+- submittedAt: ISO-8601 absolute timestamp.
+- reviewedAt: ISO-8601 absolute timestamp, null for PENDING.
+- rejectionReason: preserved rejection text where applicable, otherwise null.
+
+Exclude reviewer identity, other account/application fields, credentials and tokens.
+No application returns 404 ONBOARDING_APPLICATION_NOT_FOUND. Missing/invalid/expired
+JWT or a missing/locked account uses existing 401 AUTHENTICATION_REQUIRED; Student,
+Admin and unverified Teacher access returns 403 ACCESS_DENIED. Forbidden request input
+returns 400 INVALID_REQUEST. Reuse safe authentication lookup 503 and generic internal
+500 handling without SQL/private details. Invalid authentication never performs the lookup.
+
+The service uses a read-only transaction and rechecks current account role/verification/
+lock state. It does not mutate applications, create a profile, issue tokens or grant Teacher
+business permissions. Current TeacherBusinessEligibility and operation-specific ownership
+requirements remain unchanged. Pending/rejected Teachers may view their own status when
+verified/unlocked. No queue, resubmission, history-list or frontend contract is introduced.
+
+References: FR-TEA-005, FR-AUTH-009, NFR-SEC-004; BR-AUTHN-018, BR-AUTHN-020,
+BR-AUTHN-024; UC-AUTH-REGISTER-TEACHER-01; DM-TEA-001.
 
 ---
 
@@ -1054,7 +1089,7 @@ source use cases remain applicable even where the capability is approved.
 | Current use case | Responsibility section and remaining contract boundary |
 | --- | --- |
 | UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and initial verification. |
-| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.5: registration and bounded Admin review approved; other onboarding operations remain deferred. |
+| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.6: registration, bounded Admin review and own status approved; other onboarding operations remain deferred. |
 | UC-AUTH-VERIFY-EMAIL-01 | 3.3: initial verification/resend approved; other purposes remain deferred. |
 | UC-AUTH-LOGIN-01 | 3: Shared authentication with locked checks; transport details deferred. |
 | UC-AUTH-REFRESH-01 | 3: Validated refresh; transport/replay/concurrency deferred. |

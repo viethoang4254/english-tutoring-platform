@@ -64,7 +64,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-029 | Deployment and operational readiness | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-030 | Safe continuous build/test verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-031 | Reconcile downstream tracking and operational guidance | DONE | TODO | Documentation acceptance passed; see Section 8, TASK-031. |
-| TASK-032 | Teacher registration and controlled onboarding | IN_PROGRESS | DEFERRED | Registration and bounded Admin review verified; queue/status/resubmission/frontend remain excluded. See Section 8, TASK-032. |
+| TASK-032 | Teacher registration and controlled onboarding | IN_PROGRESS | DEFERRED | Registration, bounded Admin review and own onboarding status verified; queue/resubmission/frontend remain excluded. See Section 8, TASK-032. |
 | TASK-033 | Teacher teaching profile and public projection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-034 | Admin category/topic management and Teacher selection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-035 | Teacher management of Course Sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -135,7 +135,7 @@ The following core implementation cannot proceed until the named decisions are a
 | TASK-018 | G-PROGRESS/G-RESULT: derived representation is settled; formulas, result availability and applicable API contracts remain open. |
 | TASK-022 | G-PAYMENT/G-CONFIRMATION/G-OUTCOME/G-PAYEFFECT: VietQR, trustworthy bank evidence and full refunds are settled directions; concrete provider/authenticity, retry/late and refund contracts remain open. |
 | TASK-029 | G-DEPLOY: approve production hosting, secrets and operational/release procedures. |
-| TASK-032 | Registration and bounded Admin detail/review/profile creation are implemented. G-TEACHER/G-API/G-UI remain for queue, resubmission, Teacher status lookup and browser onboarding. |
+| TASK-032 | Registration, bounded Admin review/profile creation and own onboarding status are implemented. G-TEACHER/G-API/G-UI remain for queue, resubmission and browser onboarding. |
 | TASK-037 | G-TIME/G-RECURRENCE/G-SESSION: ISO weekly generation, IANA timezone, fixed unique numbering and no-replacement cancellation settled; DST/cutoff and operation exceptions remain open. |
 | TASK-041 | G-RECEIVING/G-PAYMENT: historical bank accounts and one ACTIVE settled; bank checks and verified adapter integration contracts remain open; conceptual provider fields are omitted. |
 | TASK-043 | G-CALENDAR: organizational synchronization settled; single configured Calendar/event-ID scope settled; execution/retry contracts remain open. |
@@ -149,7 +149,7 @@ The table distinguishes implemented responsibilities from remaining gated work. 
 
 | Capability | Current implementation/evidence boundary | Task ownership |
 |---|---|---|
-| Authentication/account security | Student and bounded Teacher registration plus shared email verification/resend are implemented; password change/forgot/reset remain unimplemented. TASK-007 supplies verified login/refresh/logout HTTP endpoints, CSRF bootstrap and configured cookie/CORS controls over its atomic issuance/refresh core. TASK-006 validates bearer JWTs, resolves current User role/locked state and preserves default deny; Database-backed Teacher eligibility and bounded Admin onboarding review are implemented; business-route ownership integration remains with each feature. Bounded current-account viewing is authorized; broader onboarding remains gated. | TASK-006, TASK-007, TASK-008, TASK-032 |
+| Authentication/account security | Student and bounded Teacher registration plus shared email verification/resend are implemented; password change/forgot/reset remain unimplemented. TASK-007 supplies verified login/refresh/logout HTTP endpoints, CSRF bootstrap and configured cookie/CORS controls over its atomic issuance/refresh core. TASK-006 validates bearer JWTs, resolves current User role/locked state and preserves default deny; Database-backed Teacher eligibility and bounded Admin onboarding review are implemented; business-route ownership integration remains with each feature. Bounded current-account viewing and verified/unlocked Teacher own-onboarding status are implemented; broader onboarding remains gated. | TASK-006, TASK-007, TASK-008, TASK-032 |
 | User/Teacher profiles | Minimal current-account identity viewing and atomic TeacherProfile creation on Admin approval are implemented; own-profile editing and public Teacher projection remain unimplemented/gated. | TASK-009, TASK-033 |
 | Public discovery | Teacher/Course search/filter and public Course detail are not implemented; protected participation data must remain separate. | TASK-011 |
 | Teacher certificates | V2 prepared only; own management, Admin review and VERIFIED-only public projection are unimplemented. | TASK-046 |
@@ -572,6 +572,35 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - TASK-032 remains IN_PROGRESS: pending queue, Teacher status lookup, resubmission and
   frontend onboarding are excluded/unimplemented. No V1/V2, dependency, application.yml,
   frontend or unrelated task-status changes. TASK-046 evidence remains untouched.
+
+**Own onboarding status slice (2026-10-13):**
+
+- GET /api/v1/teacher/onboarding requires validated Bearer JWT, current TEACHER role,
+  unlocked account and verified email, but not onboarding approval. Identity comes only
+  from authenticated context; query parameters/non-empty bodies are rejected. Other
+  production routes and Teacher business eligibility remain unchanged.
+- TeacherOnboardingService uses a read-only transaction and current-account recheck;
+  TeacherApplicationRepository selects that Teacher's latest row by submittedAt DESC,
+  id DESC. TeacherOnboardingStatus exposes only applicationId (decimal string), status,
+  submittedAt, reviewedAt and rejectionReason. No reviewer identity, credentials or
+  other user's application is exposed. Missing application uses the safe 404
+  ONBOARDING_APPLICATION_NOT_FOUND response. No state/profile/session mutation.
+- Focused verification: 100 passed, 0 failed/errors, 0 skipped. Includes eight own-status
+  HTTP tests, two service tests, five added real-JWT rejection cases and preserved
+  Student/Teacher registration, security and Admin review tests.
+- Separate isolated PostgreSQL suite: 44 passed, 0 failed/errors, 0 skipped, including
+  three added own-status tests for all states, timestamp/ID tie-breaking, owner isolation,
+  missing application, account restrictions and unchanged application snapshots.
+  Fresh protected disposable PostgreSQL 18 cluster at 127.0.0.1:55432/task007_refresh;
+  unchanged V1/V2 applied locally through the existing empty-database guard. Server
+  stopped afterward; no Supabase access and no existing database reset/reuse.
+- Full Maven clean verify: BUILD SUCCESS; 258 total, 211 passed, 0 failed/errors,
+  47 skipped. The 44 persistence skips passed separately above; three other opt-in
+  database checks were not rerun. Packaged JAR excludes test fixtures; migration bytes,
+  CRLF/final newlines and git diff --check verified.
+- TASK-032 remains IN_PROGRESS. Pending queue/list, resubmission and frontend onboarding
+  remain outside the approved slice. No migrations, dependencies, frontend, commit/push
+  or unrelated task-status changes. TASK-046 evidence is preserved.
 
 ### TASK-046 — Teacher certificate documentation and V2 preparation
 

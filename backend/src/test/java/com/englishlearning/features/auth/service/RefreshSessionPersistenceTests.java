@@ -772,4 +772,51 @@ class RefreshSessionPersistenceTests {
         assertEquals("PENDING",reviews().detail(12L,id).status());
         reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.NOT_FOUND,()->reviews().detail(12L,Long.MAX_VALUE));
     }
+
+    com.englishlearning.features.teacher.service.TeacherOnboardingService onboarding() {
+        return context.getBean(com.englishlearning.features.teacher.service.TeacherOnboardingService.class);
+    }
+    @Test void ownStatusSupportsAllStatesAndNeverChangesApplication() throws Exception {
+        for(boolean approve:new boolean[]{true,false}) {
+            long id=pendingApplication(),teacher=applicant(id);
+            execute("UPDATE public.users SET email_verified=true WHERE id="+teacher);
+            var before=reviews().detail(12L,id);
+            var pending=onboarding().ownStatus(teacher);
+            assertEquals("PENDING",pending.status());assertNull(pending.reviewedAt());assertNull(pending.rejectionReason());
+            assertEquals(Long.toString(id),pending.applicationId().decimal());
+            assertEquals(before,reviews().detail(12L,id));
+            reviews().review(12L,id,approve,approve?null:" reason ");
+            var reviewed=reviews().detail(12L,id);
+            var status=onboarding().ownStatus(teacher);
+            assertEquals(approve?"APPROVED":"REJECTED",status.status());assertEquals(reviewed.reviewedAt(),status.reviewedAt());
+            assertEquals(approve?null:" reason ",status.rejectionReason());assertEquals(reviewed,reviews().detail(12L,id));
+        }
+    }
+    @Test void latestOwnApplicationOrdersByTimestampThenIdAndIsolatesOwners() throws Exception {
+        long first=pendingApplication(),teacher=applicant(first),other=pendingApplication();
+        execute("UPDATE public.users SET email_verified=true WHERE id IN ("+teacher+","+applicant(other)+")");
+        execute("INSERT INTO public.teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,rejection_reason,created_at,updated_at) "
+                +"SELECT teacher_id,specialization,teaching_experience,introduction,'REJECTED',submitted_at-interval '1 day',now(),12,'history',created_at,updated_at FROM public.teacher_applications WHERE id="+first);
+        long history=scalar("SELECT max(id) FROM public.teacher_applications WHERE teacher_id="+teacher);
+        assertTrue(history>first);
+        assertEquals(Long.toString(first),onboarding().ownStatus(teacher).applicationId().decimal());
+        execute("UPDATE public.teacher_applications SET submitted_at=(SELECT submitted_at FROM public.teacher_applications WHERE id="+first+") WHERE id="+history);
+        assertEquals(Long.toString(history),onboarding().ownStatus(teacher).applicationId().decimal());
+        assertEquals(Long.toString(other),onboarding().ownStatus(applicant(other)).applicationId().decimal());
+        assertEquals(2,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+teacher));
+    }
+    @Test void ownStatusMissingAndCurrentAccountRestrictionsAreEnforced() throws Exception {
+        long missing = new org.springframework.transaction.support.TransactionTemplate(manager).execute(
+                tx -> credentials.createTeacher(email(),passwordHash,"No application",clock.instant()).orElseThrow());
+        execute("UPDATE public.users SET email_verified=true WHERE id="+missing);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ONBOARDING_NOT_FOUND,()->onboarding().ownStatus(missing));
+        long id=pendingApplication(),teacher=applicant(id);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->onboarding().ownStatus(teacher));
+        execute("UPDATE public.users SET email_verified=true,locked=true WHERE id="+teacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->onboarding().ownStatus(teacher));
+        execute("UPDATE public.users SET locked=false WHERE id="+teacher);
+        assertEquals("PENDING",onboarding().ownStatus(teacher).status());
+        for(long denied:new long[]{10L,12L,Long.MAX_VALUE})
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->onboarding().ownStatus(denied));
+    }
 }

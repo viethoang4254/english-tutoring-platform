@@ -50,6 +50,8 @@ class SecurityBoundaryTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherBusinessEligibility teacherEligibility;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.teacher.service.TeacherOnboardingService teacherOnboarding;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.auth.service.RegistrationService registration;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;
@@ -122,6 +124,14 @@ class SecurityBoundaryTests {
                 .andExpect(content().json("{\"code\":\"AUTHENTICATION_REQUIRED\",\"message\":\"Authentication required.\"}", org.springframework.test.json.JsonCompareMode.STRICT));
         verifyNoInteractions(accounts);
     }
+    @ParameterizedTest
+    @ValueSource(strings={"expired","wrongKey","wrongAlgorithm","wrongAudience","numericSub"})
+    void onboardingRejectsInvalidAndExpiredRealJwtBeforeLookup(String variation) throws Exception {
+        mvc.perform(get("/api/v1/teacher/onboarding").header("Authorization", "Bearer " + token(variation)))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+        verifyNoInteractions(accounts,teacherOnboarding);
+    }
+
     @Test void resolvesOnlyValidatedSubjectWithoutRetainingToken() throws Exception {
         mvc.perform(get("/__security_test/student").header("Authorization", "Bearer " + token("valid")))
                 .andExpect(status().isOk()).andExpect(content().string("1"));

@@ -7,13 +7,14 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = TeacherApplicationReviewController.class)
+@RestControllerAdvice(assignableTypes = {TeacherApplicationReviewController.class, TeacherOnboardingController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TeacherReviewExceptionHandler {
     @ExceptionHandler(TeacherReviewFailure.class)
     ResponseEntity<ApiError> failure(TeacherReviewFailure failure) {
         return switch (failure.reason()) {
             case DENIED -> error(403, "ACCESS_DENIED");
+            case ONBOARDING_NOT_FOUND -> error(404, "ONBOARDING_APPLICATION_NOT_FOUND");
             case NOT_FOUND -> error(404, "APPLICATION_NOT_FOUND");
             case ALREADY_REVIEWED -> error(409, "APPLICATION_ALREADY_REVIEWED");
             case PROFILE_EXISTS -> error(409, "TEACHER_PROFILE_CONFLICT");
