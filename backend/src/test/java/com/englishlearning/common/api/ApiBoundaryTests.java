@@ -30,6 +30,9 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.flyway.enabled=false"
 })
 class ApiBoundaryTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -38,6 +41,10 @@ class ApiBoundaryTests {
     com.englishlearning.features.teacher.service.TeacherOnboardingService teacherOnboarding;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.auth.service.RegistrationService registration;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.service.PasswordRecoveryService recovery;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.repository.PasswordResetRepository resetRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean

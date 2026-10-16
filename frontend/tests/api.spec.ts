@@ -5,6 +5,13 @@ import { apiRequest, ApiRequestError } from "../src/lib/api.ts";
 const originalFetch = globalThis.fetch;
 const originalOrigin = process.env.NEXT_PUBLIC_API_ORIGIN;
 
+test("accepts empty verification resend 202 but rejects non-JSON content", async () => {
+  origin(); globalThis.fetch = async () => new Response(null, { status: 202 });
+  assert.equal(await apiRequest("/auth/email-verification/resend", { method: "POST" }), undefined);
+  globalThis.fetch = async () => new Response("unexpected HTML", { status: 202 });
+  await assert.rejects(apiRequest("/auth/email-verification/resend"), ApiRequestError);
+});
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalOrigin === undefined) delete process.env.NEXT_PUBLIC_API_ORIGIN;

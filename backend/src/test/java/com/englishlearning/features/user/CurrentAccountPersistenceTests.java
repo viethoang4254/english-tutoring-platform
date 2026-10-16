@@ -18,10 +18,11 @@ class CurrentAccountPersistenceTests {
     void readsCurrentAccountFromIsolatedV1SchemaWithoutMutatingIt() throws Exception {
         String url = System.getenv("TASK006_TEST_URL");
         assertNotNull(url, "Explicit isolated test configuration is required");
-        assertEquals("jdbc:postgresql://127.0.0.1:55432/task006_accounts", url);
+        assertTrue("jdbc:postgresql://127.0.0.1:55432/task006_accounts".equals(url)
+                || "jdbc:postgresql://127.0.0.1:55434/task006_student_login_v4".equals(url));
         String user = System.getenv("TASK006_TEST_USER");
         String password = System.getenv("TASK006_TEST_PASSWORD");
-        assertEquals("task006_test", user);
+        assertEquals(url.contains(":55434/") ? "task007_test" : "task006_test", user);
         assertNotNull(password);
         try (var connection = DriverManager.getConnection(url, user, password);
              var statement = connection.createStatement()) {
@@ -50,6 +51,14 @@ class CurrentAccountPersistenceTests {
                 assertEquals(Role.STUDENT, initial.role());
                 assertFalse(initial.locked());
                 assertFalse(initial.emailVerified());
+                assertFalse(initial.studentLoginWithoutVerification());
+                assertFalse(initial.loginEligible());
+                statement.executeUpdate("UPDATE users SET student_login_without_verification=true WHERE id=9007199254740993");
+                var eligible = accounts.findById(initial.id()).orElseThrow();
+                assertTrue(eligible.studentLoginWithoutVerification());
+                assertTrue(eligible.loginEligible());
+                assertFalse(eligible.emailVerified());
+                statement.executeUpdate("UPDATE users SET student_login_without_verification=false WHERE id=9007199254740993");
                 statement.executeUpdate("UPDATE public.users SET role='TEACHER',email_verified=true WHERE id=9007199254740993");
                 var teacher = accounts.findById(initial.id()).orElseThrow();
                 assertEquals(Role.TEACHER, teacher.role());
@@ -71,7 +80,7 @@ class CurrentAccountPersistenceTests {
                 }
                 try (var history = statement.executeQuery("SELECT count(*) FROM public.flyway_schema_history WHERE success")) {
                     assertTrue(history.next());
-                    assertEquals(2, history.getInt(1));
+                    assertEquals(4, history.getInt(1));
                 }
             }
         }

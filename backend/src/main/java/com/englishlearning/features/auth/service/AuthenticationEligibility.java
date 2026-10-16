@@ -8,12 +8,12 @@ final class AuthenticationEligibility {
         if (account == null || account.locked()) {
             throw new AuthenticationFailure(AuthenticationFailure.Reason.INVALID_CREDENTIAL);
         }
-        if (!account.emailVerified()) {
+        if (!account.loginEligible()) {
             throw new AuthenticationFailure(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED);
         }
     }
     static void require(CredentialSnapshot account) {
-        if (account == null || account.locked() || !account.emailVerified()) {
+        if (account == null || !account.loginEligible()) {
             throw new AuthenticationFailure(AuthenticationFailure.Reason.INVALID_CREDENTIAL);
         }
         // Account authentication does not grant Teacher business eligibility.

@@ -27,7 +27,66 @@ class TeacherOnboardingHttpTests extends AuthenticationHttpTestSupport {
     @BeforeEach void teacher() {
         when(decoder.decode("teacher-token")).thenReturn(Jwt.withTokenValue("teacher-token").header("alg","RS256")
                 .subject("22").issuedAt(now).expiresAt(now.plusSeconds(900)).build());
-        when(accounts.findById(22L)).thenReturn(Optional.of(new AccountSnapshot(22L,Role.TEACHER,false,true)));
+        when(accounts.findById(22L)).thenReturn(Optional.of(new AccountSnapshot(22L,Role.TEACHER,false,true, false)));
+    }
+    static final String RESUBMIT="/api/v1/teacher/applications/9007199254740993/resubmit";
+    static final String BODY="{\"specialization\":\" English \",\"teachingExperience\":\" Experience \",\"introduction\":\" Intro \"}";
+    @Test void resubmitUsesCurrentIdentityAndReturnsSafeCreatedProjection() throws Exception {
+        when(teacherOnboarding.resubmit(22L,9007199254740993L," English "," Experience "," Intro "))
+                .thenReturn(new TeacherOnboardingStatus(new ApiId(9007199254740994L),"PENDING",now,null,null));
+        var response=mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token")
+                .contentType("application/json").content(BODY)).andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control","no-store"))
+                .andExpect(jsonPath("$.applicationId").value("9007199254740994")).andReturn().getResponse();
+        assertEquals(Set.of("applicationId","status","submittedAt","reviewedAt","rejectionReason"),
+                mapper.readTree(response.getContentAsString()).propertyNames());
+        verify(teacherOnboarding).resubmit(22L,9007199254740993L," English "," Experience "," Intro ");
+        verifyNoInteractions(teacherEligibility);
+    }
+    @Test void resubmitRejectsInvalidFieldsIdsAndQueryBeforeService() throws Exception {
+        for(String field:List.of("specialization","teachingExperience","introduction")) {
+            for(String value:List.of("null","\" \"","1","true","[]","\"x\\u0000y\"")) {
+                var body=mapper.readTree(BODY).deepCopy();
+                ((tools.jackson.databind.node.ObjectNode)body).set(field,mapper.readTree(value));
+                mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token")
+                        .contentType("application/json").content(body.toString())).andExpect(status().isBadRequest());
+            }
+        }
+        for(String field:List.of("teacherId","status","reviewedBy","unknown"))
+            mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token").contentType("application/json")
+                    .content(BODY.substring(0,BODY.length()-1)+",\""+field+"\":\"1\"}")).andExpect(status().isBadRequest());
+        for(String id:List.of("0","-1","abc","9223372036854775808"))
+            mvc.perform(post(RESUBMIT.replace("9007199254740993",id)).header("Authorization","Bearer teacher-token")
+                    .contentType("application/json").content(BODY)).andExpect(status().isBadRequest());
+        mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token").queryParam("id","1")
+                .contentType("application/json").content(BODY)).andExpect(status().isBadRequest());
+        mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token")
+                .contentType("application/json").content("{}")).andExpect(status().isBadRequest());
+        verifyNoInteractions(teacherOnboarding);
+    }
+    @Test void resubmitRequiresVerifiedUnlockedTeacherBeforeValidation() throws Exception {
+        for(var account:List.of(new AccountSnapshot(22L,Role.ADMIN,false,true, false),new AccountSnapshot(22L,Role.STUDENT,false,true, false),
+                new AccountSnapshot(22L,Role.TEACHER,false,false, false),new AccountSnapshot(22L,Role.TEACHER,true,true, false))) {
+            when(accounts.findById(22L)).thenReturn(Optional.of(account));
+            mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token").contentType("application/json").content("{}"))
+                    .andExpect(status().is(account.locked()?401:403));
+        }
+        mvc.perform(post(RESUBMIT).contentType("application/json").content("{}")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(teacherOnboarding);
+    }
+    @Test void resubmitMapsSafeConflictsAndFailures() throws Exception {
+        var reasons=List.of(TeacherReviewFailure.Reason.NOT_FOUND,TeacherReviewFailure.Reason.ALREADY_PENDING,
+                TeacherReviewFailure.Reason.RESUBMISSION_NOT_ALLOWED,TeacherReviewFailure.Reason.PROFILE_EXISTS);
+        var codes=List.of("APPLICATION_NOT_FOUND","APPLICATION_ALREADY_PENDING","RESUBMISSION_NOT_ALLOWED","TEACHER_PROFILE_CONFLICT");
+        for(int i=0;i<reasons.size();i++) {
+            doThrow(new TeacherReviewFailure(reasons.get(i))).when(teacherOnboarding).resubmit(anyLong(),anyLong(),anyString(),anyString(),anyString());
+            mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token").contentType("application/json").content(BODY))
+                    .andExpect(status().is(i==0?404:409)).andExpect(jsonPath("$.code").value(codes.get(i)));
+        }
+        doThrow(new IllegalStateException("PRIVATE SQL")).when(teacherOnboarding).resubmit(anyLong(),anyLong(),anyString(),anyString(),anyString());
+        mvc.perform(post(RESUBMIT).header("Authorization","Bearer teacher-token").contentType("application/json").content(BODY))
+                .andExpect(status().isInternalServerError()).andExpect(content().json(
+                        "{\"code\":\"INTERNAL_ERROR\",\"message\":\"An unexpected error occurred.\"}",org.springframework.test.json.JsonCompareMode.STRICT));
     }
     @ParameterizedTest @ValueSource(strings={"PENDING","APPROVED","REJECTED"})
     void exactSafeProjectionForEveryStatus(String state) throws Exception {
@@ -45,9 +104,9 @@ class TeacherOnboardingHttpTests extends AuthenticationHttpTestSupport {
         verify(teacherOnboarding).ownStatus(22L);verifyNoInteractions(teacherEligibility);
     }
     @Test void onlyAuthenticatedTeacherCanSelectOwnStatus() throws Exception {
-        for(var state:List.of(new AccountSnapshot(22L,Role.STUDENT,false,true),
-                new AccountSnapshot(22L,Role.ADMIN,false,true),new AccountSnapshot(22L,Role.TEACHER,false,false),
-                new AccountSnapshot(22L,Role.TEACHER,true,true))) {
+        for(var state:List.of(new AccountSnapshot(22L,Role.STUDENT,false,true, false),
+                new AccountSnapshot(22L,Role.ADMIN,false,true, false),new AccountSnapshot(22L,Role.TEACHER,false,false, false),
+                new AccountSnapshot(22L,Role.TEACHER,true,true, false))) {
             when(accounts.findById(22L)).thenReturn(Optional.of(state));
             mvc.perform(get(PATH).header("Authorization","Bearer teacher-token"))
                     .andExpect(status().is(state.locked()?401:403));

@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = AuthenticationController.class)
+@RestControllerAdvice(assignableTypes = {AuthenticationController.class,PasswordChangeController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthenticationExceptionHandler {
     @ExceptionHandler(AuthenticationFailure.class)
@@ -17,6 +17,8 @@ public class AuthenticationExceptionHandler {
         int status;
         String code, message;
         switch (failure.reason()) {
+            case ACCESS_DENIED -> {status=403;code="ACCESS_DENIED";message="Access denied.";}
+            case INVALID_REQUEST -> {status=400;code="INVALID_REQUEST";message="Invalid request.";}
             case INVALID_CREDENTIAL -> {
                 status = 401; code = "AUTHENTICATION_REQUIRED"; message = "Authentication required.";
             }

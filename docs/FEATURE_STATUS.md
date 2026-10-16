@@ -27,10 +27,10 @@ Flyway and the approved 22-table Physical V1 migration are implemented and verif
 
 | Active task status | Count |
 |---|---:|
-| DONE | 6 |
+| DONE | 8 |
 | TODO | 20 |
 | BLOCKED | 7 |
-| IN_PROGRESS | 5 |
+| IN_PROGRESS | 3 |
 | Total | 38 |
 
 Planning readiness: 27 TODO, 8 DEFERRED and 3 preserved completed foundations. Eight retired task IDs are tracked separately. TASK-031 is DONE for documentation/operational guidance only. This documentation reconciliation does not establish application implementation or verification.
@@ -47,9 +47,9 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-004 | Physical Database V1 migration and persistence integrity | DONE | TODO | Flyway V1 and isolated PostgreSQL verification passed; see Section 8, TASK-004. |
 | TASK-005 | Shared API and client boundary conventions | DONE | TODO | Shared boundary and real current-account response/error verified. See Section 8, TASK-005. |
 | TASK-006 | Authentication and backend authorization foundation | IN_PROGRESS | TODO | Phases 1-3 and real current-account boundary verified; Teacher eligibility and other security gates remain outstanding. See Section 8, TASK-006. |
-| TASK-007 | Student registration and shared authentication sessions | IN_PROGRESS | TODO | Backend registration/verification/resend and login/refresh/logout verified; frontend and production mail delivery remain outstanding. See Section 8, TASK-007. |
-| TASK-008 | Dedicated password change and recovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-009 | Current account and own personal profile | IN_PROGRESS | TODO | Bounded account-read exception implemented before TASK-007; profile work remains. See Section 8, TASK-009. |
+| TASK-007 | Student registration and shared authentication sessions | DONE | TODO | Accepted 2026-10-14: mandatory registration/verification, session and browser-security criteria passed; see final acceptance matrix in Section 8. |
+| TASK-008 | Dedicated password change and recovery | DONE | TODO | Logged-in Change Password and six-digit OTP recovery passed isolated backend/PostgreSQL and live desktop/mobile acceptance on 2026-10-16; see final evidence below. |
+| TASK-009 | Current account and own personal profile | IN_PROGRESS | TODO | Current-account read and bounded Student profile view/edit implemented; Teacher own-profile scope remains. See Student profile evidence below. |
 | TASK-010 | Teacher-owned Course management | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-011 | Public Teacher and Course discovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-016 | Whole-Course Enrollment and participation authorization | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -64,7 +64,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-029 | Deployment and operational readiness | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-030 | Safe continuous build/test verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-031 | Reconcile downstream tracking and operational guidance | DONE | TODO | Documentation acceptance passed; see Section 8, TASK-031. |
-| TASK-032 | Teacher registration and controlled onboarding | IN_PROGRESS | DEFERRED | Registration, bounded Admin review, own onboarding status and pending queue verified; resubmission/frontend remain excluded. See Section 8, TASK-032. |
+| TASK-032 | Teacher registration and controlled onboarding | DONE | DEFERRED | Accepted 2026-10-14: mandatory registration, review, status and resubmission criteria passed; see final acceptance matrix in Section 8. |
 | TASK-033 | Teacher teaching profile and public projection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-034 | Admin category/topic management and Teacher selection | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-035 | Teacher management of Course Sessions | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -135,7 +135,6 @@ The following core implementation cannot proceed until the named decisions are a
 | TASK-018 | G-PROGRESS/G-RESULT: derived representation is settled; formulas, result availability and applicable API contracts remain open. |
 | TASK-022 | G-PAYMENT/G-CONFIRMATION/G-OUTCOME/G-PAYEFFECT: VietQR, trustworthy bank evidence and full refunds are settled directions; concrete provider/authenticity, retry/late and refund contracts remain open. |
 | TASK-029 | G-DEPLOY: approve production hosting, secrets and operational/release procedures. |
-| TASK-032 | Registration, bounded Admin review/profile creation, own onboarding status and pending queue are implemented. G-TEACHER/G-API/G-UI remain for resubmission and browser onboarding. |
 | TASK-037 | G-TIME/G-RECURRENCE/G-SESSION: ISO weekly generation, IANA timezone, fixed unique numbering and no-replacement cancellation settled; DST/cutoff and operation exceptions remain open. |
 | TASK-041 | G-RECEIVING/G-PAYMENT: historical bank accounts and one ACTIVE settled; bank checks and verified adapter integration contracts remain open; conceptual provider fields are omitted. |
 | TASK-043 | G-CALENDAR: organizational synchronization settled; single configured Calendar/event-ID scope settled; execution/retry contracts remain open. |
@@ -149,8 +148,8 @@ The table distinguishes implemented responsibilities from remaining gated work. 
 
 | Capability | Current implementation/evidence boundary | Task ownership |
 |---|---|---|
-| Authentication/account security | Student and bounded Teacher registration plus shared email verification/resend are implemented; password change/forgot/reset remain unimplemented. TASK-007 supplies verified login/refresh/logout HTTP endpoints, CSRF bootstrap and configured cookie/CORS controls over its atomic issuance/refresh core. TASK-006 validates bearer JWTs, resolves current User role/locked state and preserves default deny; Database-backed Teacher eligibility and bounded Admin onboarding review are implemented; business-route ownership integration remains with each feature. Bounded current-account viewing and verified/unlocked Teacher own-onboarding status are implemented; broader onboarding remains gated. | TASK-006, TASK-007, TASK-008, TASK-032 |
-| User/Teacher profiles | Minimal current-account identity viewing and atomic TeacherProfile creation on Admin approval are implemented; own-profile editing and public Teacher projection remain unimplemented/gated. | TASK-009, TASK-033 |
+| Authentication/account security | Student and bounded Teacher registration plus shared email verification/resend are implemented; logged-in password change and bounded OTP forgot/reset passed isolated live acceptance. TASK-007 supplies verified login/refresh/logout HTTP endpoints, CSRF bootstrap and configured cookie/CORS controls over its atomic issuance/refresh core. TASK-006 validates bearer JWTs, resolves current User role/locked state and preserves default deny; Database-backed Teacher eligibility and bounded Admin onboarding review are implemented; business-route ownership integration remains with each feature. Bounded current-account viewing and verified/unlocked Teacher own-onboarding status are implemented; broader onboarding remains gated. | TASK-006, TASK-007, TASK-008, TASK-032 |
+| User/Teacher profiles | Minimal current-account identity viewing and atomic TeacherProfile creation on Admin approval are implemented; bounded Student own-profile editing is implemented; Teacher own-profile editing and public Teacher projection remain gated. | TASK-009, TASK-033 |
 | Public discovery | Teacher/Course search/filter and public Course detail are not implemented; protected participation data must remain separate. | TASK-011 |
 | Teacher certificates | V2 prepared only; own management, Admin review and VERIFIED-only public projection are unimplemented. | TASK-046 |
 | Courses | Teacher-owned Course creation/management/publication is not implemented; owner derives from backend identity and five-state lifecycle is approved but detailed operation contracts remain gated. | TASK-010 |
@@ -506,6 +505,86 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
 - Remaining: broader profile viewing/editing, approved field contracts, frontend and
   other TASK-007 dependencies. TASK-009 and TASK-006 remain IN_PROGRESS.
 
+### TASK-007 — Bounded frontend authentication prerequisite (2026-10-13)
+
+- /account provides shared login, explicit refresh-based recovery, logout and initial email
+  verification/resend using the existing native-fetch API client and React Query provider.
+  Access JWT/current-account state is memory-only; no browser-storage or credential URL use.
+  Auth requests bootstrap CSRF, include cookies and send X-XSRF-TOKEN. Bearer APIs omit cookies.
+  Mutations are not automatically retried. Logout clears local state/cache immediately and
+  reports server success only after confirmed response; explicit server logout remains available.
+- Implementation: frontend/src/features/auth/browser-api.ts, account-workspace.tsx,
+  src/app/account/page.tsx, root link/styles and shared empty-202 resend handling in src/lib/api.ts.
+- Verification: npm run lint, npm run typecheck and npm run build passed (Node 24.21.0,
+  npm 11.19.0). node --test tests/api.spec.ts tests/browser-api.spec.ts: 11 passed,
+  0 failed, 0 skipped. Chromium npm run test:e2e -- --workers=1: 44 passed, 0 failed,
+  0 skipped across narrow/wide viewports, including existing foundation checks.
+- Tests verify CSRF request construction/denial, explicit recovery, memory-only session state,
+  safe logout success/failure, Unicode password limits, verification expiry/resend/delivery errors,
+  no retries and safe errors. API responses are intercepted test fixtures; real backend CORS,
+  cookie delivery, SMTP and browser-to-database integration were not exercised.
+- Initial browser run: 36 passed and 2 logout-test timing failures; assertions were corrected
+  to wait for server confirmation after immediate local cleanup. A subsequent parallel run
+  exhausted local memory (2 passed, 42 failed); the full one-worker rerun passed without
+  application or machine-setting changes. Node module-type and terminal-color warnings remain.
+- TASK-007 remains IN_PROGRESS. Student registration frontend and complete live authentication
+  acceptance remain outstanding; this bounded prerequisite does not claim overall completion.
+### TASK-007 — Student registration frontend completion (2026-10-13)
+
+- Extended the existing /account registration form to Student registration with exactly
+  email/password/fullName and /auth/register/student. Reuses validation, CSRF, cookie transport,
+  verification/resend and login; no tokens during registration and no client-selected role.
+- Files: frontend/src/features/auth/account-workspace.tsx; tests/e2e/student-admin.spec.ts.
+  Browser tests cover registration/verification/login, duplicate-click protection, invalid
+  password/blank name and safe 400/409/500/503 without automatic retries.
+- Final combined frontend checks: npm run lint, npm run typecheck, npm run build passed;
+  node --test tests/api.spec.ts tests/browser-api.spec.ts: 12 passed, 0 failed/skipped;
+  npm run test:e2e -- --workers=1: 82 Chromium checks passed, 0 failed/skipped, across
+  390x844 and 1440x900. Includes all existing authentication and Teacher regressions.
+- TASK-007 remains IN_PROGRESS. Live authentication acceptance was not executed: no backend
+  listener at 8080, no approved isolated PostgreSQL listener at 55432, no local SMTP listener
+  at 1025/587, and JWT key/browser-origin/SMTP environment configuration was absent.
+  No database or Supabase connection was attempted; no backend was started against inherited
+  DATABASE_* settings. Live CORS, CSRF-cookie delivery, refresh-cookie/session rotation,
+  PostgreSQL persistence and SMTP delivery remain unverified for this browser slice.
+### TASK-007 — Isolated live integration verification (2026-10-14)
+
+- TASK-007 remains IN_PROGRESS. This evidence supersedes the earlier local-service
+  availability blocker; it does not mark overall security/operational acceptance complete.
+- Used only 127.0.0.1:55432/task007_live, backend :8080, frontend :3000 and an authenticated
+  STARTTLS SMTP capture on :1025. External RSA keys/test secrets remain outside Git.
+  All recipients used example.invalid; the sink rejects external recipients and never relays.
+- Combined live HTTP scripts: 93 passing assertions (67 core, 9 onboarding concurrency,
+  5 resend, 12 ownership/error checks), zero final assertion failures. Counts include
+  setup and safe-error assertions; they are not 93 distinct product workflows.
+- Chromium used the real frontend/backend without API interception: 18 scenario groups
+  passed across 390x844 and 1440x900. Both roles registered, verified captured codes and
+  logged in. Explicit recovery after reload, empty local/session storage, HttpOnly/Lax
+  refresh-cookie path, logout and denied post-logout recovery passed. Backend checks
+  additionally covered exact-origin CORS, denied origin/missing CSRF, refresh rotation,
+  replay rejection, no credential response at registration and no-store token responses.
+- Resend waited for the real cooldown: concurrent requests returned 202/429, a new email
+  was captured, and the older unexpired credential still verified successfully. Replay
+  and unverified-login denial passed; live expiry/rolling-24-hour exhaustion were not induced.
+- Regression evidence: frontend build/lint/typecheck passed; Node unit tests 12 passed,
+  zero failed/skipped; mocked Chromium regression suite 82 passed, zero failed/skipped.
+  The existing dev server initially served an inactive UI; restarting the freshly built
+  loopback production frontend resolved this. The final 82-test run reused that server
+  through external test-only configuration; repository configuration was unchanged.
+- Backend Maven verify ran 288 tests: 236 passed, zero failures/errors, 52 opt-in tests
+  skipped. Repackaging then failed because the external backend held the output JAR.
+  That command had replaced the running artifact; subsequent mail requests returned safe
+  503 DELIVERY errors. User stopped the backend; mvnw.cmd -DskipTests verify restored
+  executable packaging with BUILD SUCCESS, 88 nested libraries and no test fixtures.
+  User restarted externally before the passing live browser/concurrency/resend checks.
+  This is separate test and packaging evidence, not a fresh all-tests-executed verify.
+- Persistence was checked read-only: successful V1/V2 history, retained review snapshots,
+  matching approved TeacherProfile, hashed refresh/verification credentials and consumed/
+  revoked history. No migration source changes, Supabase access, staging, commit or push.
+- Remaining: final task/prerequisite acceptance review. The 52 skipped opt-in tests were
+  not rerun against task007_live because their fixtures require separate empty databases.
+  Production TLS/email delivery and fault-injected database outages were not exercised.
+
 ### TASK-032 — Bounded Teacher registration and Admin review
 
 **Registration checkpoint (ed86820):**
@@ -628,6 +707,134 @@ The approved audit inspected the existing packaged artifact, bootstrap/configura
   Offset pages can shift during concurrent review; no snapshot guarantee. No new dependencies,
   migrations, Supabase access, frontend changes, commit or push. TASK-046 evidence preserved.
 
+#### Teacher application resubmission verification (2026-10-13)
+
+- Implemented POST /api/v1/teacher/applications/{applicationId}/resubmit in the existing
+  TeacherOnboardingController/Service, with current verified/unlocked Teacher authorization.
+  Ownership derives from authenticated identity. Only the latest REJECTED snapshot can be
+  superseded; PENDING/APPROVED history or an existing TeacherProfile prevents insertion.
+- A READ COMMITTED transaction locks the current User row and inserts a new PENDING snapshot;
+  reviewed rows remain unchanged. Return 201/no-store with the existing safe onboarding DTO
+  only after commit. No automatic retry, cooldown or lifetime attempt limit is introduced.
+- Focused Teacher onboarding/review/security tests: 86 passed, 0 failures/errors, 0 skipped.
+  A Mockito restubbing error in the first run was corrected before the successful rerun.
+- Isolated PostgreSQL 18.6 at 127.0.0.1:55432/task007_refresh: all 49
+  RefreshSessionPersistenceTests passed, 0 failures/errors/skips. Coverage includes concurrent
+  one-winner resubmission, insert-failure rollback, historical snapshot preservation, delayed
+  retry rejection, ownership/account/profile conflicts and existing authentication/review checks.
+  The fresh disposable cluster was stopped cleanly; no existing database was reset.
+- Maven clean verify: BUILD SUCCESS; 288 reported, 236 passed, 0 failures/errors, 52 skipped.
+  The 49 persistence tests skipped in that default run passed separately above; the other
+  3 opt-in database checks were not run. Full verification includes three additional service
+  unit tests for account/input rejection, prior approval and backwards-clock ordering.
+- TASK-032 remains IN_PROGRESS because frontend onboarding is unfinished. No frontend,
+  dependency, migration or Supabase changes; no commit/push. TASK-046 evidence is preserved.
+#### Bounded Teacher-facing frontend (2026-10-13)
+
+- /account supports initial Teacher registration, verification/resend, authenticated latest
+  onboarding status and resubmission. Initial submission uses /auth/register/teacher only;
+  it returns verification guidance without signing in. No separate application endpoint.
+- Displays PENDING/APPROVED/REJECTED and available rejection reason. Uses /users/me current
+  account and backend onboarding authority; only verified Teachers can view the workflow.
+  Resubmission requires the latest REJECTED state, preserves exact submitted text and string IDs,
+  guards duplicate clicks, and requests fresh status after any failed/uncertain submission.
+  Failed reconciliation keeps submission disabled; no mutation is automatically replayed.
+- Tests: tests/e2e/account.spec.ts covers exact requests, all states, 400/401/403/404/409/500/503,
+  ownership-facing UI restrictions, duplicate clicks, lost responses with committed PENDING,
+  failed status reconciliation, registration and verification. Narrow/wide Chromium suite:
+  44 passed, 0 failed/skipped; shared tests 11 passed, 0 failed/skipped. Lint/typecheck/build pass.
+- Backend DTO/controller compatibility was inspected; no backend file was changed by this
+  frontend slice. Browser responses were mocked, so live backend/SMTP/CORS integration is not
+  claimed. Earlier backend/PostgreSQL evidence remains separate and unchanged.
+- TASK-032 remains IN_PROGRESS: Admin review UI and complete live browser onboarding/review
+  verification remain outstanding. No dependency, migration, Supabase, commit or push changes.
+  Unrelated TASK-046 evidence is preserved verbatim.
+#### Admin review frontend completion (2026-10-13)
+
+- Added frontend/src/features/teacher/admin-applications.tsx under the shared /account
+  session. Verified current ADMIN accounts can load the PENDING queue, page at size 20,
+  view safe details, approve with bodyless POST and reject with exactly preserved reason.
+  Shared browser-api.ts adds explicit bodyless POST support and safe review-conflict messages.
+- No automatic review retry. Duplicate-click guard is shared with authentication; reviewed
+  detail has no mutation controls. Conflict/uncertain outcomes reconcile detail and queue;
+  failed reconciliation removes review controls. Backend remains authorization authority.
+- Tests/e2e/student-admin.spec.ts covers paging/empty results, exact fields and large IDs,
+  Student/Teacher/unverified-Admin denial, review success, blank rejection validation,
+  concurrent-review conflict, uncertain outcome, safe 401/403/404/500/503 and mobile overflow.
+  Shared tests/browser-api.spec.ts verifies bodyless approval excludes cookies and sends Bearer.
+- Combined verification: 12 unit/API tests and 82 desktop/mobile Chromium checks passed,
+  0 failed/skipped; lint/typecheck/production build passed. These are mocked API browser tests,
+  not live backend/CORS/CSRF/cookie/refresh/PostgreSQL/SMTP verification. Known Node module-type
+  and terminal-color notices are non-failing; no dependency or configuration change made.
+- TASK-032 remains IN_PROGRESS solely pending full live onboarding/review acceptance and any
+  outstanding task dependencies. Admin browser implementation is no longer missing.
+  Existing backend/migrations and unrelated TASK-046 evidence remain unchanged; no commit/push.
+#### TASK-032 — Isolated live onboarding acceptance evidence (2026-10-14)
+
+- TASK-032 remains IN_PROGRESS pending final acceptance/prerequisite review; see the
+  TASK-007 live section for shared environment, regression counts and execution limitations.
+- Real browser workflows passed on mobile and desktop: Teacher registration and captured
+  email verification, PENDING status, Admin pending queue/detail/rejection, displayed reason,
+  resubmission into a new PENDING application, Admin approval and APPROVED status.
+- Live concurrent resubmission produced exactly one 201 and one 409; concurrent approval
+  produced exactly one 204 and one 409. Reviewed snapshots stayed immutable, and read-only
+  database checks confirmed the approved profile matched its application snapshot.
+- Live boundaries rejected Student/Teacher Admin access, anonymous/invalid Bearer requests,
+  client-supplied identity and cross-Teacher application access (safe 404). Invalid input,
+  duplicate review/resubmission and unknown application responses stayed structured and safe.
+- Responsive overflow checks passed at 390px/1440px. No API/UI/source changes were needed
+  for this verification. Unrelated TASK-046 evidence and V1/V2 migration files are unchanged.
+
+### TASK-007 / TASK-032 — Final acceptance review (2026-10-14)
+
+**Decision: TASK-007 DONE; TASK-032 DONE for their approved implementation scopes.**
+No mandatory acceptance gap or blocking code finding remained after tracing current
+controllers, services, repositories, security filters, browser callers and test evidence.
+Earlier IN_PROGRESS/remaining-work statements in Section 8 are checkpoint history;
+this decision and the active task ledger are the current status.
+
+| Mandatory criterion | Implementation and accepted evidence |
+|---|---|
+| Student registration and verification | RegistrationService atomically creates an unverified STUDENT and hashed purpose-bound credential without tokens; mail follows commit. Executed PostgreSQL tests cover canonical duplicates, rollback, expiry, replay, lock/purpose denial and delivery recovery. Live HTTP/browser registration, captured SMTP verification and eligible login passed. |
+| Resend safety | User locking, 60-second cooldown and five accepted resends per rolling 24 hours. Executed persistence tests cover final allowance, failed-delivery counting and verification/resend races; live concurrent resend returned 202/429 and retained the prior unexpired code. |
+| Shared login/refresh/logout | Current eligibility precedes signing; commit precedes credential return. Executed persistence tests cover invalid/expired/revoked credentials, one-winner rotation, collision/signing rollback, independent sessions and targeted logout. Live rotation/replay/logout/recovery passed. |
+| Security and transport | RS256, database-authoritative role/account checks, BCrypt, explicit DTOs and default deny retained. Security tests cover forged roles, restricted accounts, safe failures and production-cookie configuration. Live exact-origin CORS, CSRF rejection, refresh-cookie attributes, memory-only access state and explicit recovery passed. |
+| Teacher registration/eligibility | Atomic TEACHER + credential + PENDING snapshot; no initial profile/token/approval. Executed tests cover duplicate races and rollback. Live verification leaves onboarding PENDING. Eligibility tests require current verified/unlocked TEACHER and persisted approval; unimplemented Course routes remain denied. |
+| Admin queue/detail/review | Verified/unlocked current ADMIN, stable bounded PENDING queue and safe projections. Executed tests cover pagination, reviewer restrictions, immutable history, profile conflict and rollback. Live review and concurrent one-winner approval passed. |
+| Own status/resubmission | Authenticated owner, latest ordering and latest-REJECTED eligibility; new snapshot under User lock. Executed tests cover account/profile/prior-approval conflicts, rollback and ordering. Live cross-owner denial, retained history and concurrent 201/409 passed. |
+| Browser workflow | 18 real-browser scenario groups passed at 390x844/1440x900; 82 mocked browser tests cover validation, denial, conflicts, duplicate-click guards and uncertain-response reconciliation. Frontend unit tests: 12 passed; lint/typecheck/build passed. |
+
+**Evidence accounting:** Latest default Maven test phase: 236 passed, zero failures/errors,
+52 skipped. Skips are not counted as passes. The separately recorded 2026-10-13 isolated
+PostgreSQL run executed all 49 RefreshSessionPersistenceTests successfully, including the
+current authentication/onboarding cases. The other three skipped suites are
+DatabaseConnectivityTests, DatabaseMigrationTests and CurrentAccountPersistenceTests:
+previously accepted infrastructure, not rerun in this review or counted as new passes.
+No affected foundation/schema change requires their rerun for these two tasks.
+Live HTTP scripts add 93 assertions, not 93 independent product workflows.
+Packaging failed while the external backend held its JAR; after the user stopped it,
+mvnw.cmd -DskipTests verify restored executable packaging with BUILD SUCCESS.
+The user restarted before the final passing live browser checks. This is separate test
+and packaging evidence, not one uninterrupted all-tests-enabled verify.
+
+**Required versus deferred:** Expiry, resend-limit exhaustion, rollback and safe failure
+handling are mandatory and covered by deterministic automated tests. Repeating them through
+hours/days of live waiting or deliberately breaking the live database is not an additional
+acceptance requirement. Controlled SMTP delivery is verified. Production deliverability,
+deployed HTTPS/proxy checks, key operations, BCrypt capacity benchmarking and per-IP abuse
+controls remain production/operational work; no production-readiness claim is made.
+Password change/recovery belongs to TASK-008; email-change/profile work and Course-specific
+ownership remain with their owning tasks. No missing mandatory test is reclassified optional.
+
+**Dependencies/status:** The approved bounded sequencing exception allowed TASK-007 to use
+verified TASK-006 foundations while broader TASK-006 work remained IN_PROGRESS.
+This acceptance does not mark TASK-006 DONE or waive future feature authorization.
+TASK-032's TASK-007 prerequisite is now satisfied. FEAT-004 remains IN_PROGRESS because
+TASK-008 is unfinished. No other task/feature status or planning-readiness snapshot changes.
+
+Only this tracker changed for acceptance. TASK-046 evidence is preserved exactly.
+No tests rerun, database access, migration/source/configuration edits, staging, commit or push.
+
 ### TASK-046 — Teacher certificate documentation and V2 preparation
 
 - Status: IN_PROGRESS (2026-10-08), limited to approved documentation and additive migration preparation. TASK-005 remains IN_PROGRESS and is not completed by this feature.
@@ -666,3 +873,246 @@ Removing a blocker requires the appropriate approved decision and reassessment o
 README.md reconciliation is complete under TASK-031. It uses the English Tutoring Platform identity, separates planned tutoring scope from completed foundations, documents current dependencies and datasource prerequisites for startup, and links authoritative scope/design/planning/status documents.
 
 Preserve its valid boundaries: current-account viewing and Batch 2 authentication HTTP endpoints exist, while the frontend remains neutral; TASK-006 Phases 1/2 add JWT validation/default deny and current-account role/lock resolution only. TASK-004 now installs Flyway as migration owner; Hibernate generation and Spring SQL initialization remain disabled. README's earlier Flyway-absent wording is historical and needs a separately scoped onboarding update. Do not rename existing Java packages, Maven artifacts, directories or database names merely to match the product title.
+### Student registration username/phone extension — 2026-10-14
+
+Extension status: DONE (implementation and isolated verification; not deployed).
+TASK-007 and TASK-032 remain DONE for their accepted baselines; TASK-046 is unchanged.
+
+- V3 adds nullable canonical unique username without modifying V1/V2 or backfilling.
+- Student DTO/controller, StudentRegistrationInput, RegistrationService and User-owned
+  persistence validate/normalize username and phone; RegistrationConflict maps only
+  the known username unique violation to generic 409. Email-only login and unchanged
+  Teacher creation are preserved. The shared /register form submits exactly five fields;
+  confirmation stays local. Safe Vietnamese conflict text covers email or username.
+- Full Maven verify: 290 passed, 0 failed/errors, 2 skipped (DatabaseConnectivityTests
+  and CurrentAccountPersistenceTests; not claimed executed). Includes 50 isolated
+  RefreshSessionPersistenceTests and one DatabaseMigrationTests scenario.
+- New local PostgreSQL 18 cluster: 127.0.0.1:55433, dedicated task007_test credentials
+  outside Git. task007_username_v3 exercises registration, rollback and concurrency;
+  task004_username_v3 exercises populated V2 upgrade to V3 and restart. A second fresh
+  task004_username_v3_checks run passed added direct CHECK/UNIQUE and duplicate-phone
+  assertions. Prior test databases were preserved. No shared/Supabase connection.
+- Frontend: 15 unit tests and 100 mocked browser tests passed, 0 failures/skips;
+  lint, typecheck and production build passed. Desktop/mobile form and existing
+  login, verification, Teacher onboarding and Admin review regressions passed.
+- Executable JAR packaging succeeded after the external backend was stopped; it was
+  not restarted. Existing test cluster on 55432 has a recovery/filesystem rename error;
+  it was not reset/repaired or used for these migration tests.
+- Deployment prerequisite: V3 first, then coordinated backend/frontend rollout; old
+  three-field Student requests now fail validation. No production SMTP/live browser
+  deployment claim, commit or push. Phone format does not prove ownership/allocation.
+
+### Student immediate-login correction — 2026-10-15
+
+Extension status: DONE (implementation and isolated verification; not deployed). TASK-007/TASK-032
+accepted baseline statuses and unrelated TASK-046 evidence remain unchanged.
+V4 introduces explicit Student-only login eligibility without asserting verified
+email ownership; existing accounts default to false. New Student registration no
+longer creates/sends verification credentials and redirects to /login.
+
+- Resumed the saved V4/backend/frontend changes; completed affected fixtures, policy,
+  migration, registration, security and browser tests rather than reimplementing them.
+- Full Maven verify passed: 293 tests, 291 passed, 0 failures/errors, 2 skipped
+  (DatabaseConnectivityTests and CurrentAccountPersistenceTests). This included
+  50 PostgreSQL workflow tests and one populated V3-to-V4 migration/restart test.
+- Subsequent focused verification passed 40/40 with no failures/skips: migration
+  CHECK/NOT NULL assertions, 20 registration HTTP cases and 19 workflow cases.
+  CurrentAccountPersistenceTests then passed separately (1/1, no failures/skips),
+  verifying actual JPA reads of policy changes without asserting email ownership.
+  DatabaseConnectivityTests remains skipped; no shared-target connectivity claimed.
+- Actual PostgreSQL registration -> immediate login -> refresh -> logout passed;
+  email_verified stayed false, no verification row/email was generated. Policy removal
+  (including a username-bearing account) and locking rejected login/refresh. Teacher
+  verification, review, resubmission, atomic rollback and concurrency regressions passed.
+- Fresh isolated PostgreSQL 18 on 127.0.0.1:55434, dedicated task007_test credentials
+  outside Git: task007_student_login_v4, task004_student_login_v4,
+  task004_student_login_v4_checks and task006_student_login_v4. Existing databases
+  were preserved. Port 55432 was untouched. The prior 55433 cluster could not start
+  because pg_notify was missing; it was not repaired. New C: initialization also
+  failed with a filesystem rename error; a fresh E: test directory initialized normally.
+- Frontend: 15 unit tests and 100 mocked desktop/mobile browser tests passed,
+  0 failures/skips; lint, typecheck and production build passed. First browser run
+  was interrupted after configuration failures (missing NEXT_PUBLIC_API_ORIGIN);
+  rebuilding with process-scoped http://127.0.0.1:8080 resolved them. No UI retry or
+  authentication behavior was weakened. Browser results do not claim live HTTP/SMTP.
+- V1/V2/V3 SHA-256 fingerprints unchanged; git diff --check passed; index remains
+  empty. No Supabase, deployment, commit or push. Deploy V4 before the updated backend;
+  production rollout and real browser-to-backend deployment checks remain separate.
+
+
+### TASK-008 — six-digit OTP recovery verification, 2026-10-15
+
+Implemented recovery controller/service, HMAC utility, existing-table repository, SMTP adapter,
+User password update and User-first authenticated refresh locking. Added V5 failed-attempt
+counter; V1–V4 unchanged. Frontend forgot/reset forms use email/code/password, retain CSRF,
+return to login and do not sign in automatically. Password eye icons and concise validation
+replace permanent registration helper paragraphs. Student immediate-login/username/phone,
+Teacher verification/onboarding and Admin authorization are preserved.
+
+- Backend full test run with isolated PostgreSQL: 316 total, 312 passed, 0 failed/errors,
+  4 skipped. This includes 59 passing persistence/concurrency tests on fresh
+  `127.0.0.1:55434/task007_otp_verified` (V1–V5 applied).
+- Maven verify with separate `task004_otp_v5`: tests 316 total, 254 passed, 0 failed/errors,
+  62 skipped; migration/restart test passed. Packaging failed because the existing JAR is
+  locked. This is not a successful Maven verify.
+- Frontend: 15 unit tests passed; lint, typecheck and production build passed with explicit
+  isolated API origin. 112 mocked browser regressions passed at mobile/desktop viewports.
+- Earlier timestamp projection failure was corrected and the PostgreSQL suite rerun successfully.
+  The browser run without configured API origin was replaced by the passing configured run.
+- Live HTTP/browser → SMTP capture → reset → login remains pending: Java NIO socket startup
+  fails inside Codex. An external loopback-only startup script is prepared; user action requested.
+- Per-IP deployment controls remain deferred; no production delivery or Supabase access.
+  TASK-008 remains IN_PROGRESS. TASK-007/TASK-032 acceptance and TASK-046 evidence unchanged.
+
+
+Recovery verification follow-up: the old backend JAR lock was released and full Maven
+verify now passes (316 total: 253 passed, 0 failed/errors, 63 skipped; executable repackaging
+successful). The separate PostgreSQL run passed all 59 persistence tests, and the separate
+migration run passed its V1–V5/restart test; these are not counted as executed in the final
+non-database verify. Authenticated STARTTLS loopback SMTP adapter: 1 passed, 0 failed/skipped.
+Live complete recovery remains pending external backend startup; do not mark DONE.
+
+
+### TASK-008 — bounded recovery final live acceptance, 2026-10-15
+
+The previously pending external backend startup and live recovery checks are resolved.
+Backend ran on `127.0.0.1:8081`, using only `127.0.0.1:55434/task007_otp_recovery`.
+Read-only identity verification confirmed `task007_test`, loopback address/port, and the
+preserved Student flags (`email_verified=false`, immediate-login policy enabled, unlocked).
+SMTP used the authenticated STARTTLS capture sink on `127.0.0.1:1025`; its handler rejects
+recipients outside `example.invalid` and never relays messages. No external mail was sent.
+
+- Real HTTP journey: 9 checks passed, 0 failed: Student registration, initial login, neutral
+  forgot response, six-digit email capture, password reset, revoked refresh rejection,
+  old-password rejection, new-password login and consumed-code replay rejection.
+- Real frontend journeys: 2 passed, 0 failed/skipped, at 390x844 and 1440x900. Actual backend
+  responses were used without API mocks. Both verify forgot/reset navigation, SMTP capture,
+  OTP submission, 204 reset, return to login without automatic authentication, revoked refresh,
+  rejected old password/replay, successful new login and no horizontal overflow.
+- Initial external browser-script failures were navigation races: filling the shared Email
+  label before the destination page mounted. Explicit route waits fixed the test; both
+  viewports were rerun successfully. No application-code change was needed.
+- Evidence scripts outside Git: `E:/CodexHome/tmp/otp-live-http.py`, `otp-live.spec.cjs`,
+  `otp-live.config.cjs` and `Read-OtpCapture.py`. OTPs/passwords were not printed; browser
+  traces, video and screenshots were disabled for the secret-bearing live flow.
+- Earlier verified evidence remains separate: 59 PostgreSQL persistence/concurrency tests;
+  V1–V5 migration/restart test; 1 real STARTTLS SMTP adapter test; 15 frontend unit tests;
+  112 mocked browser regressions; lint/typecheck/build; full Maven verify (253 passed,
+  0 failed/errors, 63 skipped). Skipped tests are not counted as executed in that Maven run.
+
+The bounded Forgot Password / Reset Password slice is ready for final review/acceptance.
+TASK-008 remains IN_PROGRESS because logged-in password change is outside this slice and
+not implemented. TASK-007 and TASK-032 remain DONE; unrelated TASK-046 evidence is preserved.
+Per-IP abuse controls, trusted-proxy policy, production secret provisioning/rotation and
+production SMTP delivery monitoring remain deployment work. No production/Supabase access,
+port 55432 access, migration V1–V4 edits, staging, commit or push occurred in this acceptance run.
+
+
+### TASK-008 — Change Password and recovery final acceptance, 2026-10-16
+
+TASK-008 is DONE. This supersedes the earlier recovery-only IN_PROGRESS decision.
+TASK-007 and TASK-032 remain DONE; unrelated TASK-046 evidence is unchanged.
+
+Implementation: `PasswordChangeController`, `PasswordChangeService`, targeted
+`RefreshSessionRepository.revokeOthers`, safe `AuthenticationFailure` mappings and
+endpoint-scoped Bearer authentication in `SecurityConfiguration`. The standard Bearer
+filter is used directly in the cookie-backed authentication chain: Resource Server DSL
+would otherwise exempt Bearer requests from CSRF. Missing CSRF is tested as 403 before
+mutation; public authentication/recovery still ignores unrelated stale Bearer tokens.
+The existing User-first READ COMMITTED transaction preserves current session/expiry,
+revokes other refresh sessions, changes the password and invalidates OTPs atomically.
+No schema changes or new dependencies were needed.
+
+Frontend: `/account` uses `ChangePassword`, shared `PasswordField` controls and
+`authMutation` with both Bearer and CSRF/cookie transport. Confirmation is frontend-only;
+duplicate clicks are guarded; no automatic refresh or mutation retry occurs. Tests cover
+safe 400/401/403/500/503 behavior, input confirmation, transport and mobile/desktop overflow.
+
+Verification (actual executions; skipped tests are not counted as passes):
+- Focused HTTP tests: 34 passed, 0 failed/errors, 0 skipped.
+- Full Maven `verify -DrefreshPersistence=true`: 325 total, **321 passed, 0 failed/errors,
+  4 skipped**; executable JAR packaging succeeded. Log: `%TEMP%/change-acceptance-verify.log`.
+- Included PostgreSQL suite: **65 passed, 0 failed/errors, 0 skipped**, fresh isolated
+  `127.0.0.1:55434/task007_change_acceptance`, existing V1–V5 applied by the fixture.
+  Includes session preservation/expiry, other-session revocation, OTP invalidation,
+  rollback, concurrent changes, change-versus-refresh and change-versus-OTP-reset.
+- Four conditional Maven checks skipped: DatabaseConnectivityTests, DatabaseMigrationTests,
+  LocalResetSmtpTests and CurrentAccountPersistenceTests. No Supabase connectivity was attempted.
+  Schema/persistence were exercised in the 65-test suite; real SMTP was exercised below.
+- Frontend unit tests: **15 passed, 0 failed, 0 skipped**. Lint, typecheck and production
+  build passed. Final mocked browser regression: **124 passed, 0 failed, 0 skipped**.
+  The first browser run had 123 passes/1 transient existing navigation failure; that case
+  passed both viewport rechecks and the subsequent full 124-test run.
+- Real browser-to-backend/SMTP acceptance: **4 passed, 0 failed, 0 skipped** (Change Password
+  and OTP recovery each on 390x844 mobile and 1440x900 desktop). Backend8081, local database
+  `task007_otp_recovery` on55434, frontend3100 and authenticated STARTTLS capture on1025 only.
+  Change checks compared actual refresh-cookie value and expiry before/after (unchanged),
+  rejected missing CSRF, rejected the other session's refresh, invalidated captured OTP,
+  allowed preserved-session refresh, rejected old password and accepted new password.
+  Recovery checks captured a real six-digit email code, reset through the UI, rejected old
+  password/replay/revoked refresh, and logged in with the new password without automatic login.
+  Scripts/logs: `E:/CodexHome/tmp/change-live.spec.cjs`, `otp-live.spec.cjs`,
+  `change-live.config.cjs`, `%TEMP%/change-live.log`. Secret-bearing traces/screenshots/video
+  disabled; generated accounts use only `example.invalid`; SMTP never relays externally.
+- `git diff --check` passed; staging area empty. No commit/push, port55432 access,
+  Supabase access, migration modification or normal-backend8080 modification.
+
+Remaining deployment limitations: other sessions' already-issued JWTs remain usable until
+expiry under existing current-account checks; refresh revocation is not immediate JWT
+revocation. Production per-IP abuse controls, secret management and production SMTP
+monitoring remain deployment work, not claimed as verified by this isolated acceptance.
+
+
+### TASK-009 — bounded Student profile verification, 2026-10-16
+
+Implemented GET/PATCH `/api/v1/users/me/profile` with principal-derived Student identity,
+current eligibility/lock checks, safe six-field projection and no-store responses.
+PATCH allows only nonblank/non-null fullName/phone strings, preserves supplied name text,
+rejects NUL/unknown fields/empty updates, and normalizes phone using registration validation.
+Historical null username/phone values remain supported. User-row locks serialize updates;
+only supplied profile columns and updated_at change. No migration/version column.
+Existing `/users/me`, password/session/OTP workflows and read-only security fields are preserved.
+
+Files for this slice:
+- User feature: `dto/StudentProfile.java`, `repository/StudentProfileRepository.java`,
+  `service/StudentProfileService.java`, `service/ProfileFailure.java`,
+  `controller/StudentProfileController.java`, `controller/ProfileExceptionHandler.java`.
+- SecurityConfiguration allows only the approved GET/PATCH for STUDENT; BrowserSecurityFilters
+  adds PATCH to exact-origin CORS methods. No cookie authentication added to business APIs.
+- Frontend `features/user/student-profile.tsx`, account-workspace integration and a scoped
+  responsive grid in globals.css; existing ChangePassword component behavior is unchanged.
+- StudentProfileServiceTests, StudentProfileHttpTests, four PostgreSQL profile tests in
+  RefreshSessionPersistenceTests, existing no-database test fixture mocks and
+  `frontend/tests/e2e/student-profile.spec.ts`.
+- API_DESIGN.md, BUSINESS_RULES.md, USE_CASES.md and this evidence record.
+
+Verification:
+- Focused backend tests: 6 passed, 0 failed/errors, 0 skipped.
+- Full Maven verify with isolated persistence enabled: 335 total, **331 passed, 0 failed/errors,
+  4 skipped**; executable JAR packaging passed (`%TEMP%/profile-verify.log`).
+- Included PostgreSQL suite: **69 passed, 0 failed/errors, 0 skipped**, on fresh local
+  `127.0.0.1:55434/task007_profile_acceptance`; previous databases preserved. Profile coverage
+  includes historical nulls, eligibility/locks, invalid-update atomicity, forced rollback,
+  security-field preservation, concurrent partial updates and last-committed same-field wins.
+- Conditional skipped Maven checks: DatabaseConnectivityTests, DatabaseMigrationTests,
+  LocalResetSmtpTests and CurrentAccountPersistenceTests. They are not counted as executed.
+  Existing migrations run in the persistence fixture; live SMTP is separately covered below.
+- Frontend unit tests: **15 passed, 0 failed, 0 skipped**; lint, typecheck and production build
+  passed. Final desktop/mobile browser regression: **136 passed, 0 failed, 0 skipped**
+  (`%TEMP%/profile-browser-final.log`), including 12 new profile cases.
+- Live acceptance: **6 passed, 0 failed, 0 skipped**: Student Profile, Change Password and
+  six-digit OTP recovery each on desktop1440x900/mobile390x844. Backend8081, frontend3100,
+  isolated database55434 and authenticated STARTTLS SMTP capture1025 only. Profile checks
+  verify actual CORS PATCH, persisted name/+84 phone, protected-field rejection, unchanged
+  `/users/me` response, unchanged refresh cookie/expiry, successful refresh and grid geometry.
+  The first profile layout run used the earlier build and timed out on the new grid selector;
+  the corrected/rebuilt run passed all six journeys. No credentials captured in traces or reports.
+  Live scripts: `E:/CodexHome/tmp/profile-live.spec.cjs` and `profile-live.config.cjs`;
+  final log `%TEMP%/profile-live-final.log`.
+
+TASK-009 and FEAT-005 remain IN_PROGRESS: Teacher own-profile scope is not implemented here.
+TASK-007, TASK-008 and TASK-032 remain DONE; unrelated TASK-046 evidence preserved. No Supabase,
+port55432, production email, migration modification, staging, commit or push. No new dependencies.
+
+Student profile slice is ready for final review/acceptance. Final `git diff --check` passed;
+staging remains empty. Teacher profile work is the remaining TASK-009 scope.

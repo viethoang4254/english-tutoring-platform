@@ -64,7 +64,7 @@ public class AuthenticationController {
                 .httpOnly(true).secure(browser.secure()).sameSite("Lax")
                 .path(BrowserAuthSettings.PATH).maxAge(remaining).build();
     }
-    private static String refreshCookie(HttpServletRequest request) {
+    static String refreshCookie(HttpServletRequest request) {
         String credential = null;
         if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) {
             if (BrowserAuthSettings.REFRESH_COOKIE.equals(cookie.getName())) {

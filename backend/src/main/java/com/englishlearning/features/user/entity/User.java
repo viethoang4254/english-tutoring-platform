@@ -16,6 +16,9 @@ public class User {
     @Column(nullable = false) private boolean locked;
     @Column(name = "email_verified", nullable = false) private boolean emailVerified;
 
+    @Column(name = "student_login_without_verification", nullable = false) private boolean studentLoginWithoutVerification;
+    public boolean isStudentLoginWithoutVerification() { return studentLoginWithoutVerification; }
+
     protected User() {}
 
     public Long getId() { return id; }

@@ -14,10 +14,10 @@ class TeacherBusinessEligibilityTests {
     final TeacherBusinessEligibility policy=new TeacherBusinessEligibility(accounts,applications);
     @Test void currentAccountMustBeTeacherVerifiedUnlockedAndPresent() {
         for(var state:List.of(Optional.<AccountSnapshot>empty(),
-                Optional.of(new AccountSnapshot(1L,Role.STUDENT,false,true)),
-                Optional.of(new AccountSnapshot(1L,Role.ADMIN,false,true)),
-                Optional.of(new AccountSnapshot(1L,Role.TEACHER,true,true)),
-                Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,false)))) {
+                Optional.of(new AccountSnapshot(1L,Role.STUDENT,false,true, false)),
+                Optional.of(new AccountSnapshot(1L,Role.ADMIN,false,true, false)),
+                Optional.of(new AccountSnapshot(1L,Role.TEACHER,true,true, false)),
+                Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,false, false)))) {
             when(accounts.findById(1L)).thenReturn(state);
             assertEquals(TeacherReviewFailure.Reason.DENIED,assertThrows(TeacherReviewFailure.class,
                     ()->policy.requireEligible(1L)).reason());
@@ -25,7 +25,7 @@ class TeacherBusinessEligibilityTests {
         verifyNoInteractions(applications);
     }
     @Test void approvalIsDatabaseBackedAndRecheckedOnEachInvocation() {
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true, false)));
         when(applications.existsByTeacherIdAndStatus(1L,"APPROVED")).thenReturn(false,true,false);
         assertThrows(TeacherReviewFailure.class,()->policy.requireEligible(1L));
         policy.requireEligible(1L);
@@ -33,7 +33,7 @@ class TeacherBusinessEligibilityTests {
         verify(accounts,times(3)).findById(1L);verify(applications,times(3)).existsByTeacherIdAndStatus(1L,"APPROVED");
     }
     @Test void databaseFailureNeverGrantsAccess() {
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true, false)));
         when(applications.existsByTeacherIdAndStatus(1L,"APPROVED"))
                 .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("private"));
         assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,()->policy.requireEligible(1L));

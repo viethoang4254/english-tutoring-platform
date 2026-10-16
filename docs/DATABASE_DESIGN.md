@@ -1842,3 +1842,29 @@ reviewer/time/rejection-reason fields or certificate history are required by thi
 approved scope; a later requirement for durable review audit needs separate design.
 References: DM-CERT-001; FR-CERT-001, FR-CERT-002, FR-CERT-003;
 BR-CERT-001, BR-CERT-002, BR-CERT-003.
+
+### Approved Student registration extension — username and phone (2026-10-14)
+
+V3__add_user_username.sql adds public.users.username TEXT NULL, constraint
+uq_users_username UNIQUE(username), and ck_users_username_format allowing NULL or
+^[a-z][a-z0-9_]{2,29}$. PostgreSQL normal UNIQUE semantics allow multiple NULLs.
+No backfill, default, new table, extension or existing migration change is required.
+users.phone stays TEXT NULL, nonunique. New-Student requiredness and phone
+normalization are enforced by the application. V1 remains the accepted 22-table
+baseline; V2/V3 together retain 23 application tables. Deploy V3 before the new
+backend; no shared-database deployment is authorized by this documentation.
+
+### Approved new-Student immediate-login policy — 2026-10-15
+
+New Student registration sets users.student_login_without_verification=true while
+email_verified remains false. Login eligibility is distinct from proof of email
+ownership. V4 adds this NOT NULL boolean with DEFAULT false and a CHECK that only
+STUDENT accounts may have it true; existing accounts are not opted in or backfilled.
+Username presence never grants eligibility. Login and refresh require an unlocked
+account and either verified email or this explicit Student policy. Current-account
+JWT resolution also rejects Students who no longer satisfy that policy. Teacher and
+Admin authentication/authorization and Teacher verification/onboarding are unchanged.
+Student registration creates no verification credential, sends no email, returns
+verificationRequired=false and navigates to /login. Email-only login, username/phone
+validation and safe generic email/username conflict handling remain unchanged.
+V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.

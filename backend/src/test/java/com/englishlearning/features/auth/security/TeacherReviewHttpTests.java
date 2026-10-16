@@ -28,7 +28,7 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
     @BeforeEach void admin() {
         when(decoder.decode("admin-token")).thenReturn(Jwt.withTokenValue("admin-token").header("alg","RS256")
                 .subject("12").issuedAt(now).expiresAt(now.plusSeconds(900)).build());
-        when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true)));
+        when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true, false)));
     }
     static final String QUEUE="/api/v1/admin/teacher-applications/pending";
     @Test void pendingQueueUsesDefaultsAndSafeProjection() throws Exception {
@@ -78,9 +78,9 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
         verifyNoInteractions(teacherReviews);
     }
     @Test void pendingQueueRequiresEligibleAdminBeforeInputValidation() throws Exception {
-        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true),
-                new AccountSnapshot(12L,Role.TEACHER,false,true),new AccountSnapshot(12L,Role.ADMIN,false,false),
-                new AccountSnapshot(12L,Role.ADMIN,true,true))) {
+        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true, false),
+                new AccountSnapshot(12L,Role.TEACHER,false,true, false),new AccountSnapshot(12L,Role.ADMIN,false,false, false),
+                new AccountSnapshot(12L,Role.ADMIN,true,true, false))) {
             when(accounts.findById(12L)).thenReturn(Optional.of(state));
             mvc.perform(get(QUEUE).header("Authorization","Bearer admin-token").queryParam("size","bad"))
                     .andExpect(status().is(state.locked()?401:403));
@@ -122,9 +122,9 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
         verify(teacherReviews).review(12L,9007199254740993L,false," reason ");
     }
     @Test void reviewerRoleVerificationAndLockRestrictions() throws Exception {
-        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true),
-                new AccountSnapshot(12L,Role.TEACHER,false,true),new AccountSnapshot(12L,Role.ADMIN,false,false),
-                new AccountSnapshot(12L,Role.ADMIN,true,true))) {
+        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true, false),
+                new AccountSnapshot(12L,Role.TEACHER,false,true, false),new AccountSnapshot(12L,Role.ADMIN,false,false, false),
+                new AccountSnapshot(12L,Role.ADMIN,true,true, false))) {
             when(accounts.findById(12L)).thenReturn(Optional.of(state));
             for(String suffix:List.of("","/approve","/reject")) {
                 var request=suffix.isEmpty()?get(BASE):post(BASE+suffix);

@@ -20,18 +20,32 @@ class StudentRegistrationHttpTests extends AuthenticationHttpTestSupport {
     String api(){return "http://localhost:8080";}
     boolean secure(){return false;}
     String input() { return mapper.writeValueAsString(Map.of("email"," Person@example.invalid ",
-            "password"," test password ","fullName","Test Student")); }
+            "password"," test password ","fullName","Test Student","username","Student_Name","phone","0912345678")); }
+    @Test void invalidNewFieldsAndOldPayloadAreRejected() throws Exception {
+        for (String field : new String[]{"username","phone"}) {
+            for (String value : new String[]{"", " ", "bad-value", "123"}) {
+                var body=(tools.jackson.databind.node.ObjectNode)mapper.readTree(input());
+                body.put(field,value);
+                mvc.perform(csrf(postAuth("register/student"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(body))).andExpect(status().isBadRequest());
+            }
+            var body=(tools.jackson.databind.node.ObjectNode)mapper.readTree(input());body.remove(field);
+            mvc.perform(csrf(postAuth("register/student"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(body))).andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(registration);
+    }
     @Test void registrationHasExactTokenFreeProjectionAndNoRefreshCookie() throws Exception {
         var response=mvc.perform(csrf(postAuth("register/student"),bootstrap())
                 .contentType(MediaType.APPLICATION_JSON).content(input()))
-                .andExpect(status().isCreated()).andExpect(content().json("{\"verificationRequired\":true}"))
+                .andExpect(status().isCreated()).andExpect(content().json("{\"verificationRequired\":false}"))
                 .andExpect(header().string("Cache-Control","no-store")).andReturn().getResponse();
         assertEquals(1,mapper.readTree(response.getContentAsString()).size());
         assertNull(refreshHeader(response.getHeaders("Set-Cookie")));
-        verify(registration).register("Person@example.invalid"," test password ","Test Student");
+        verify(registration).register("Person@example.invalid"," test password ","Test Student","student_name","+84912345678");
         verifyNoInteractions(workflows);
     }
-    @ParameterizedTest @ValueSource(strings={"role","id","emailVerified","locked","extra"})
+    @ParameterizedTest @ValueSource(strings={"role","id","emailVerified","locked","studentLoginWithoutVerification","student_login_without_verification","extra"})
     void protectedAndUnknownPropertiesRejected(String property) throws Exception {
         var body=mapper.readTree(input());
         ((tools.jackson.databind.node.ObjectNode)body).put(property,"ADMIN");
@@ -42,15 +56,15 @@ class StudentRegistrationHttpTests extends AuthenticationHttpTestSupport {
     }
     @ParameterizedTest @ValueSource(strings={"short"," ","a@",""})
     void invalidPasswordRejected(String password) throws Exception {
-        var body=Map.of("email","person@example.invalid","fullName","Test","password",password);
+        var body=Map.of("email","person@example.invalid","fullName","Test","password",password,"username","student_test","phone","0912345678");
         mvc.perform(csrf(postAuth("register/student"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(body))).andExpect(status().isBadRequest());
         verifyNoInteractions(registration);
     }
     @Test void requiredFieldsAndQueryRejected() throws Exception {
         for (String body : new String[]{"{}", "{\"email\":12}",
-                mapper.writeValueAsString(Map.of("email","bad","password","valid password","fullName","Test")),
-                mapper.writeValueAsString(Map.of("email","p@example.invalid","password","valid password","fullName"," "))}) {
+                mapper.writeValueAsString(Map.of("email","bad","password","valid password","fullName","Test","username","student_test","phone","0912345678")),
+                mapper.writeValueAsString(Map.of("email","p@example.invalid","password","valid password","fullName"," ","username","student_test","phone","0912345678"))}) {
             mvc.perform(csrf(postAuth("register/student"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
                     .content(body)).andExpect(status().isBadRequest());
         }
@@ -80,7 +94,7 @@ class StudentRegistrationHttpTests extends AuthenticationHttpTestSupport {
                 "VERIFICATION_DELIVERY_UNAVAILABLE","AUTHENTICATION_UNAVAILABLE","AUTHENTICATION_OUTCOME_UNKNOWN","INTERNAL_ERROR"};
         int i=0;
         for (var reason : VerificationFailure.Reason.values()) {
-            doThrow(new VerificationFailure(reason)).when(registration).register(anyString(),anyString(),anyString());
+            doThrow(new VerificationFailure(reason)).when(registration).register(anyString(),anyString(),anyString(),anyString(),anyString());
             var response=mvc.perform(csrf(postAuth("register/student"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
                     .content(input())).andExpect(status().is(statuses[i]))
                     .andExpect(jsonPath("$.code").value(codes[i++])).andReturn().getResponse();

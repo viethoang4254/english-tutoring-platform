@@ -33,7 +33,8 @@ public class CurrentAccountAuthenticationConverter implements Converter<Jwt, Abs
         } catch (RuntimeException exception) {
             throw new AccountLookupFailure(false);
         }
-        if (account == null || account.locked()) {
+        if (account == null || account.locked()
+                || account.role() == com.englishlearning.features.user.entity.User.Role.STUDENT && !account.loginEligible()) {
             throw new BadCredentialsException("Authentication required.");
         }
         var principal = new AccountPrincipal(account.id(), account.role(), account.emailVerified());

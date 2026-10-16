@@ -2,6 +2,7 @@ package com.englishlearning.features.auth.controller;
 
 import com.englishlearning.features.auth.dto.StudentRegistrationRequest;
 import com.englishlearning.features.auth.security.PasswordInput;
+import com.englishlearning.features.auth.security.StudentRegistrationInput;
 import com.englishlearning.features.auth.service.RegistrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,8 +23,13 @@ public class StudentRegistrationController {
             HttpServletRequest request) {
         noQuery(request);
         if (!PasswordInput.isValid(body.password()) || body.fullName().indexOf(0) >= 0) throw invalid();
-        service.register(body.email(), body.password(), body.fullName());
-        return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(new RegistrationResponse(true));
+        final String username, phone;
+        try {
+            username = StudentRegistrationInput.username(body.username());
+            phone = StudentRegistrationInput.phone(body.phone());
+        } catch (IllegalArgumentException invalidInput) { throw invalid(); }
+        service.register(body.email(), body.password(), body.fullName(), username, phone);
+        return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).body(new RegistrationResponse(false));
     }
     @PostMapping(value = "/email-verification", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> verify(@Valid @RequestBody VerificationRequest body, HttpServletRequest request) {

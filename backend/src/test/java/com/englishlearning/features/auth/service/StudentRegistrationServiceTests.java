@@ -23,44 +23,44 @@ class StudentRegistrationServiceTests {
     RegistrationService service() {
         when(manager.getTransaction(any())).thenReturn(status);
         when(passwords.encode(any())).thenReturn("encoded-test-password");
-        when(users.createStudent(anyString(),anyString(),anyString(),any())).thenReturn(Optional.of(1L));
+        when(users.createStudent(anyString(),anyString(),anyString(),anyString(),anyString(),any())).thenReturn(Optional.of(1L));
         return new RegistrationService(users,credentials,new VerificationTokens(),passwords,mail,
                 Clock.fixed(now,ZoneOffset.UTC),manager,applications);
     }
-    @Test void persistenceCommitsBeforeDeliveryAndCanonicalizesWithoutChangingPassword() {
-        service().register(" Person+tag@Example.invalid "," test password ","Test");
+    @Test void studentCommitsWithoutVerificationAndPreservesPassword() {
+        service().register(" Person+tag@Example.invalid "," test password ","Test","student_name","0912345678");
         var order=inOrder(users,credentials,manager,mail);
-        order.verify(users).createStudent(eq("person+tag@example.invalid"),anyString(),eq("Test"),eq(now));
-        order.verify(credentials).saveAndFlush(any()); order.verify(credentials).flush();
-        order.verify(manager).commit(status); order.verify(mail).send(eq("person+tag@example.invalid"),anyString());
+        order.verify(users).createStudent(eq("person+tag@example.invalid"),anyString(),eq("Test"),eq("student_name"),eq("+84912345678"),eq(now));
+        order.verify(credentials).flush();
+        order.verify(manager).commit(status); verifyNoInteractions(mail); verify(credentials,never()).saveAndFlush(any());
         verify(passwords).encode(" test password ");
     }
-    @Test void deliveryFailureDoesNotRollbackPersistedAccount() {
+    @Test void studentDoesNotDependOnMailDelivery() {
         var service=service(); doThrow(new IllegalStateException("private mail content")).when(mail).send(any(),any());
-        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test"));
-        assertEquals(VerificationFailure.Reason.DELIVERY,error.reason()); assertNull(error.getCause());
+        service.register("a@example.invalid","password","Test","student_name","0912345678");
+        verifyNoInteractions(mail);
         verify(manager).commit(status); verify(manager,never()).rollback(any());
     }
     @Test void knownPersistenceFailureRollsBackAndDoesNotSend() {
-        var service=service(); doThrow(new IllegalStateException("private SQL")).when(credentials).saveAndFlush(any());
-        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test"));
+        var service=service(); doThrow(new IllegalStateException("private SQL")).when(credentials).flush();
+        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test","student_name","0912345678"));
         assertEquals(VerificationFailure.Reason.INTERNAL,error.reason()); verify(manager).rollback(status);
         verifyNoInteractions(mail);
     }
     @Test void uncertainCommitDoesNotSendOrClaimSuccess() {
         var service=service(); doThrow(new TransactionSystemException("private SQL")).when(manager).commit(status);
-        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test"));
+        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test","student_name","0912345678"));
         assertEquals(VerificationFailure.Reason.OUTCOME_UNKNOWN,error.reason()); verifyNoInteractions(mail);
     }
     @Test void databaseUnavailableIsSafe() {
         var service=service(); when(manager.getTransaction(any())).thenThrow(new CannotCreateTransactionException("private endpoint"));
-        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test"));
+        var error=assertThrows(VerificationFailure.class,()->service.register("a@example.invalid","password","Test","student_name","0912345678"));
         assertEquals(VerificationFailure.Reason.UNAVAILABLE,error.reason()); assertNull(error.getCause()); verifyNoInteractions(mail);
     }
     @Test void duplicateDoesNotOverwriteOrSend() {
-        var service=service(); when(users.createStudent(any(),any(),any(),any())).thenReturn(Optional.empty());
+        var service=service(); when(users.createStudent(any(),any(),any(),any(),any(),any())).thenReturn(Optional.empty());
         assertEquals(VerificationFailure.Reason.CONFLICT,assertThrows(VerificationFailure.class,
-                ()->service.register("a@example.invalid","password","Test")).reason());
+                ()->service.register("a@example.invalid","password","Test","student_name","0912345678")).reason());
         verifyNoInteractions(credentials,mail); verify(manager).rollback(status);
     }
 
@@ -71,7 +71,7 @@ class StudentRegistrationServiceTests {
         order.verify(users).createTeacher(eq("teacher@example.invalid"),anyString(),eq("Teacher"),eq(now));
         order.verify(credentials).saveAndFlush(any()); order.verify(applications).saveAndFlush(any());
         order.verify(credentials).flush(); order.verify(manager).commit(status); order.verify(mail).send(any(),any());
-        verify(users,never()).createStudent(any(),any(),any(),any());
+        verify(users,never()).createStudent(any(),any(),any(),any(),any(),any());
     }
     @Test void teacherApplicationFailureRollsBackAndDoesNotSend() {
         var service=service(); when(users.createTeacher(any(),any(),any(),any())).thenReturn(Optional.of(2L));

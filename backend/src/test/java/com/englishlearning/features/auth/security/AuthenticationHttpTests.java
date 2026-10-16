@@ -126,13 +126,16 @@ class AuthenticationHttpTests extends AuthenticationHttpTestSupport {
             doThrow(new AuthenticationFailure(reason)).when(workflows).login(anyString(),anyString());
             int expected=switch(reason){
                 case INVALID_CREDENTIAL->401;
-                case EMAIL_VERIFICATION_REQUIRED->403;
+                case EMAIL_VERIFICATION_REQUIRED,ACCESS_DENIED->403;
+                case INVALID_REQUEST->400;
                 case UNAVAILABLE,COMMIT_UNCERTAIN->503;
                 default->500;
             };
             String code=switch(reason){
                 case INVALID_CREDENTIAL->"AUTHENTICATION_REQUIRED";
                 case EMAIL_VERIFICATION_REQUIRED->"EMAIL_VERIFICATION_REQUIRED";
+                case ACCESS_DENIED->"ACCESS_DENIED";
+                case INVALID_REQUEST->"INVALID_REQUEST";
                 case UNAVAILABLE->"AUTHENTICATION_UNAVAILABLE";
                 case COMMIT_UNCERTAIN->"AUTHENTICATION_OUTCOME_UNKNOWN";
                 default->"INTERNAL_ERROR";

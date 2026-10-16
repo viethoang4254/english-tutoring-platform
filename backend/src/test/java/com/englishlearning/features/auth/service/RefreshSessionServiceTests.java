@@ -26,7 +26,7 @@ class RefreshSessionServiceTests {
 
     RefreshSessionService service() {
         when(manager.getTransaction(any())).thenReturn(status);
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.STUDENT, false, false)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.STUDENT, false, false, false)));
         when(sessions.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
         return new RefreshSessionService(sessions, accounts, tokens, clock, Duration.ofDays(7), manager);
     }

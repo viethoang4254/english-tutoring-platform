@@ -109,9 +109,10 @@ public class RefreshSessionService {
             AccessTokenIssuer issuer) {
         String hash = incomingHash(credential);
         return committed(() -> {
-            // Lock order: refresh row, then User; future credential-revocation workflows must coordinate.
+            // User first serializes issuance/rotation with all-session password-reset revocation.
+            Long owner = sessions.findOwner(hash).orElseThrow(RefreshSessionService::invalid);
+            var current = users.lockById(owner).orElse(null);
             var old = sessions.lockByTokenHash(hash).orElseThrow(RefreshSessionService::invalid);
-            var current = users.lockById(old.getUserId()).orElse(null);
             Instant now = now();
             if (!old.isUsableAt(now)) throw invalid();
             AuthenticationEligibility.require(current);

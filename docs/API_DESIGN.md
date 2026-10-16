@@ -75,7 +75,7 @@ No separate Student, Teacher or Admin login identity is introduced.
 | Responsibility | Actor/authority | Required boundary; deferred detail |
 | --- | --- | --- |
 | Student registration | Visitor seeking a Student account | Backend assigns STUDENT; required email/password/fullName and initial verification follow Section 3.3. |
-| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Sections 3.5–3.7 define bounded Admin review, own onboarding status and the pending queue; resubmission remains deferred. |
+| Teacher registration | Prospective Teacher | Section 3.4 defines separate Teacher registration; verified email, unlocked account and approved onboarding remain required for business authority. Sections 3.5–3.8 define bounded Admin review, own onboarding status, pending queue and resubmission. |
 | Email verification | Eligible account-verification context | Purpose-specific, account-bound, expiring credential; consume according to approved flow. Verification cannot override administrative restrictions or define Teacher activation. |
 | Resend verification | Eligible verification context | Initial verification uses Section 3.3; other verification purposes remain deferred. Avoid unnecessary account-existence disclosure. |
 | Login | Student, Teacher or Admin | Validate credentials and current eligibility; issue only permitted authentication. Batch 2 contract below governs verified, unlocked account authentication; Teacher business approval remains separate. |
@@ -93,8 +93,10 @@ No separate Student, Teacher or Admin login identity is introduced.
 - Authority: FR-ACC-007, BR-AUTHN-012, BR-AUTHN-018, UC-AUTH-ME-01.
 - Require validated Bearer JWT and current User resolution. Allow STUDENT,
   TEACHER and ADMIN; missing/locked accounts receive safe 401.
-- Unverified Users and pending Teachers may read this projection. This does not
-  grant Teacher business eligibility, profile editing or token-issuance eligibility.
+- Unverified Students may read this projection only with the persisted Student login
+  policy; historical unverified Students remain restricted. Existing Teacher/Admin
+  account-only JWT behavior is unchanged, including pending Teachers. This does not
+  grant Teacher business eligibility or profile editing.
 - No query parameters or non-empty request body; reject with 400 INVALID_REQUEST.
   Authentication/account checks take precedence over request-input validation.
 - Success: 200 OK with exactly id (decimal string), role (STUDENT/TEACHER/ADMIN)
@@ -155,7 +157,7 @@ Access-token response has exactly accessToken, tokenType ("Bearer"), issuedAt an
 expiresAt (ISO-8601 UTC). Never return refresh credentials or hashes in JSON.
 Credential responses and CSRF bootstrap use Cache-Control: no-store.
 
-Login and refresh require an existing, unlocked, email-verified User. Pending/rejected
+Login and refresh require an existing, unlocked User with verified email or the explicit Student-only login policy described below. Pending/rejected
 Teacher onboarding does not block account-only authentication and never grants
 Teacher business authority. Incorrect credentials and locked/missing accounts use
 401 AUTHENTICATION_REQUIRED. Only correctly password-authenticated, unlocked but
@@ -224,7 +226,7 @@ No access/refresh credentials, hashes or User entities are returned.
 
 | Method/path | Exact request DTO | Success |
 | --- | --- | --- |
-| POST /api/v1/auth/register/student | Required string email, password, fullName. | 201 {"verificationRequired":true}. |
+| POST /api/v1/auth/register/student | Required string email, password, fullName, username, phone. | 201 {"verificationRequired":false}. |
 | POST /api/v1/auth/email-verification | Required nonblank string token; INITIAL_VERIFICATION only. | 204, no body. |
 | POST /api/v1/auth/email-verification/resend | Required string email. | 202, no body; also for unknown, locked, already-verified or non-initial-verification accounts. |
 
@@ -236,7 +238,7 @@ preserved exactly, with the approved 8–64 Unicode-code-point/72-UTF-8-byte lim
 BCrypt cost 12. Backend creates unlocked, unverified STUDENT accounts. No public
 Admin registration, Teacher registration or onboarding changes are included.
 
-User and initial credential are persisted in one READ COMMITTED transaction.
+New Student registration persists User with student_login_without_verification=true and email_verified=false in one READ COMMITTED transaction. It creates no verification credential, sends no email and issues no authentication tokens. The browser navigates to /login with a Vietnamese success notice. Teacher registration and historical initial-verification flows retain the credential protocol below.
 Canonical-email uniqueness prevents duplicate overwrites, including races.
 Credentials use 32 SecureRandom bytes, canonical unpadded Base64URL and a
 purpose-separated SHA-256 lowercase hexadecimal hash. Only the hash, User, canonical
@@ -367,7 +369,7 @@ and rejected Teachers retain approved account-only authentication. This introduc
 API or other Teacher business permission; the reusable eligibility check must accompany
 operation-specific ownership/authorization when those routes are approved.
 
-Resubmission and frontend remain excluded. Own status lookup is separately approved in Section 3.6;
+The backend slice is complemented by the approved browser interface in Section 3.9. Resubmission is separately approved in Section 3.8; own status in Section 3.6;
 the bounded pending queue is approved in Section 3.7.
 References: FR-TEA-005, FR-ACC-016, FR-AUTH-009, NFR-SEC-004;
 BR-AUTHN-024, BR-AUTHN-018, BR-AUTHN-020, BR-PROFILE-002;
@@ -445,6 +447,88 @@ BR-AUTHN-024, BR-AUTHN-018, BR-AUTHN-020; UC-AUTH-REGISTER-TEACHER-01.
 
 ---
 
+### 3.8 Approved Teacher Application Resubmission — TASK-032 bounded slice
+
+POST /api/v1/teacher/applications/{applicationId}/resubmit requires validated Bearer JWT,
+current TEACHER role, verified email and an unlocked account, not approved business eligibility.
+The positive decimal-string applicationId identifies the rejected snapshot being superseded;
+ownership comes only from authenticated identity. Authentication/authorization precedes validation.
+Accept no query parameters and exactly the required JSON strings specialization,
+teachingExperience and introduction. Reject null, blank, NUL, invalid types, unknown/protected
+properties and invalid IDs; preserve text without trimming or arbitrary length limits.
+
+Only the latest owned REJECTED application (submittedAt DESC, id DESC) is eligible.
+Reject any PENDING application, prior APPROVED onboarding or existing TeacherProfile.
+No cooldown or lifetime attempt limit. Missing/cross-owner target returns 404 APPLICATION_NOT_FOUND;
+pending state returns 409 APPLICATION_ALREADY_PENDING; stale/non-rejected target or prior approval
+returns 409 RESUBMISSION_NOT_ALLOWED; unexpected profile returns 409 TEACHER_PROFILE_CONFLICT.
+Ownership is checked before conflict disclosures; pending conflict precedes other eligibility conflicts.
+Reuse 400 INVALID_REQUEST, 401 AUTHENTICATION_REQUIRED, 403 ACCESS_DENIED, authentication-lookup
+503 AUTHENTICATION_UNAVAILABLE and generic persistence/commit 500 INTERNAL_ERROR without private details.
+
+Lock the current User using the existing account-row lock, recheck eligibility and application
+state, then insert a new PENDING snapshot in one READ COMMITTED transaction. Never alter any
+reviewed application or its review metadata. Backend supplies timestamps at PostgreSQL precision;
+submission time cannot precede the latest snapshot if the clock moves backward. Equal timestamps
+use the new identity ID tie-breaker. Preserve the one-PENDING unique index and account-before-
+application lock order. Return only after commit: 201 Created, Cache-Control: no-store, the exact
+Section 3.6 TeacherOnboardingStatus DTO for the new row (null review timestamp/rejection reason).
+No User/profile changes, credentials, verification mail or Teacher business permission are issued.
+
+Concurrent resubmissions have one winner; the loser sees a conflict. No automatic retries or
+idempotent replay of the original success. A delayed retry against an older rejected ID cannot
+create another application after a newer rejection. Known rollback preserves history; uncertain
+commit never reports success and callers can inspect own onboarding status before further action.
+Existing Admin review and pending-queue behavior remains unchanged. No schema change or frontend.
+
+References: FR-TEA-005, FR-ACC-016, NFR-SEC-004; BR-AUTHN-024, BR-AUTHN-020;
+UC-AUTH-REGISTER-TEACHER-01.
+
+---
+
+### 3.9 Approved bounded browser authentication and Teacher onboarding
+
+The /account Next.js workspace implements the approved TASK-007 frontend prerequisite
+and TASK-032 Teacher journey. Shared login and explicit session recovery use Section 3.2;
+Student registration and verification/resend use Section 3.3; Teacher registration uses Section 3.4.
+Access credentials and current-account state stay in component memory only. Reloading
+requires explicit recovery or login; there is no automatic refresh or mutation replay.
+Auth mutations bootstrap CSRF, include cookies and send X-XSRF-TOKEN. Protected User
+and onboarding calls use Bearer headers with cookies omitted. No credential is placed
+in browser storage, URLs, logs or a client-created cookie.
+
+Teacher registration creates the initial application; Student registration sends email, password, fullName, username and phone. Neither signs in. Verification codes
+are entered from email, never read from query strings. Pending/rejected verified Teachers
+can sign in for account-only access. Current role/verification comes from /users/me;
+onboarding and mutation authorization remain backend-authoritative. No separate initial
+application endpoint is introduced. Resubmission uses Section 3.8 without prefilled
+historical application text, which the status projection does not expose.
+
+The workspace displays PENDING/APPROVED/REJECTED, rejection reason and safe errors.
+Submission locks immediately against repeated clicks. Any failed/uncertain resubmission
+requests latest status without replaying the mutation; no subsequent submission is enabled
+until a status read succeeds and returns REJECTED. Backend rechecks all remaining eligibility.
+Logout clears local credential/account data and query cache immediately; only a confirmed
+204 reports server logout. An explicit Clear server session action can retry logout after
+failure. No automatic retry or claim of global access-token revocation is introduced.
+
+This bounded responsive workspace does not implement
+password recovery, Teacher profile/Course management or the complete product navigation.
+Verified ADMIN accounts can explicitly load the Section 3.7 PENDING queue at size 20,
+using zero-based previous/next pages and backend ordering. Empty results are not an error;
+concurrent review can shift offset pages. The Section 3.5 detail projection displays only
+approved application/review fields, rendering supplied text without HTML interpretation.
+Approval sends an empty POST; rejection sends only the nonblank, NUL-free preserved reason.
+Review controls appear only for a freshly read PENDING detail. A synchronous request guard
+prevents duplicate clicks; successful review refreshes the queue. Failed/uncertain review
+re-reads detail and queue without replaying the mutation; failed reconciliation removes
+review controls. Current backend authorization and transactional checks remain authoritative.
+No queue count, arbitrary status filter, profile edit or extra reviewer role is introduced.
+Real deployment must retain the configured exact-origin, same-site and TLS requirements.
+Browser tests with intercepted responses validate client contracts, not live SMTP, CORS or
+full browser-to-backend/database integration.
+
+---
 ## 4. Authorization and Resource Ownership
 
 **APPROVED RESPONSIBILITY:** Before protected disclosure or mutation, Spring Boot
@@ -1124,8 +1208,8 @@ source use cases remain applicable even where the capability is approved.
 
 | Current use case | Responsibility section and remaining contract boundary |
 | --- | --- |
-| UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and initial verification. |
-| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.7: registration, bounded Admin review, own status and pending queue approved; other onboarding operations remain deferred. |
+| UC-AUTH-REGISTER-01 | 3.3: approved Student registration, validation and immediate login without verified email ownership. |
+| UC-AUTH-REGISTER-TEACHER-01 | 3.4–3.9: registration, bounded Admin review, own status, pending queue, resubmission and corresponding browser flows approved; live integration remains to be verified. |
 | UC-AUTH-VERIFY-EMAIL-01 | 3.3: initial verification/resend approved; other purposes remain deferred. |
 | UC-AUTH-LOGIN-01 | 3: Shared authentication with locked checks; transport details deferred. |
 | UC-AUTH-REFRESH-01 | 3: Validated refresh; transport/replay/concurrency deferred. |
@@ -1202,3 +1286,131 @@ because this design is reconciled.
 Follow the eleven-stage development order and remaining UI/UX/design gates.
 No SQL, migrations, database connection, dependencies, tests, application code,
 deployment configuration or next-stage work is authorized by this rewrite.
+
+### Approved Student registration extension — username and phone (2026-10-14)
+
+New Student registration requires fullName, username, email, phone and password.
+Confirm password is frontend-only. Username is trimmed of surrounding ASCII spaces,
+validated as 3–30 ASCII characters beginning with a letter and continuing with
+letters/digits/underscores, then lowercased with Locale.ROOT. Canonical usernames
+are globally unique. Login remains email-only; this slice adds no public username
+lookup, editing, or authorization claims.
+
+Phone accepts 0[35789][0-9]{8} or +84[35789][0-9]{8}, after surrounding ASCII-space
+trimming. Store +84 form. Phone is required for new Students, nonunique and unverified;
+it is not an authentication or recovery factor. No SMS or ownership proof is implied.
+Existing accounts and unchanged Teacher/Admin creation retain nullable fields.
+V3 adds nullable users.username TEXT with uq_users_username and
+ck_users_username_format; users.phone remains unchanged. No fabricated backfill.
+Requiredness for new Students is application-enforced; database uniqueness handles
+concurrent registrations. Both email and username conflicts use safe generic
+409 REGISTRATION_CONFLICT, with complete transaction rollback and no email delivery.
+Student creation is atomic and sends no verification email. Teacher User/application/verification credential creation remains atomic; Teacher SMTP runs only after commit.
+Deploy V3 before the changed backend and coordinate the frontend release because
+old three-field Student registration requests will be rejected.
+
+### Approved new-Student immediate-login policy — 2026-10-15
+
+New Student registration sets users.student_login_without_verification=true while
+email_verified remains false. Login eligibility is distinct from proof of email
+ownership. V4 adds this NOT NULL boolean with DEFAULT false and a CHECK that only
+STUDENT accounts may have it true; existing accounts are not opted in or backfilled.
+Username presence never grants eligibility. Login and refresh require an unlocked
+account and either verified email or this explicit Student policy. Current-account
+JWT resolution also rejects Students who no longer satisfy that policy. Teacher and
+Admin authentication/authorization and Teacher verification/onboarding are unchanged.
+Student registration creates no verification credential, sends no email, returns
+verificationRequired=false and navigates to /login. Email-only login, username/phone
+validation and safe generic email/username conflict handling remain unchanged.
+V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.
+
+
+### Approved password recovery OTP contract (TASK-008, 2026-10-15)
+
+- `POST /api/v1/auth/password/forgot` accepts exactly `{email}` and returns an empty,
+  neutral `202` with `Cache-Control: no-store`. Canonical email is lowercase(trim(email)).
+  Unknown, locked, throttled and SMTP-delivery-failed requests have the same response;
+  the UI says instructions may arrive, never that delivery succeeded.
+- `POST /api/v1/auth/password/reset` accepts exactly `{email, code, password}` and returns
+  empty `204` with no-store. `code` is a six-digit string, including leading zeros;
+  password follows the existing unchanged password policy. Confirmation is frontend-only.
+- Both endpoints require the existing cookie CSRF token/header and configured CORS origin.
+  No access JWT is required. Query parameters and extra request properties are rejected.
+- Unlocked accounts of all roles may recover regardless of email-verification state.
+  Generate codes with SecureRandom; expire at 15 minutes (`now >= expires_at` is invalid).
+  Store HMAC-SHA256 bound to purpose, account ID and microsecond issuance timestamp.
+  Required configuration: `app.security.password-reset.hmac-secret` (environment
+  `APP_SECURITY_PASSWORDRESET_HMACSECRET`), Base64 encoding of at least 32 independently
+  generated random bytes. No fallback; missing/malformed/short configuration fails startup.
+  Keep this secret outside the repository and separate from JWT/SMTP credentials.
+  Coordinated replacement invalidates outstanding codes; retain the same secret across restarts.
+- One accepted request per 60 seconds, five per rolling 24 hours/account, including failed
+  deliveries. Only the latest issuance is valid; prior credentials are marked used atomically.
+- At most five incorrect attempts per issued code. Lock the User row in READ COMMITTED,
+  recheck state, then increment the persistent counter and commit before returning a safe error.
+  Exhausted, expired, consumed, wrong and unknown credentials use `400 INVALID_RESET_CREDENTIAL`.
+- Successful reset atomically updates the password, invalidates recovery credentials and revokes
+  every refresh session. Login/refresh use the same User-first locking order. No automatic retries.
+  Email ownership, Student immediate-login policy, role and locked state remain unchanged.
+  Existing access JWTs retain their existing expiry/current-account checks; no new JWT revocation
+  infrastructure is introduced. Frontend clears its local session and returns to `/login?reset=1`.
+- Invalid input uses existing 400 conventions; missing CSRF uses safe 403. Database/unavailable,
+  uncertain-commit and internal failures retain the existing safe 503/500 conventions.
+- `/forgot-password` and `/reset-password` reuse the website shell and auth client. Email/code
+  are entered into the reset form, never placed in URLs or browser persistence. No automatic login.
+- Per-IP abuse controls, trusted-proxy policy and production delivery monitoring are required
+  deployment work, not claimed implemented. Neutral content is not a constant-time guarantee.
+
+
+### Approved logged-in password change (TASK-008, 2026-10-16)
+
+`POST /api/v1/auth/password/change` requires a valid Bearer JWT, current-account
+refresh cookie and the existing CSRF bootstrap/header. All three account roles use
+their existing login eligibility and lock rules. Exact JSON body:
+`{currentPassword, newPassword}`; no query parameters or extra properties.
+Confirmation is frontend-only. No client-selected account or session ID is accepted.
+
+Success: empty `204`, `Cache-Control: no-store`, no refresh Set-Cookie. The current
+refresh credential, row and expiry remain unchanged. Other refresh sessions and
+all outstanding recovery OTPs are invalidated atomically with the password update.
+The existing BCrypt/password-input policy applies. There is no automatic rotation,
+extension, retry or sign-in. Already issued access JWTs retain their existing lifetime
+and current-account authorization checks; revoking refresh sessions is not JWT revocation.
+
+Errors: `401 AUTHENTICATION_REQUIRED` for invalid account/session authority;
+`403 ACCESS_DENIED` for incorrect current password or CSRF denial;
+`400 INVALID_REQUEST` for malformed input, invalid new password or unchanged password;
+`503 AUTHENTICATION_UNAVAILABLE` for unavailable persistence;
+`503 AUTHENTICATION_OUTCOME_UNKNOWN` for uncertain commit;
+`500 INTERNAL_ERROR` for unexpected failures. Responses expose no credentials or internals.
+User row locking precedes session locking in one READ COMMITTED transaction, matching
+refresh/recovery lock order. The UI under `/account` never retries a mutation automatically.
+
+
+### Approved Student own-profile slice (TASK-009, 2026-10-16)
+
+- `GET /api/v1/users/me/profile`: authenticated, currently eligible/unlocked STUDENT only.
+  No body or query parameters. `PATCH` at the same path accepts a nonempty JSON object
+  containing only `fullName` and/or `phone`. Omitted fields remain unchanged; explicit null,
+  blank, NUL, non-string and unknown fields are rejected. Identity is principal-only.
+- Both return `200`, `Cache-Control: no-store`, exactly
+  `{id, fullName, username, email, phone, emailVerified}`. ID is a decimal string;
+  historical username/phone nulls remain null. Email, username and emailVerified are read-only.
+  Existing `GET /api/v1/users/me` retains its exact three-field contract.
+- Full name preserves supplied nonblank text; no invented length cap. Phone reuses the
+  registration validator and canonical +84 storage, remains nonunique/unverified. A historical
+  null phone may be omitted when editing the name; supplied null/blank is not a clearing operation.
+- Header Bearer only; frontend omits cookies. Existing current-account eligibility applies,
+  including explicit Student immediate-login policy. No refresh cookie, CSRF bootstrap,
+  token rotation or automatic authentication retry is introduced for this business route.
+- PATCH locks the User row, rechecks role/eligibility, updates only supplied profile columns
+  and updated_at in READ COMMITTED, and returns after commit. Concurrent updates serialize;
+  the last committed value wins for the same field. No migration/version column.
+- Safe errors: 400 INVALID_REQUEST, 401 AUTHENTICATION_REQUIRED, 403 ACCESS_DENIED,
+  503 PROFILE_UNAVAILABLE (profile persistence failure), 500 INTERNAL_ERROR. Existing
+  authentication lookup errors retain their established mappings. No automatic mutation retry.
+- `/account` provides Student-only view/edit/cancel/save, read-only identity/email status,
+  responsive layout and safe Vietnamese messages. Uncertain saves require profile reload
+  before another attempt. Change Password remains the existing separate component.
+- Avatar, address, birth date, email/username changes and Teacher profile editing are excluded.
+  This slice does not complete TASK-009's Teacher profile scope.

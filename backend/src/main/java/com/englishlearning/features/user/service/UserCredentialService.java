@@ -13,6 +13,9 @@ public class UserCredentialService {
     public UserCredentialService(UserCredentialRepository users) { this.users = users; }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public void changePassword(Long id, String hash, java.time.Instant now) { users.changePassword(id,hash,now); }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public Optional<AccountSnapshot> lockAccountById(Long id) { return users.lockAccountById(id); }
 
     @Transactional(readOnly = true)
@@ -22,8 +25,8 @@ public class UserCredentialService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public Optional<Long> createStudent(String email, String hash, String name, java.time.Instant now) {
-        return users.createStudent(email, hash, name, now);
+    public Optional<Long> createStudent(String email, String hash, String name, String username, String phone, java.time.Instant now) {
+        return users.createStudent(email, hash, name, username, phone, now);
     }
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<Long> createTeacher(String email, String hash, String name, java.time.Instant now) {

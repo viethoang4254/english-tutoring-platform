@@ -4,7 +4,7 @@ import "./globals.css";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body>
         <Providers>{children}</Providers>
       </body>

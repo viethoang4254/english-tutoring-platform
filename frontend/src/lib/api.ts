@@ -69,6 +69,9 @@ export async function apiRequest<T>(
     }
   }
 
+  // Verification resend returns an empty 202, not a JSON DTO.
+  if (response.status === 202 && !isJson && (await response.text()) === "") return undefined;
+
   if (!response.ok) {
     if (isObject(body) && typeof body.code === "string" &&
         typeof body.message === "string" &&

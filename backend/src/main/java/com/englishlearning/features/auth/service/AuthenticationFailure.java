@@ -1,10 +1,12 @@
 package com.englishlearning.features.auth.service;
 
 public final class AuthenticationFailure extends RuntimeException {
-    public enum Reason { INVALID_CREDENTIAL, EMAIL_VERIFICATION_REQUIRED, UNAVAILABLE, INTERNAL_FAILURE, COMMIT_UNCERTAIN }
+    public enum Reason { ACCESS_DENIED, INVALID_REQUEST, INVALID_CREDENTIAL, EMAIL_VERIFICATION_REQUIRED, UNAVAILABLE, INTERNAL_FAILURE, COMMIT_UNCERTAIN }
     private final Reason reason;
     public AuthenticationFailure(Reason reason) {
         super(switch (reason) {
+            case ACCESS_DENIED -> "Access denied.";
+            case INVALID_REQUEST -> "Invalid request.";
             case INVALID_CREDENTIAL -> "Authentication failed.";
             case EMAIL_VERIFICATION_REQUIRED -> "Email verification required.";
             case UNAVAILABLE -> "Authentication temporarily unavailable.";

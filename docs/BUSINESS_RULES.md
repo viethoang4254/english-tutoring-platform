@@ -101,6 +101,14 @@ An authenticated eligible User may change their password through the dedicated s
 operation. Revoke other refresh sessions while preserving the current session. Never expose
 plaintext passwords in logs/responses.
 
+Approved TASK-008 operation requires the current password, valid Bearer identity,
+current-account refresh cookie and CSRF. Preserve that refresh session and its expiry;
+revoke every other refresh session and invalidate all recovery OTPs in the same transaction.
+Reject unchanged/invalid new passwords. Preserve role, lock, email ownership and explicit
+Student login policy. Concurrent change, refresh and reset serialize through the User lock.
+Access JWTs are not immediately revoked; their existing expiry/current-account rules remain.
+
+
 **Requirements:** FR-ACC-010, NFR-SEC-013.
 
 ## BR-AUTHN-014 — Password Recovery Privacy
@@ -188,7 +196,13 @@ approval claim substitutes for those checks. Own status lookup is separately app
 API_DESIGN Section 3.6. The Section 3.7 pending queue is read-only for verified, unlocked
 ADMIN accounts, contains PENDING applications only (including unverified/locked applicants),
 and grants no review reservation or eligibility guarantee. Review mutations retain their
-existing transactional checks. Resubmission and frontend onboarding remain outside this slice.
+existing transactional checks. Resubmission is separately approved under API_DESIGN Section 3.8:
+only verified, unlocked current Teachers may supersede their latest REJECTED application,
+with no PENDING application, prior approval or existing TeacherProfile. Create a new PENDING
+snapshot without modifying history; no cooldown or lifetime attempt limit. Lock the User and
+recheck state in one transaction so concurrent submissions cannot create duplicate pending rows.
+The rejected application ID prevents stale retries after later review cycles. No automatic retry,
+profile creation or business eligibility grant. Frontend onboarding remains outside this slice.
 
 **Requirements:** FR-TEA-005, FR-ACC-016.
 
@@ -789,3 +803,55 @@ where meaningful. Do not mechanically create one BR per requirement.
 
 Preserve completed TASK-001/TASK-002/TASK-003 infrastructure and evidence. No status
 reset, database change, implementation or USE_CASES work is authorized here.
+
+### Approved Student registration extension — username and phone (2026-10-14)
+
+New Student registrations require username and phone. Strip only surrounding ASCII
+spaces; username must match [A-Za-z][A-Za-z0-9_]{2,29} before Locale.ROOT lowercase.
+Canonical usernames are globally unique. Phone must match 0[35789][0-9]{8} or
++84[35789][0-9]{8}; normalize domestic input to +84. Phone is nonunique, unverified
+contact data and grants no authentication authority. Login remains email-only.
+New-Student requiredness is an APPLICATION / TRANSACTIONAL INVARIANT; existing
+accounts and Teacher/Admin creation may retain NULL. Email/username collisions
+return generic 409 REGISTRATION_CONFLICT, without overwriting records or sending
+email. Student registration is atomic and creates no verification credential or SMTP delivery. Teacher verification remains unchanged.
+
+### Approved new-Student immediate-login policy — 2026-10-15
+
+New Student registration sets users.student_login_without_verification=true while
+email_verified remains false. Login eligibility is distinct from proof of email
+ownership. V4 adds this NOT NULL boolean with DEFAULT false and a CHECK that only
+STUDENT accounts may have it true; existing accounts are not opted in or backfilled.
+Username presence never grants eligibility. Login and refresh require an unlocked
+account and either verified email or this explicit Student policy. Current-account
+JWT resolution also rejects Students who no longer satisfy that policy. Teacher and
+Admin authentication/authorization and Teacher verification/onboarding are unchanged.
+Student registration creates no verification credential, sends no email, returns
+verificationRequired=false and navigates to /login. Email-only login, username/phone
+validation and safe generic email/username conflict handling remain unchanged.
+V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.
+
+
+### TASK-008 approved OTP recovery amendment — 2026-10-15
+
+Password recovery uses canonical email plus a six-digit, purpose/account/issuance-bound OTP.
+The bounded implementation lifetime is 15 minutes. This approved contract supersedes the
+previous proposal retaining older recovery codes: only the latest issuance is usable.
+Accepted requests (including SMTP failures) are limited to one per 60 seconds and five per
+rolling 24 hours/account. Unknown, locked and throttled requests remain neutral.
+Five incorrect attempts exhaust an issuance; attempts must persist even when reset is rejected.
+Successful reset invalidates all recovery credentials and refresh sessions atomically without
+changing verified email ownership, account lock, role or Student login policy. It never signs in.
+Per-IP abuse protection remains a deployment prerequisite. See API_DESIGN's OTP contract.
+
+
+### Approved Student own-profile editing (TASK-009, 2026-10-16)
+
+Eligible unlocked Students may view their own name, username, email, phone and email-ownership
+status, and edit only full name/phone. Preserve name text; reject blank/NUL. Supplied phone
+uses the existing Vietnamese mobile validation and +84 normalization, without uniqueness or
+ownership verification. Omission preserves the existing value, including historical null
+phone; explicit null is not supported. Username/email/security flags cannot be edited here.
+User-row serialized updates preserve all unrelated fields and account policies. No session
+or password changes occur. Teacher editing, avatar/address/birth date and identity changes
+remain outside this bounded approval.

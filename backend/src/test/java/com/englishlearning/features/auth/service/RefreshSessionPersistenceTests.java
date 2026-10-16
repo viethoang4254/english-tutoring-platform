@@ -53,7 +53,8 @@ class RefreshSessionPersistenceTests {
         url = System.getenv("TASK007_TEST_URL");
         username = System.getenv("TASK007_TEST_USER");
         password = System.getenv("TASK007_TEST_PASSWORD");
-        assertEquals("jdbc:postgresql://127.0.0.1:55432/task007_refresh", url);
+        assertTrue("jdbc:postgresql://127.0.0.1:55432/task007_refresh".equals(url)
+                || "jdbc:postgresql://127.0.0.1:55434/task007_profile_acceptance".equals(url));
         assertEquals("task007_test", username);
         assertNotNull(password);
         try (var c = connection(); var st = c.createStatement();
@@ -484,43 +485,245 @@ class RefreshSessionPersistenceTests {
         var error=assertThrows(VerificationFailure.class, action::run);
         assertEquals(reason,error.reason()); assertNull(error.getCause());
     }
-    @Test void registrationVerificationThenRealLoginPreservesPasswordAndStoresOnlyHash() throws Exception {
+    @Test void studentProfilePreservesSecurityAndHistoricalNulls() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var before=credentials.findByEmail(email).orElseThrow();
+        execute("UPDATE users SET username=NULL,phone=NULL WHERE id="+id);
+        var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);
+        assertNull(profiles.read(id).username());assertNull(profiles.read(id).phone());
+        var updated=profiles.update(id,Map.of("fullName"," Preserved name "));assertEquals(" Preserved name ",updated.fullName());assertNull(updated.phone());
+        assertEquals("+84912345678",profiles.update(id,Map.of("phone","0912345678")).phone());assertEquals(before,credentials.findByEmail(email).orElseThrow());
+        assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.update(id,Map.of("fullName","Should rollback","phone","bad")));assertEquals(" Preserved name ",profiles.read(id).fullName());
+        var tx=new org.springframework.transaction.support.TransactionTemplate(manager);assertThrows(IllegalStateException.class,()->tx.execute(status->{profiles.update(id,Map.of("fullName","Rollback"));throw new IllegalStateException("rollback");}));assertEquals(" Preserved name ",profiles.read(id).fullName());
+    }
+    @Test void profileConcurrentPartialUpdatesPreserveBothFields() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try{var a=pool.submit(()->{start.await();return profiles.update(id,Map.of("fullName","Concurrent"));});var b=pool.submit(()->{start.await();return profiles.update(id,Map.of("phone","0987654321"));});start.countDown();a.get(15,TimeUnit.SECONDS);b.get(15,TimeUnit.SECONDS);assertEquals("Concurrent",profiles.read(id).fullName());assertEquals("+84987654321",profiles.read(id).phone());}finally{pool.shutdownNow();}
+    }
+    @Test void profileLockedAndHistoricalUnverifiedAccountsCannotWrite() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);
+        execute("UPDATE users SET student_login_without_verification=false WHERE id="+id);
+        assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.update(id,Map.of("fullName","Denied")));
+        execute("UPDATE users SET email_verified=true,locked=true WHERE id="+id);
+        assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.update(id,Map.of("fullName","Denied")));
+        assertEquals(1,scalar("SELECT count(*) FROM users WHERE id="+id+" AND full_name='Student'"));
+    }
+    @Test void profileSameFieldLastCommittedUpdateWins() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);
+        var firstWritten=new CountDownLatch(1);var secondStarted=new CountDownLatch(1);var release=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            var first=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(manager).execute(status->{profiles.update(id,Map.of("fullName","First"));firstWritten.countDown();try{assertTrue(release.await(10,TimeUnit.SECONDS));}catch(InterruptedException e){throw new RuntimeException(e);}return true;}));
+            assertTrue(firstWritten.await(10,TimeUnit.SECONDS));var second=pool.submit(()->{secondStarted.countDown();return profiles.update(id,Map.of("fullName","Second"));});assertTrue(secondStarted.await(10,TimeUnit.SECONDS));release.countDown();assertTrue(first.get(15,TimeUnit.SECONDS));second.get(15,TimeUnit.SECONDS);assertEquals("Second",profiles.read(id).fullName());
+        }finally{release.countDown();pool.shutdownNow();}
+    }
+    PasswordChangeService changes(){return new PasswordChangeService(credentials,sessions,context.getBean(com.englishlearning.features.auth.repository.PasswordResetRepository.class),passwords,clock,manager);}
+    @Test void changePreservesCurrentSessionRevokesOthersAndInvalidatesOtp() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var other=workflow().login(email,"password");
+        var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        changes().change(id,current.refreshCredential().credential(),"password","new password");
+        assertEquals(1,count("id="+current.refreshCredential().sessionId()+" AND revoked_at IS NULL"));
+        assertEquals(current.refreshCredential().expiresAt(),sessionsTime(current.refreshCredential().sessionId()));
+        authenticationInvalid(()->workflow().login(email,"password"));assertNotNull(workflow().login(email,"new password"));
+        authenticationInvalid(()->workflow().refresh(other.refreshCredential().credential()));assertNotNull(workflow().refresh(current.refreshCredential().credential()));
+        verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"other password"));
+        var user=credentials.findByEmail(email).orElseThrow();assertFalse(user.emailVerified());assertTrue(user.studentLoginWithoutVerification());
+    }
+    Instant sessionsTime(long id)throws Exception {try(var c=connection();var st=c.createStatement();var rs=st.executeQuery("SELECT expires_at FROM refresh_sessions WHERE id="+id)){rs.next();return rs.getTimestamp(1).toInstant();}}
+    @Test void changeRejectsWrongSamePasswordOtherOwnerLockedAndExpired() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var change=changes();
+        assertEquals(AuthenticationFailure.Reason.ACCESS_DENIED,assertThrows(AuthenticationFailure.class,()->change.change(id,current.refreshCredential().credential(),"wrong","new password")).reason());
+        assertEquals(AuthenticationFailure.Reason.INVALID_REQUEST,assertThrows(AuthenticationFailure.class,()->change.change(id,current.refreshCredential().credential(),"password","password")).reason());
+        assertEquals(AuthenticationFailure.Reason.INVALID_REQUEST,assertThrows(AuthenticationFailure.class,()->change.change(id,current.refreshCredential().credential(),"password","short")).reason());
+        String otherEmail=resetStudent();var other=workflow().login(otherEmail,"password");
+        assertThrows(AuthenticationFailure.class,()->change.change(id,other.refreshCredential().credential(),"password","new password"));
+        execute("UPDATE users SET locked=true WHERE id="+id);assertThrows(AuthenticationFailure.class,()->change.change(id,current.refreshCredential().credential(),"password","new password"));execute("UPDATE users SET locked=false WHERE id="+id);
+        time.set(current.refreshCredential().expiresAt());assertThrows(AuthenticationFailure.class,()->change.change(id,current.refreshCredential().credential(),"password","new password"));assertNotNull(workflow().login(email,"password"));
+    }
+    @Test void changeRollbackPreservesPasswordOtpAndOtherSessions() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var other=workflow().login(email,"password");
+        var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        com.englishlearning.features.auth.repository.PasswordResetRepository target=org.springframework.test.util.AopTestUtils.getUltimateTargetObject(context.getBean(com.englishlearning.features.auth.repository.PasswordResetRepository.class));var broken=spy(target);doThrow(new IllegalStateException("test rollback")).when(broken).invalidateCredentials(any(),any());
+        assertThrows(AuthenticationFailure.class,()->new PasswordChangeService(credentials,sessions,broken,passwords,clock,manager).change(id,current.refreshCredential().credential(),"password","new password"));
+        assertNotNull(workflow().login(email,"password"));assertNotNull(workflow().refresh(other.refreshCredential().credential()));recovery.reset(email,sent.get(0),"recovered password");
+    }
+    @Test void concurrentChangesHaveOneWinner() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        Callable<Boolean> action=()->{start.await();try{changes().change(id,current.refreshCredential().credential(),"password","new password");return true;}catch(AuthenticationFailure e){assertEquals(AuthenticationFailure.Reason.ACCESS_DENIED,e.reason());return false;}};
+        try{var a=pool.submit(action);var b=pool.submit(action);start.countDown();assertNotEquals(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS));}finally{pool.shutdownNow();}
+    }
+    @Test void concurrentChangeAndRefreshCannotLeaveOtherSessionActive() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var other=workflow().login(email,"password");
+        var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            var change=pool.submit(()->{start.await();changes().change(id,current.refreshCredential().credential(),"password","new password");return true;});
+            var refresh=pool.submit(()->{start.await();try{return workflow().refresh(other.refreshCredential().credential());}catch(AuthenticationFailure e){assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,e.reason());return null;}});
+            start.countDown();assertTrue(change.get(15,TimeUnit.SECONDS));var replacement=refresh.get(15,TimeUnit.SECONDS);
+            if(replacement!=null)authenticationInvalid(()->workflow().refresh(replacement.refreshCredential().credential()));
+            assertEquals(1,count("user_id="+id+" AND revoked_at IS NULL"));
+        } finally {pool.shutdownNow();}
+    }
+    @Test void concurrentChangeAndResetHaveOneWinner() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var current=workflow().login(email,"password");var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            var change=pool.submit(()->{start.await();try{changes().change(id,current.refreshCredential().credential(),"password","changed password");return true;}catch(AuthenticationFailure e){assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,e.reason());return false;}});
+            var reset=pool.submit(()->{start.await();try{recovery.reset(email,sent.get(0),"reset password");return true;}catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.INVALID,e.reason());return false;}});
+            start.countDown();boolean changed=change.get(15,TimeUnit.SECONDS);assertNotEquals(changed,reset.get(15,TimeUnit.SECONDS));assertNotNull(workflow().login(email,changed?"changed password":"reset password"));
+        } finally {pool.shutdownNow();}
+    }
+    PasswordRecoveryService recovery(PasswordResetMail mail) {
+        return new PasswordRecoveryService(credentials,context.getBean(com.englishlearning.features.auth.repository.PasswordResetRepository.class),
+                new com.englishlearning.features.auth.security.PasswordResetTokens(java.util.Base64.getEncoder().encodeToString(new byte[32])),passwords,mail,clock,manager);
+    }
+    String resetStudent() {
+        String email=email();registration((e,t)->fail("Student email prohibited")).register(email,"password","Student","u"+UUID.randomUUID().toString().replace("-", "").substring(0,20),"0912345678");return email;
+    }
+    @Test void passwordResetChangesPasswordRevokesAllSessionsAndPreservesAccountPolicy() throws Exception {
+        String email=resetStudent();var user=credentials.findByEmail(email).orElseThrow();
+        var first=workflow().login(email,"password");var second=workflow().login(email,"password");
+        var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        assertEquals(1,sent.size());
+        assertEquals(1,scalar("SELECT count(*) FROM password_reset_credentials WHERE user_id="+user.id()+" AND length(secret_hash)=64"));
+        recovery.reset(email,sent.get(0)," new password ");
+        var changed=credentials.findByEmail(email).orElseThrow();assertFalse(changed.emailVerified());assertTrue(changed.studentLoginWithoutVerification());
+        assertNotNull(workflow().login(email," new password "));
+        assertThrows(AuthenticationFailure.class,()->workflow().login(email,"password"));
+        assertThrows(AuthenticationFailure.class,()->workflow().refresh(first.refreshCredential().credential()));
+        assertThrows(AuthenticationFailure.class,()->workflow().refresh(second.refreshCredential().credential()));
+        verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"another password"));
+    }
+    @Test void resetExpiryInvalidCodesAndLockedAccountsCannotChangePassword() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));
+        recovery.forgot(email);verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,"bad","new password"));
+        execute("UPDATE users SET locked=true WHERE id="+id);
+        verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"new password"));
+        recovery.forgot(email);assertEquals(1,sent.size());execute("UPDATE users SET locked=false WHERE id="+id);
+        time.set(time.get().plusSeconds(900));verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"new password"));
+        assertNotNull(workflow().login(email,"password"));
+    }
+    @Test void resetRequestCooldownLimitAndFailedMailRemainNeutral() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var attempts=new java.util.concurrent.atomic.AtomicInteger();
+        var recovery=recovery((e,t)->{attempts.incrementAndGet();throw new IllegalStateException("private mail");});
+        recovery.forgot(email());recovery.forgot(email);recovery.forgot(email);assertEquals(1,attempts.get());
+        for(int i=0;i<5;i++){time.set(time.get().plusSeconds(60));recovery.forgot(email);}
+        assertEquals(5,attempts.get());assertEquals(5,scalar("SELECT count(*) FROM password_reset_credentials WHERE user_id="+id));
+        time.set(time.get().plusSeconds(86400));recovery.forgot(email);assertEquals(6,attempts.get());
+    }
+    @Test void otpAttemptLimitIsAtomicAndResendInvalidatesPriorCode() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();
+        var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        String wrong=sent.get(0).equals("000000")?"000001":"000000";
+        var pool=Executors.newFixedThreadPool(8);var start=new CountDownLatch(1);
+        try {var futures=new ArrayList<Future<?>>();for(int i=0;i<8;i++)futures.add(pool.submit(()->{start.await();verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,wrong,"new password"));return true;}));start.countDown();for(var f:futures)f.get(20,TimeUnit.SECONDS);}
+        finally {pool.shutdownNow();}
+        assertEquals(5,scalar("SELECT failed_attempts FROM password_reset_credentials WHERE user_id="+id));
+        verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"new password"));
+        time.set(time.get().plusSeconds(60));recovery.forgot(email);
+        assertEquals(1,scalar("SELECT count(*) FROM password_reset_credentials WHERE user_id="+id+" AND used_at IS NOT NULL"));
+        if(!sent.get(0).equals(sent.get(1))) verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"new password"));
+        recovery.reset(email,sent.get(1),"new password");assertNotNull(workflow().login(email,"new password"));
+    }
+    @Test void concurrentResetHasOneWinnerAndInvalidatesOlderCodes() throws Exception {
+        String email=resetStudent();var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        time.set(time.get().plusSeconds(60));recovery.forgot(email);
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        Callable<Boolean> action=()->{start.await();try{recovery.reset(email,sent.get(1),"new password");return true;}
+            catch(VerificationFailure failure){assertEquals(VerificationFailure.Reason.INVALID,failure.reason());return false;}};
+        try {var a=pool.submit(action);var b=pool.submit(action);start.countDown();assertNotEquals(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS));}
+        finally {pool.shutdownNow();}
+        verificationFailure(VerificationFailure.Reason.INVALID,()->recovery.reset(email,sent.get(0),"other password"));
+    }
+    @Test void concurrentResetRequestsCannotBypassCooldown() throws Exception {
+        String email=resetStudent();var sent=new java.util.concurrent.atomic.AtomicInteger();var recovery=recovery((e,t)->sent.incrementAndGet());
+        var pool=Executors.newFixedThreadPool(4);var start=new CountDownLatch(1);
+        try {var futures=new ArrayList<Future<?>>();for(int i=0;i<4;i++)futures.add(pool.submit(()->{start.await();recovery.forgot(email);return true;}));start.countDown();for(var f:futures)f.get(15,TimeUnit.SECONDS);assertEquals(1,sent.get());}
+        finally {pool.shutdownNow();}
+    }
+    @Test void resetRollbackPreservesPasswordCredentialAndRefreshAuthority() throws Exception {
+        String email=resetStudent();var session=workflow().login(email,"password");var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        com.englishlearning.features.auth.repository.PasswordResetRepository target=org.springframework.test.util.AopTestUtils.getUltimateTargetObject(context.getBean(com.englishlearning.features.auth.repository.PasswordResetRepository.class));
+        var repository=spy(target);
+        doThrow(new IllegalStateException("test-only failure")).when(repository).invalidateAll(any(),any());
+        var broken=new PasswordRecoveryService(credentials,repository,new com.englishlearning.features.auth.security.PasswordResetTokens(java.util.Base64.getEncoder().encodeToString(new byte[32])),passwords,(e,t)->{},clock,manager);
+        verificationFailure(VerificationFailure.Reason.INTERNAL,()->broken.reset(email,sent.get(0),"new password"));
+        assertNotNull(workflow().login(email,"password"));assertNotNull(workflow().refresh(session.refreshCredential().credential()));
+        recovery.reset(email,sent.get(0),"new password");assertNotNull(workflow().login(email,"new password"));
+    }
+    @Test void resetDoesNotVerifyHistoricalStudentsTeachersOrAdmins() throws Exception {
+        for(String role:new String[]{"STUDENT","TEACHER","ADMIN"}) {
+            String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();
+            execute("UPDATE users SET student_login_without_verification=false,role='"+role+"' WHERE id="+id);
+            var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);recovery.reset(email,sent.get(0),"new password");
+            var user=credentials.findByEmail(email).orElseThrow();assertFalse(user.emailVerified());assertFalse(user.studentLoginWithoutVerification());assertEquals(role,user.role().name());
+            assertEquals(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED,assertThrows(AuthenticationFailure.class,()->workflow().login(email,"new password")).reason());
+        }
+    }
+    @Test void resetAndRefreshRaceCannotLeaveAnActiveOldSession() throws Exception {
+        String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var session=workflow().login(email,"password");
+        var sent=new ArrayList<String>();var recovery=recovery((e,t)->sent.add(t));recovery.forgot(email);
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        try {var a=pool.submit(()->{start.await();recovery.reset(email,sent.get(0),"new password");return true;});
+            var b=pool.submit(()->{start.await();try{workflow().refresh(session.refreshCredential().credential());}catch(AuthenticationFailure failure){assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,failure.reason());}return true;});
+            start.countDown();assertTrue(a.get(15,TimeUnit.SECONDS));assertTrue(b.get(15,TimeUnit.SECONDS));
+            assertEquals(0,scalar("SELECT count(*) FROM refresh_sessions WHERE user_id="+id+" AND revoked_at IS NULL"));
+        } finally {pool.shutdownNow();}
+    }
+
+    @Test void studentUsernameCollisionIsAtomicAndPhoneIsNotUnique() throws Exception {
+        String handle="u"+UUID.randomUUID().toString().replace("-", "").substring(0,20);
+        var delivered=new java.util.concurrent.atomic.AtomicInteger();
+        var registration=registration((e,t)->delivered.incrementAndGet());
+        var start=new CountDownLatch(1); var pool=Executors.newFixedThreadPool(2);
+        Callable<Boolean> attempt=()->{start.await();try {
+            registration.register(email(),"password","Student",handle.toUpperCase(Locale.ROOT),"0912345678");
+            return true;
+        } catch(VerificationFailure failure) { assertEquals(VerificationFailure.Reason.CONFLICT,failure.reason());return false; }};
+        try {
+            var first=pool.submit(attempt);var second=pool.submit(attempt);start.countDown();
+            assertNotEquals(first.get(20,TimeUnit.SECONDS),second.get(20,TimeUnit.SECONDS));
+        } finally {pool.shutdownNow();}
+        assertEquals(0,delivered.get());
+        assertEquals(1,scalar("SELECT count(*) FROM users WHERE username='"+handle+"' AND phone='+84912345678'"));
+        assertEquals(0,scalar("SELECT count(*) FROM email_verification_credentials c JOIN users u ON u.id=c.user_id WHERE u.username='"+handle+"'"));
+        registration.register(email(),"password","Other",handle+"x","+84912345678");
+        assertEquals(2,scalar("SELECT count(*) FROM users WHERE username IN ('"+handle+"','"+handle+"x')"));
+    }
+
+    @Test void newStudentImmediatelyLogsInWithoutVerifyingOwnership() throws Exception {
         String email=email(); var sent=new ArrayList<String>();
-        var registration=registration((recipient, token)-> {
-            assertEquals(email,recipient);
-            assertTrue(credentials.findByEmail(email).isPresent(),"Account must be committed before mail");
-            sent.add(token);
-        });
-        registration.register(" " + email.toUpperCase(Locale.ROOT) + " "," test password ","Student Name");
+        registration((e,t)->sent.add(t)).register(email," test password ","Student","u"+UUID.randomUUID().toString().replace("-", "").substring(0,20),"0912345678");
         var user=credentials.findByEmail(email).orElseThrow();
-        assertFalse(user.emailVerified()); assertFalse(user.locked());
-        assertEquals("STUDENT",accounts.findById(user.id()).orElseThrow().role().name());
-        assertEquals(0,count("user_id="+user.id()));
-        assertTrue(passwords.matches(" test password ",user.passwordHash()));
+        assertFalse(user.emailVerified()); assertTrue(user.studentLoginWithoutVerification());
+        assertTrue(sent.isEmpty());
+        assertEquals(0,scalar("SELECT count(*) FROM email_verification_credentials WHERE user_id="+user.id()));
+        var loggedIn=workflow().login(email," test password ");
+        var refreshed=workflow().refresh(loggedIn.refreshCredential().credential());
+        workflow().logout(refreshed.refreshCredential().credential());
+        assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,
+                assertThrows(AuthenticationFailure.class,()->workflow().refresh(refreshed.refreshCredential().credential())).reason());
+        var active=workflow().login(email," test password ");
+        assertFalse(credentials.findByEmail(email).orElseThrow().emailVerified());
+        execute("UPDATE users SET student_login_without_verification=false WHERE id="+user.id());
+        assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,
+                assertThrows(AuthenticationFailure.class,()->workflow().refresh(active.refreshCredential().credential())).reason());
         assertEquals(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED,
                 assertThrows(AuthenticationFailure.class,()->workflow().login(email," test password ")).reason());
-        try(var c=connection();var st=c.prepareStatement("SELECT secret_hash,purpose,expires_at-created_at FROM public.email_verification_credentials WHERE user_id=?")) {
-            st.setLong(1,user.id()); try(var rs=st.executeQuery()) {
-                assertTrue(rs.next()); assertEquals(new com.englishlearning.features.auth.security.VerificationTokens().hash(sent.get(0)),rs.getString(1));
-                assertNotEquals(sent.get(0),rs.getString(1)); assertEquals("INITIAL_VERIFICATION",rs.getString(2));
-            }
-        }
-        registration.verify(sent.get(0));
-        assertTrue(credentials.findByEmail(email).orElseThrow().emailVerified());
-        assertNotNull(workflow().login(email," test password "));
-        verificationFailure(VerificationFailure.Reason.INVALID,()->registration.verify(sent.get(0)));
+        execute("UPDATE users SET student_login_without_verification=true,locked=true WHERE id="+user.id());
+        assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,
+                assertThrows(AuthenticationFailure.class,()->workflow().refresh(active.refreshCredential().credential())).reason());
+        assertEquals(AuthenticationFailure.Reason.INVALID_CREDENTIAL,
+                assertThrows(AuthenticationFailure.class,()->workflow().login(email," test password ")).reason());
     }
     @Test void duplicateCanonicalRegistrationCannotOverwriteAccount() {
         String email=email(); var registration=registration((e,t)->{});
-        registration.register(email,"password","First");
+        registration.register(email,"password","First","u"+UUID.randomUUID().toString().replace("-", "").substring(0,20),"0912345678");
         var original=credentials.findByEmail(email).orElseThrow();
         verificationFailure(VerificationFailure.Reason.CONFLICT,
-                ()->registration.register(" "+email.toUpperCase(Locale.ROOT)+" ","different password","Replacement"));
+                ()->registration.register(" "+email.toUpperCase(Locale.ROOT)+" ","different password","Replacement","u"+UUID.randomUUID().toString().replace("-", "").substring(0,20),"0912345678"));
         assertEquals(original,credentials.findByEmail(email).orElseThrow());
     }
     @Test void verificationExpiresExactlyAt24HoursAndRejectsLockedOrWrongPurpose() throws Exception {
         String email=email(); var sent=new ArrayList<String>(); var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test"); long id=credentials.findByEmail(email).orElseThrow().id();
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro"); long id=credentials.findByEmail(email).orElseThrow().id();
         execute("UPDATE public.users SET locked=true WHERE id="+id);
         verificationFailure(VerificationFailure.Reason.INVALID,()->registration.verify(sent.get(0)));
         execute("UPDATE public.users SET locked=false WHERE id="+id);
@@ -533,7 +736,7 @@ class RefreshSessionPersistenceTests {
     }
     @Test void resendCooldownAndRollingLimitIncludeFailedDeliveryAndExcludeInitial() {
         String email=email(); var sent=new ArrayList<String>(); var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test");
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro");
         verificationFailure(VerificationFailure.Reason.RATE_LIMITED,()->registration.resend(email));
         time.set(time.get().plusSeconds(59));
         verificationFailure(VerificationFailure.Reason.RATE_LIMITED,()->registration.resend(email));
@@ -548,7 +751,7 @@ class RefreshSessionPersistenceTests {
     }
     @Test void earlierUnexpiredCredentialRemainsValidAfterResend() {
         String email=email();var sent=new ArrayList<String>();var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test");time.set(time.get().plusSeconds(60));registration.resend(email);
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro");time.set(time.get().plusSeconds(60));registration.resend(email);
         registration.verify(sent.get(0));
         verificationFailure(VerificationFailure.Reason.INVALID,()->registration.verify(sent.get(1)));
         registration.resend(email); assertEquals(2,sent.size());
@@ -556,7 +759,7 @@ class RefreshSessionPersistenceTests {
     @Test void deliveryFailureRetainsAccountAndSupportsResendRecovery() {
         String email=email();
         verificationFailure(VerificationFailure.Reason.DELIVERY,
-                ()->registration((e,t)->{throw new IllegalStateException("private body");}).register(email,"password","Test"));
+                ()->registration((e,t)->{throw new IllegalStateException("private body");}).registerTeacher(email,"password","Test","English","Experience","Intro"));
         assertFalse(credentials.findByEmail(email).orElseThrow().emailVerified());
         time.set(time.get().plusSeconds(60)); var sent=new ArrayList<String>();
         var registration=registration((e,t)->sent.add(t)); registration.resend(email);registration.verify(sent.get(0));
@@ -567,12 +770,12 @@ class RefreshSessionPersistenceTests {
         when(source.generate()).thenReturn("test"); when(source.hash(anyString())).thenReturn(null);
         String email=email();
         verificationFailure(VerificationFailure.Reason.INTERNAL,
-                ()->registration((e,t)->fail("Must not deliver"),source).register(email,"password","Test"));
+                ()->registration((e,t)->fail("Must not deliver"),source).registerTeacher(email,"password","Test","English","Experience","Intro"));
         assertTrue(credentials.findByEmail(email).isEmpty());
     }
     @Test void concurrentVerificationHasExactlyOneWinner() throws Exception {
         String email=email(); var sent=new CopyOnWriteArrayList<String>();var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test");
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro");
         var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
         Callable<Boolean> action=()->{start.await();try{registration.verify(sent.get(0));return true;}
             catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.INVALID,e.reason());return false;}};
@@ -582,7 +785,7 @@ class RefreshSessionPersistenceTests {
     }
     @Test void concurrentResendsCannotBypassCooldownOrFinalAllowance() throws Exception {
         String email=email();var sent=new CopyOnWriteArrayList<String>();var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test");
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro");
         for(int i=0;i<4;i++){time.set(time.get().plusSeconds(60));registration.resend(email);}
         time.set(time.get().plusSeconds(60));var pool=Executors.newFixedThreadPool(6);var start=new CountDownLatch(1);
         Callable<Boolean> action=()->{start.await();try{registration.resend(email);return true;}
@@ -594,7 +797,7 @@ class RefreshSessionPersistenceTests {
     }
     @Test void simultaneousResendAndVerificationPreserveAccountAndSingleUse() throws Exception {
         String email=email();var sent=new CopyOnWriteArrayList<String>();var registration=registration((e,t)->sent.add(t));
-        registration.register(email,"password","Test");time.set(time.get().plusSeconds(60));
+        registration.registerTeacher(email,"password","Test","English","Experience","Intro");time.set(time.get().plusSeconds(60));
         var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
         try {var a=pool.submit(()->{start.await();registration.verify(sent.get(0));return true;});
             var b=pool.submit(()->{start.await();registration.resend(email);return true;});start.countDown();
@@ -667,7 +870,7 @@ class RefreshSessionPersistenceTests {
     }
     @Test void studentTeacherRegistrationRaceCannotPromoteOrDuplicateUser() throws Exception {
         String email=email();var registration=registration((e,t)->{});var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
-        try{var student=pool.submit(()->{start.await();try{registration.register(email,"password","Student");return true;}
+        try{var student=pool.submit(()->{start.await();try{registration.register(email,"password","Student","u"+UUID.randomUUID().toString().replace("-", "").substring(0,20),"0912345678");return true;}
                 catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.CONFLICT,e.reason());return false;}});
             var teacher=pool.submit(()->{start.await();try{registration.registerTeacher(email,"password","Teacher","English","Experience","Intro");return true;}
                 catch(VerificationFailure e){assertEquals(VerificationFailure.Reason.CONFLICT,e.reason());return false;}});
@@ -675,7 +878,7 @@ class RefreshSessionPersistenceTests {
             long id=credentials.findByEmail(email).orElseThrow().id();
             assertEquals(studentWon?"STUDENT":"TEACHER",accounts.findById(id).orElseThrow().role().name());
             assertEquals(studentWon?0:1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+id));
-            assertEquals(1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
+            assertEquals(studentWon?0:1,scalar("SELECT count(*) FROM public.email_verification_credentials WHERE user_id="+id));
         }finally{pool.shutdownNow();}
     }
 
@@ -775,6 +978,77 @@ class RefreshSessionPersistenceTests {
 
     com.englishlearning.features.teacher.service.TeacherOnboardingService onboarding() {
         return context.getBean(com.englishlearning.features.teacher.service.TeacherOnboardingService.class);
+    }
+    long rejectedForResubmission() throws Exception {
+        long id=pendingApplication();reviews().review(12L,id,false," original reason ");
+        execute("UPDATE public.users SET email_verified=true WHERE id="+applicant(id));return id;
+    }
+    @Test void resubmissionPreservesHistoryAndRejectsDelayedRetries() throws Exception {
+        long old=rejectedForResubmission(),teacher=applicant(old);var history=reviews().detail(12L,old);
+        var created=onboarding().resubmit(teacher,old," New "," Experience "," Intro ");
+        long next=created.applicationId().value();assertNotEquals(old,next);assertEquals("PENDING",created.status());
+        assertNull(created.reviewedAt());assertNull(created.rejectionReason());assertEquals(history,reviews().detail(12L,old));
+        assertEquals(" New ",reviews().detail(12L,next).specialization());
+        assertEquals(created,onboarding().ownStatus(teacher));
+        assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher));
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_PENDING,
+                ()->onboarding().resubmit(teacher,old,"a","b","c"));
+        reviews().review(12L,next,false,"second rejection");
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.RESUBMISSION_NOT_ALLOWED,
+                ()->onboarding().resubmit(teacher,old,"a","b","c"));
+        assertEquals("PENDING",onboarding().resubmit(teacher,next,"a","b","c").status());
+        assertEquals(history,reviews().detail(12L,old));
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,
+                ()->teacherEligibility().requireEligible(teacher));
+    }
+    @Test void concurrentResubmissionsHaveExactlyOneWinner() throws Exception {
+        long id=rejectedForResubmission(),teacher=applicant(id);var before=reviews().detail(12L,id);
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        Callable<Boolean> submit=()->{start.await();try{onboarding().resubmit(teacher,id,"a","b","c");return true;}
+            catch(com.englishlearning.features.teacher.service.TeacherReviewFailure e){
+                assertEquals(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.ALREADY_PENDING,e.reason());return false;}};
+        try{var a=pool.submit(submit);var b=pool.submit(submit);start.countDown();
+            assertNotEquals(a.get(10,TimeUnit.SECONDS),b.get(10,TimeUnit.SECONDS));
+        }finally{pool.shutdownNow();}
+        assertEquals(2,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+teacher));
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+teacher+" AND status='PENDING'"));
+        assertEquals(before,reviews().detail(12L,id));
+    }
+    @Test void resubmissionChecksOwnershipApprovalProfileAndCurrentAccount() throws Exception {
+        long id=rejectedForResubmission(),teacher=applicant(id),other=rejectedForResubmission();
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.NOT_FOUND,
+                ()->onboarding().resubmit(teacher,other,"a","b","c"));
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.NOT_FOUND,
+                ()->onboarding().resubmit(teacher,Long.MAX_VALUE,"a","b","c"));
+        for(String assignment:List.of("locked=true","locked=false,email_verified=false","email_verified=true,role='STUDENT'")) {
+            execute("UPDATE public.users SET "+assignment+" WHERE id="+teacher);
+            reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,
+                    ()->onboarding().resubmit(teacher,id,"a","b","c"));
+        }
+        execute("UPDATE public.users SET role='TEACHER' WHERE id="+teacher);
+        execute("INSERT INTO public.teacher_profiles(teacher_id,specialization,teaching_experience,introduction,created_at,updated_at) VALUES ("+teacher+",'a','b','c',now(),now())");
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.PROFILE_EXISTS,
+                ()->onboarding().resubmit(teacher,id,"a","b","c"));
+        long approved=pendingApplication(),approvedTeacher=applicant(approved);
+        reviews().review(12L,approved,true,null);execute("UPDATE public.users SET email_verified=true WHERE id="+approvedTeacher);
+        reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.RESUBMISSION_NOT_ALLOWED,
+                ()->onboarding().resubmit(approvedTeacher,approved,"a","b","c"));
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+teacher));
+    }
+    @Test void resubmissionInsertFailureRollsBackAndReleasesAccountLock() throws Exception {
+        long id=rejectedForResubmission(),teacher=applicant(id);var before=reviews().detail(12L,id);
+        var real=context.getBean(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class);
+        var failing=mock(com.englishlearning.features.teacher.repository.TeacherApplicationRepository.class,org.mockito.AdditionalAnswers.delegatesTo(real));
+        doAnswer(invocation->{real.saveAndFlush(invocation.getArgument(0));throw new IllegalStateException("test failure after insert");})
+                .when(failing).saveAndFlush(any());
+        var service=new com.englishlearning.features.teacher.service.TeacherOnboardingService(accounts,failing,credentials,
+                context.getBean(com.englishlearning.features.teacher.repository.TeacherProfileRepository.class),clock);
+        var tx=new org.springframework.transaction.support.TransactionTemplate(manager);
+        tx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        assertThrows(IllegalStateException.class,()->tx.execute(status->service.resubmit(teacher,id,"a","b","c")));
+        assertEquals(1,scalar("SELECT count(*) FROM public.teacher_applications WHERE teacher_id="+teacher));
+        assertEquals(before,reviews().detail(12L,id));
+        assertEquals("PENDING",onboarding().resubmit(teacher,id,"a","b","c").status());
     }
     @Test void pendingQueueFiltersOrdersBoundsAndReflectsReviews() throws Exception {
         long first=pendingApplication(),second=pendingApplication(),reviewed=pendingApplication();

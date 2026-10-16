@@ -45,6 +45,9 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
         "spring.flyway.enabled=false"})
 class SecurityBoundaryTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -53,6 +56,10 @@ class SecurityBoundaryTests {
     com.englishlearning.features.teacher.service.TeacherOnboardingService teacherOnboarding;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.auth.service.RegistrationService registration;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.service.PasswordRecoveryService recovery;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.repository.PasswordResetRepository resetRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.user.repository.UserCredentialRepository credentialRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -82,8 +89,8 @@ class SecurityBoundaryTests {
     MockMvc mvc;
     @BeforeEach void setup() {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.STUDENT, false, false)));
-        when(accounts.findById(2L)).thenReturn(Optional.of(new AccountSnapshot(2L, Role.ADMIN, false, true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.STUDENT, false, false, true)));
+        when(accounts.findById(2L)).thenReturn(Optional.of(new AccountSnapshot(2L, Role.ADMIN, false, true, false)));
     }
 
     String token(String variation) throws Exception {
@@ -141,7 +148,7 @@ class SecurityBoundaryTests {
 
     @Test void missingAndLockedAccountsHaveIdenticalSafeErrors() throws Exception {
         for (var account : List.of(Optional.<AccountSnapshot>empty(),
-                Optional.of(new AccountSnapshot(1L, Role.STUDENT, true, true)))) {
+                Optional.of(new AccountSnapshot(1L, Role.STUDENT, true, true, false)))) {
             when(accounts.findById(1L)).thenReturn(account);
             mvc.perform(get("/__security_test/student").header("Authorization", "Bearer " + token("valid")))
                     .andExpect(status().isUnauthorized())
@@ -149,18 +156,29 @@ class SecurityBoundaryTests {
         }
     }
 
+    @Test void studentPolicyIsRecheckedWithoutClaimingVerifiedEmail() throws Exception {
+        String bearer="Bearer " + token("valid");
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.STUDENT,false,false,false)));
+        mvc.perform(get("/api/v1/users/me").header("Authorization",bearer)).andExpect(status().isUnauthorized());
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.STUDENT,false,false,true)));
+        mvc.perform(get("/api/v1/users/me").header("Authorization",bearer)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.emailVerified").value(false));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.STUDENT,true,false,true)));
+        mvc.perform(get("/api/v1/users/me").header("Authorization",bearer)).andExpect(status().isUnauthorized());
+    }
+
     @Test void currentRoleAndLockAreRecheckedOnEveryRequest() throws Exception {
         String bearer = "Bearer " + token("forgedRole");
         mvc.perform(get("/__security_test/admin").header("Authorization", bearer)).andExpect(status().isForbidden());
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.ADMIN, false, true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.ADMIN, false, true, false)));
         mvc.perform(get("/__security_test/admin").header("Authorization", bearer)).andExpect(status().isOk());
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.ADMIN, true, true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.ADMIN, true, true, false)));
         mvc.perform(get("/__security_test/admin").header("Authorization", bearer)).andExpect(status().isUnauthorized());
         verify(accounts, times(3)).findById(1L);
     }
 
     @Test void teacherRoleDoesNotGrantBusinessAccess() throws Exception {
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.TEACHER, false, true)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.TEACHER, false, true, false)));
         mvc.perform(get("/api/v1/teacher/courses").header("Authorization", "Bearer " + token("valid")))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/__security_test/admin").header("Authorization", "Bearer " + token("valid")))
@@ -235,7 +253,7 @@ class SecurityBoundaryTests {
 
     @Test void currentAccountAllowsAllRolesWithoutOnboardingOrVerifiedEmail() throws Exception {
         for (Role role : Role.values()) {
-            when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, role, false, false)));
+            when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, role, false, false, role == Role.STUDENT)));
             mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token("forgedRole")))
                     .andExpect(status().isOk())
                     .andExpect(content().json("{\"id\":\"1\",\"role\":\"" + role.name()
@@ -246,8 +264,8 @@ class SecurityBoundaryTests {
 
     @Test void currentAccountPreservesLargeIdAndFreshDatabaseState() throws Exception {
         when(accounts.findById(Long.MAX_VALUE)).thenReturn(
-                Optional.of(new AccountSnapshot(Long.MAX_VALUE, Role.STUDENT, false, false)),
-                Optional.of(new AccountSnapshot(Long.MAX_VALUE, Role.ADMIN, false, true)));
+                Optional.of(new AccountSnapshot(Long.MAX_VALUE, Role.STUDENT, false, false, true)),
+                Optional.of(new AccountSnapshot(Long.MAX_VALUE, Role.ADMIN, false, true, false)));
         String bearer = "Bearer " + token("maxId");
         mvc.perform(get("/api/v1/users/me").header("Authorization", bearer)).andExpect(status().isOk())
                 .andExpect(content().json("{\"id\":\"9223372036854775807\",\"role\":\"STUDENT\",\"emailVerified\":false}", org.springframework.test.json.JsonCompareMode.STRICT));
@@ -282,7 +300,7 @@ class SecurityBoundaryTests {
 
     @Test void currentAccountMissingAndLockedPrecedeInputValidation() throws Exception {
         for (var account : List.of(Optional.<AccountSnapshot>empty(),
-                Optional.of(new AccountSnapshot(1L, Role.STUDENT, true, true)))) {
+                Optional.of(new AccountSnapshot(1L, Role.STUDENT, true, true, false)))) {
             when(accounts.findById(1L)).thenReturn(account);
             mvc.perform(get("/api/v1/users/me?userId=2").content("{}")
                     .header("Authorization", "Bearer " + token("valid"))).andExpect(status().isUnauthorized())

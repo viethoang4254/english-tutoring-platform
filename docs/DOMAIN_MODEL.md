@@ -778,3 +778,27 @@ implementation remain unchanged.
 Follow the approved development order and remaining physical, UI/UX and API gates
 before dependent implementation. This reconciliation does not authorize Flyway or
 other implementation/testing/deployment work.
+
+### Approved Student registration extension — username and phone (2026-10-14)
+
+User gains an optional persisted username; users.phone remains optional in the
+shared model. New Student registration requires both, without imposing completion
+on historical Users or changing Teacher/Admin creation. Username is a canonical,
+globally unique handle, not a login identifier or authorization claim. Phone is
+normalized, nonunique and unverified. Existing identity, role, eligibility and
+TeacherProfile/application relationships remain unchanged.
+
+### Approved new-Student immediate-login policy — 2026-10-15
+
+New Student registration sets users.student_login_without_verification=true while
+email_verified remains false. Login eligibility is distinct from proof of email
+ownership. V4 adds this NOT NULL boolean with DEFAULT false and a CHECK that only
+STUDENT accounts may have it true; existing accounts are not opted in or backfilled.
+Username presence never grants eligibility. Login and refresh require an unlocked
+account and either verified email or this explicit Student policy. Current-account
+JWT resolution also rejects Students who no longer satisfy that policy. Teacher and
+Admin authentication/authorization and Teacher verification/onboarding are unchanged.
+Student registration creates no verification credential, sends no email, returns
+verificationRequired=false and navigates to /login. Email-only login, username/phone
+validation and safe generic email/username conflict handling remain unchanged.
+V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.

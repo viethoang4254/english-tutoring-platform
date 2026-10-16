@@ -17,6 +17,8 @@ public class TeacherReviewExceptionHandler {
             case ONBOARDING_NOT_FOUND -> error(404, "ONBOARDING_APPLICATION_NOT_FOUND");
             case NOT_FOUND -> error(404, "APPLICATION_NOT_FOUND");
             case ALREADY_REVIEWED -> error(409, "APPLICATION_ALREADY_REVIEWED");
+            case ALREADY_PENDING -> error(409, "APPLICATION_ALREADY_PENDING");
+            case RESUBMISSION_NOT_ALLOWED -> error(409, "RESUBMISSION_NOT_ALLOWED");
             case PROFILE_EXISTS -> error(409, "TEACHER_PROFILE_CONFLICT");
             case INVALID_APPLICANT -> error(409, "APPLICATION_NOT_REVIEWABLE");
             case INVALID_REQUEST -> error(400, "INVALID_REQUEST");

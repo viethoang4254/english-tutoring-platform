@@ -1,5 +1,6 @@
 "use client";
 
+import { SessionProvider } from "../features/auth/session-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 
@@ -8,7 +9,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <SessionProvider>{children}</SessionProvider>
     </QueryClientProvider>
   );
 }

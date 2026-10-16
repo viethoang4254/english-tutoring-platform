@@ -43,6 +43,13 @@ class DatabaseMigrationTests {
                     """).isEmpty(), "Database must be empty; no cleaning or baselining is permitted");
         }
 
+        Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration")
+                .target("3").cleanDisabled(true).load().migrate();
+        try (var c = DriverManager.getConnection(url, user, password); var st = c.createStatement()) {
+            st.executeUpdate("INSERT INTO users(id,email,password_hash,full_name,role,created_at,updated_at) "
+                    + "VALUES (-100,'legacy@example.invalid','test','Legacy','STUDENT',now(),now())");
+        }
+
         for (int run = 0; run < 2; run++) {
             try (var context = new SpringApplicationBuilder(EnglishLearningApplication.class)
                     .web(WebApplicationType.NONE)
@@ -53,13 +60,13 @@ class DatabaseMigrationTests {
                  var connection = DriverManager.getConnection(url, user, password)) {
                 var flyway = context.getBean(Flyway.class);
                 flyway.validate();
-                assertEquals("2", flyway.info().current().getVersion().getVersion());
-                assertEquals(0, flyway.migrate().migrationsExecuted, "V1 and V2 must not run twice");
+                assertEquals("5", flyway.info().current().getVersion().getVersion());
+                assertEquals(0, flyway.migrate().migrationsExecuted, "Migrations must not run twice");
                 assertEquals(TABLES, strings(connection, """
                         SELECT tablename FROM pg_tables
                         WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'
                         """));
-                assertEquals(Set.of("1:1:V1__initial_schema.sql:true", "2:2:V2__create_teacher_certificates.sql:true"), strings(connection,
+                assertEquals(Set.of("1:1:V1__initial_schema.sql:true", "2:2:V2__create_teacher_certificates.sql:true", "3:3:V3__add_user_username.sql:true", "4:4:V4__add_student_login_policy.sql:true", "5:5:V5__add_password_reset_attempts.sql:true"), strings(connection,
                         "SELECT installed_rank || ':' || version || ':' || script || ':' || success FROM public.flyway_schema_history"));
                 assertEquals(Set.of("23"), strings(connection, """
                         SELECT count(*)::text FROM pg_constraint
@@ -84,7 +91,11 @@ class DatabaseMigrationTests {
                     verifyConstraintsWithoutLeavingData(connection);
                     verifyCertificatesWithoutLeavingData(connection);
                 }
-                assertEquals(Set.of("0"), strings(connection, "SELECT count(*)::text FROM public.users"));
+                assertEquals(Set.of("1"), strings(connection, "SELECT count(*)::text FROM public.users"));
+                assertEquals(Set.of("true"), strings(connection,
+                        "SELECT (username IS NULL AND phone IS NULL AND NOT student_login_without_verification AND NOT email_verified)::text FROM users WHERE id=-100"));
+                assertTrue(strings(connection,"SELECT conname FROM pg_constraint WHERE conrelid='users'::regclass")
+                        .containsAll(Set.of("uq_users_username", "ck_users_username_format", "ck_users_student_login_policy")));
             }
         }
     }
@@ -185,7 +196,17 @@ class DatabaseMigrationTests {
                         recipient_account_number,recipient_account_holder,requested_at,created_at,updated_at)
                     VALUES (1,1,100,'Test','PENDING','TEST','TEST','Test',now(),now(),now());
                     """);
+            execute(c, "UPDATE users SET username='student_01',phone='+84912345678' WHERE id=1");
+            reject(c, "UPDATE users SET username='student_01' WHERE id=2", "23505", "uq_users_username");
+            for (String invalid : new String[]{"ab", "Astudent", "1student", "student-name", "a".repeat(31)}) {
+                reject(c, "UPDATE users SET username='"+invalid+"' WHERE id=2", "23514", "ck_users_username_format");
+            }
+            execute(c, "UPDATE users SET username=NULL,phone='+84912345678' WHERE id=2");
             reject(c, "UPDATE public.users SET email=' Teacher@example.test ' WHERE id=1", "23514", "ck_users_email_canonical");
+            reject(c, "UPDATE users SET student_login_without_verification=true WHERE id=1", "23514", "ck_users_student_login_policy");
+            reject(c, "UPDATE users SET student_login_without_verification=NULL WHERE id=2", "23502", "student_login_without_verification");
+            execute(c, "UPDATE users SET student_login_without_verification=true WHERE id=2");
+            assertEquals(Set.of("false"), strings(c, "SELECT email_verified::text FROM users WHERE id=2"));
             reject(c, "UPDATE public.users SET email='student@example.test' WHERE id=1", "23505", "uq_users_email");
             reject(c, "UPDATE public.courses SET tuition='NaN' WHERE id=1", "23514", "ck_courses_tuition");
             reject(c, "UPDATE public.courses SET currency='USD' WHERE id=1", "23514", "ck_courses_currency");

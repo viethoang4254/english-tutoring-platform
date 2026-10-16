@@ -81,8 +81,8 @@ controls remain gated.
 **Main Success Flow:**
 
 1. Canonicalize and validate permitted account information and protect the password.
-2. Assign exactly STUDENT through the backend and initiate purpose-bound email verification.
-3. Return the permitted outcome without granting Teacher authority.
+2. Assign exactly STUDENT through the backend, preserve email_verified=false and set the explicit Student login policy. Do not create or send a verification credential.
+3. Return 201 verificationRequired=false, navigate to /login with a Vietnamese success notice, and allow email/password login without granting Teacher authority.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
@@ -145,6 +145,12 @@ text is preserved without trimming or invented fixed lengths.
    or lock state does not hide pending applications. Summaries expose only id, teacherId,
    status and submittedAt; existing detail/review operations provide further authorized work.
    The read-only queue does not reserve applications; concurrent review can shift pages.
+8. A verified, unlocked Teacher may resubmit their latest REJECTED application under
+   API_DESIGN Section 3.8, supplying fresh specialization, teachingExperience and introduction.
+   The target ID must belong to the authenticated Teacher; pending/approved onboarding or
+   an existing profile prevents resubmission. Lock/recheck and insert one new PENDING snapshot
+   atomically; preserve all reviewed history. Return 201 with the safe own-status projection
+   only after commit. No cooldown/attempt cap, automatic retry, email or authentication issuance.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
@@ -158,12 +164,12 @@ Reviewed snapshots remain separate from the current profile.
 
 **Business Rule Traceability:** `BR-AUTHN-024`, `BR-AUTHN-020`.
 
-**Implementation boundary:** API_DESIGN Sections 3.4–3.7 define registration,
-bounded Admin detail/approve/reject, pending queue and own onboarding-status contracts. Unauthorized access is denied before
+**Implementation boundary:** API_DESIGN Sections 3.4–3.8 define registration,
+bounded Admin detail/approve/reject, pending queue, own status and resubmission contracts. Unauthorized access is denied before
 protected disclosure; unknown applications return 404 and existing-profile conflicts
 return a distinct 409. Database failures do not produce a successful response or expose
-internal details. Resubmission and frontend onboarding
-remain excluded; no identity-document workflow is introduced.
+internal details. Resubmission follows Section 3.8; corresponding browser onboarding/review
+follows Section 3.9; no identity-document workflow is introduced.
 
 ---
 
@@ -319,8 +325,9 @@ the current session preserved.
 
 **Business Rule Traceability:** `BR-AUTHN-013`.
 
-**Decision Gates / Deferred Details:** Password policy and transport; approved session
-invalidation is settled.
+**Approved operation details:** See the TASK-008 logged-in change-password contract below
+and API_DESIGN.md. Bearer JWT, current refresh cookie and CSRF are required; the existing
+password policy applies. All outstanding recovery OTPs are invalidated atomically.
 
 ---
 
@@ -1622,3 +1629,37 @@ TASK_BREAKDOWN.md, FEATURE_STATUS.md and README.md require separately approved
 reconciliation where affected. Existing downstream references do not reactivate
 retired IDs or validate their old context. This change does not repair them,
 reset completed infrastructure evidence or begin the next documentation stage.
+
+
+### UC-AUTH-FORGOT-PASSWORD-01 / UC-AUTH-RESET-PASSWORD-01 — approved OTP detail
+
+The account holder requests recovery by email, receives a neutral acknowledgement and may
+receive a six-digit SMTP code. They enter email, code and a new password on `/reset-password`.
+The latest code expires after 15 minutes and allows at most five incorrect attempts. Resend
+uses the approved 60-second/five-per-day issuance limits and invalidates previous codes.
+A successful reset preserves account eligibility/ownership state, revokes all refresh sessions
+and returns to `/login` without automatic authentication. SMTP failures do not undo persisted
+issuance or disclose account existence. Safe invalid-code responses do not distinguish expiry,
+replay, exhaustion, wrong code or unknown account. See the API contract for transaction rules.
+
+
+### TASK-008 logged-in change-password UI contract (approved 2026-10-16)
+
+On `/account`, an eligible authenticated User opens “Đổi mật khẩu”, supplies current
+password, new password and confirmation, and explicitly submits. Confirmation is checked
+only in the frontend. The backend validates JWT, CSRF and the account-owned current refresh
+session before changing credentials. Success preserves that session without extending it,
+revokes others and invalidates recovery OTPs atomically. The UI clears password inputs and
+reports success; it prevents duplicate submissions and does not refresh/retry automatically.
+Failures use safe Vietnamese messages. A 401 clears in-memory authentication. An uncertain
+outcome must not be presented as success. Existing forgot-password OTP recovery is unchanged.
+
+
+### TASK-009 bounded Student profile interaction (approved 2026-10-16)
+
+An authenticated eligible Student opens `/account`, loads private profile information and
+chooses “Chỉnh sửa thông tin”. They edit name/phone, cancel locally, or save explicitly.
+Backend identity and current account state authorize the atomic update. Success displays
+persisted normalized values; errors display safe Vietnamese messages. Uncertain results
+require reload before another save. Historical null values have explicit empty states.
+Username/email/verification status are read-only. Existing Change Password remains separate.

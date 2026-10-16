@@ -19,7 +19,7 @@ final class BrowserSecurityFilters {
         var configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(browser.origins());
         configuration.setAllowCredentials(true);
-        configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-XSRF-TOKEN"));
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

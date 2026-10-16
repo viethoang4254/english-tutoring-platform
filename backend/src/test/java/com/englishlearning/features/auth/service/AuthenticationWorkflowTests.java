@@ -24,7 +24,7 @@ class AuthenticationWorkflowTests {
     final TransactionStatus tx = new SimpleTransactionStatus();
     final RefreshTokens tokens = new RefreshTokens();
     final Instant now = Instant.parse("2026-10-12T00:00:00Z");
-    final CredentialSnapshot account = new CredentialSnapshot(1L, "a@example.invalid", "HASH", false, true);
+    final CredentialSnapshot account = new CredentialSnapshot(1L, "a@example.invalid", "HASH", false, true, com.englishlearning.features.user.entity.User.Role.STUDENT, false);
     final String raw = " valid password ";
     AuthenticationWorkflowService workflow;
     String refresh;
@@ -41,6 +41,7 @@ class AuthenticationWorkflowTests {
                 Duration.ofDays(7), manager);
         workflow = new AuthenticationWorkflowService(users, sessions, passwords, issuer);
         refresh = tokens.generate();
+        when(repository.findOwner(anyString())).thenReturn(Optional.of(1L));
         when(repository.lockByTokenHash(tokens.hash(refresh))).thenReturn(Optional.of(
                 new RefreshSession(1L, tokens.hash(refresh), now.minusSeconds(10), now.plusSeconds(10))));
     }
@@ -83,10 +84,24 @@ class AuthenticationWorkflowTests {
         failure(AuthenticationFailure.Reason.INVALID_CREDENTIAL, () -> workflow.login("a", "short"));
         verifyNoInteractions(users, issuer, repository, manager);
     }
+    @Test void explicitPolicyOnlyAllowsUnlockedStudentsAndNeverProvesEmailOwnership() {
+        for (var role : com.englishlearning.features.user.entity.User.Role.values()) {
+            var current=new CredentialSnapshot(1L,account.email(),"HASH",false,false,role,true);
+            if (role == com.englishlearning.features.user.entity.User.Role.STUDENT) {
+                assertDoesNotThrow(()->AuthenticationEligibility.requireLogin(current));
+                assertDoesNotThrow(()->AuthenticationEligibility.require(current));
+                assertFalse(current.emailVerified());
+            } else {
+                assertThrows(AuthenticationFailure.class,()->AuthenticationEligibility.requireLogin(current));
+                assertThrows(AuthenticationFailure.class,()->AuthenticationEligibility.require(current));
+            }
+        }
+    }
+
     @Test void missingLockedAndUnverifiedAccountsAreRejectedOnRecheck() {
         for (var current : java.util.List.of(Optional.<CredentialSnapshot>empty(),
-                Optional.of(new CredentialSnapshot(1L, account.email(), "HASH", true, true)),
-                Optional.of(new CredentialSnapshot(1L, account.email(), "HASH", false, false)))) {
+                Optional.of(new CredentialSnapshot(1L, account.email(), "HASH", true, true, com.englishlearning.features.user.entity.User.Role.STUDENT, false)),
+                Optional.of(new CredentialSnapshot(1L, account.email(), "HASH", false, false, com.englishlearning.features.user.entity.User.Role.STUDENT, false)))) {
             when(users.lockById(1L)).thenReturn(current);
             failure(current.isPresent() && !current.get().locked() && !current.get().emailVerified()
                     ? AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED
@@ -98,8 +113,8 @@ class AuthenticationWorkflowTests {
     }
     @Test void changedPasswordOrEmailCannotIssueFromStaleCredentialCheck() {
         for (var current : java.util.List.of(
-                new CredentialSnapshot(1L, account.email(), "NEW HASH", false, true),
-                new CredentialSnapshot(1L, "changed@example.invalid", "HASH", false, true))) {
+                new CredentialSnapshot(1L, account.email(), "NEW HASH", false, true, com.englishlearning.features.user.entity.User.Role.STUDENT, false),
+                new CredentialSnapshot(1L, "changed@example.invalid", "HASH", false, true, com.englishlearning.features.user.entity.User.Role.STUDENT, false))) {
             when(users.lockById(1L)).thenReturn(Optional.of(current));
             failure(AuthenticationFailure.Reason.INVALID_CREDENTIAL, () -> workflow.login("a", raw));
         }
@@ -107,8 +122,8 @@ class AuthenticationWorkflowTests {
     }
     @Test void initiallyIneligibleAccountNeverSigns() {
         for (var current : java.util.List.of(
-                new CredentialSnapshot(1L, account.email(), "HASH", true, true),
-                new CredentialSnapshot(1L, account.email(), "HASH", false, false))) {
+                new CredentialSnapshot(1L, account.email(), "HASH", true, true, com.englishlearning.features.user.entity.User.Role.STUDENT, false),
+                new CredentialSnapshot(1L, account.email(), "HASH", false, false, com.englishlearning.features.user.entity.User.Role.STUDENT, false))) {
             when(users.findByEmail(any())).thenReturn(Optional.of(current));
             failure(current.locked() ? AuthenticationFailure.Reason.INVALID_CREDENTIAL
                     : AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED, () -> workflow.login("a", raw));
@@ -119,15 +134,16 @@ class AuthenticationWorkflowTests {
         var result = workflow.refresh(refresh);
         assertNotNull(result);
         var order = inOrder(repository, users, issuer, manager);
-        order.verify(repository).lockByTokenHash(tokens.hash(refresh));
+        order.verify(repository).findOwner(tokens.hash(refresh));
         order.verify(users).lockById(1L);
+        order.verify(repository).lockByTokenHash(tokens.hash(refresh));
         order.verify(issuer).issue(1L);
         order.verify(repository).saveAndFlush(any());
         order.verify(manager).commit(tx);
     }
     @Test void refreshIneligibilityAndMalformedCredentialsNeverSign() {
         when(users.lockById(1L)).thenReturn(Optional.of(
-                new CredentialSnapshot(1L, account.email(), "HASH", false, false)));
+                new CredentialSnapshot(1L, account.email(), "HASH", false, false, com.englishlearning.features.user.entity.User.Role.STUDENT, false)));
         failure(AuthenticationFailure.Reason.INVALID_CREDENTIAL, () -> workflow.refresh(refresh));
         failure(AuthenticationFailure.Reason.INVALID_CREDENTIAL, () -> workflow.refresh("bad"));
         verifyNoInteractions(issuer);

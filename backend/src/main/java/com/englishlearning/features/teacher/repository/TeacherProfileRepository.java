@@ -6,6 +6,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.*;
 
 public interface TeacherProfileRepository extends Repository<TeacherProfile, Long> {
+    boolean existsById(Long teacherId);
     // Insert-only: even an unexpected concurrent creator must never be overwritten.
     @Modifying
     @Query(value = "INSERT INTO public.teacher_profiles "

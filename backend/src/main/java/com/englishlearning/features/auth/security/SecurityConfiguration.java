@@ -79,7 +79,7 @@ public class SecurityConfiguration {
 
     @Bean
     @org.springframework.core.annotation.Order(1)
-    SecurityFilterChain authenticationHttp(HttpSecurity http, BrowserAuthSettings browser, JsonMapper mapper)
+    SecurityFilterChain authenticationHttp(HttpSecurity http, BrowserAuthSettings browser, JsonMapper mapper, JwtDecoder decoder, CurrentAccountAuthenticationConverter accounts)
             throws Exception {
         var repository = new org.springframework.security.web.csrf.CookieCsrfTokenRepository();
         repository.setCookiePath(BrowserAuthSettings.PATH);
@@ -106,15 +106,26 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/auth/password/change").hasAnyRole("STUDENT","TEACHER","ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout",
                                 "/api/v1/auth/register/student", "/api/v1/auth/register/teacher",
                                 "/api/v1/auth/email-verification",
-                                "/api/v1/auth/email-verification/resend").permitAll()
+                                "/api/v1/auth/email-verification/resend",
+                                "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset").permitAll()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper))
                         .accessDeniedHandler(ApiSecurityErrors.forbidden(mapper)));
+        var bearer=new DefaultBearerTokenResolver();
+        var provider = new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider(decoder);
+        provider.setJwtAuthenticationConverter(accounts);
+        var filter = new org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter(
+                new org.springframework.security.authentication.ProviderManager(provider));
+        filter.setBearerTokenResolver(request -> "POST".equals(request.getMethod()) && "/api/v1/auth/password/change".equals(request.getRequestURI().substring(request.getContextPath().length())) ? bearer.resolve(request) : null);
+        filter.setAuthenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper));
+        // Resource Server's DSL exempts Bearer requests from CSRF; this cookie-backed operation must retain it.
+        http.addFilterAt(filter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 
@@ -140,6 +151,10 @@ public class SecurityConfiguration {
                         .access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/onboarding")
                         .access(SecurityConfiguration::verifiedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/applications/{applicationId}/resubmit")
+                        .access(SecurityConfiguration::verifiedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me/profile").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/users/me/profile").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me")
                         .hasAnyRole("STUDENT", "TEACHER", "ADMIN")
                         .anyRequest().denyAll())

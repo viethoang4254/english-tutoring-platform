@@ -27,6 +27,9 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
         "spring.flyway.enabled=false"})
 abstract class AuthenticationHttpTestSupport {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -34,6 +37,10 @@ abstract class AuthenticationHttpTestSupport {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherOnboardingService teacherOnboarding;
     @MockitoBean RegistrationService registration;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.service.PasswordRecoveryService recovery;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.auth.repository.PasswordResetRepository resetRepository;
     @MockitoBean UserCredentialRepository credentials;
     @MockitoBean CurrentAccountService accounts;
     @MockitoBean RefreshSessionService sessions;

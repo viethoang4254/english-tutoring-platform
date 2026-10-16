@@ -38,17 +38,18 @@ public class RegistrationService {
         this.mail = mail; this.clock = clock; transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
-    public void register(String email, String password, String fullName) {
+    public void register(String email, String password, String fullName, String username, String phone) {
+        String handle = com.englishlearning.features.auth.security.StudentRegistrationInput.username(username);
+        String mobile = com.englishlearning.features.auth.security.StudentRegistrationInput.phone(phone);
         PasswordInput.validate(password);
         String canonical = canonical(email);
         String hash = passwords.encode(password);
-        Delivery delivery = committed(() -> {
+        committed(() -> {
             Instant now = now();
-            Long id = users.createStudent(canonical, hash, fullName, now)
+            users.createStudent(canonical, hash, fullName, handle, mobile, now)
                     .orElseThrow(() -> failure(VerificationFailure.Reason.CONFLICT));
-            return issue(id, canonical, now);
+            return null;
         });
-        deliver(delivery);
     }
     public void registerTeacher(String email, String password, String fullName,
             String specialization, String teachingExperience, String introduction) {
@@ -116,6 +117,8 @@ public class RegistrationService {
             return transaction.execute(status -> {
                 T result = work.get(); credentials.flush(); flushed[0] = true; return result;
             });
+        } catch (com.englishlearning.features.user.service.RegistrationConflict conflict) {
+            throw failure(VerificationFailure.Reason.CONFLICT);
         } catch (VerificationFailure failure) { throw failure; }
         catch (RuntimeException exception) {
             if (flushed[0]) throw failure(VerificationFailure.Reason.OUTCOME_UNKNOWN);

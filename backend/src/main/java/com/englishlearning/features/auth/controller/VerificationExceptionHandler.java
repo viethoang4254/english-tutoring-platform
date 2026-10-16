@@ -7,15 +7,15 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = {StudentRegistrationController.class, TeacherRegistrationController.class})
+@RestControllerAdvice(assignableTypes = {StudentRegistrationController.class, TeacherRegistrationController.class, PasswordRecoveryController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class VerificationExceptionHandler {
     @ExceptionHandler(VerificationFailure.class)
-    ResponseEntity<ApiError> failure(VerificationFailure failure) {
+    ResponseEntity<ApiError> failure(VerificationFailure failure, jakarta.servlet.http.HttpServletRequest request) {
         int status; String code, message;
         switch (failure.reason()) {
             case CONFLICT -> { status = 409; code = "REGISTRATION_CONFLICT"; message = "Registration conflicts with an existing account."; }
-            case INVALID -> { status = 400; code = "INVALID_VERIFICATION_CREDENTIAL"; message = "Invalid verification credential."; }
+            case INVALID -> { status = 400; code = request.getRequestURI().startsWith("/api/v1/auth/password/") ? "INVALID_RESET_CREDENTIAL" : "INVALID_VERIFICATION_CREDENTIAL"; message = "Invalid credential."; }
             case RATE_LIMITED -> { status = 429; code = "VERIFICATION_RATE_LIMITED"; message = "Verification resend limit reached."; }
             case DELIVERY -> { status = 503; code = "VERIFICATION_DELIVERY_UNAVAILABLE"; message = "Email delivery failed; any created account remains unverified. Request a resend after the cooldown."; }
             case UNAVAILABLE -> { status = 503; code = "AUTHENTICATION_UNAVAILABLE"; message = "Authentication temporarily unavailable."; }

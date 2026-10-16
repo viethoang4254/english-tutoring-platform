@@ -14,7 +14,7 @@ class TeacherApplicationQueueTests {
     final CurrentAccountService accounts=mock(CurrentAccountService.class);
     final TeacherApplicationReviewService service=new TeacherApplicationReviewService(applications,
             mock(TeacherProfileRepository.class),mock(UserCredentialService.class),accounts,Clock.systemUTC());
-    void admin() { when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true))); }
+    void admin() { when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true, false))); }
     @Test void fetchesOneExtraWithoutCountsOrApplicantLookups() {
         admin();
         var row=mock(TeacherApplicationRepository.PendingRow.class);
@@ -40,9 +40,9 @@ class TeacherApplicationQueueTests {
         verifyNoInteractions(applications);
     }
     @Test void currentReviewerRestrictionsApplyBeforeQuery() {
-        for(var state:List.of(Optional.<AccountSnapshot>empty(),Optional.of(new AccountSnapshot(12L,Role.STUDENT,false,true)),
-                Optional.of(new AccountSnapshot(12L,Role.TEACHER,false,true)),Optional.of(new AccountSnapshot(12L,Role.ADMIN,true,true)),
-                Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,false)))) {
+        for(var state:List.of(Optional.<AccountSnapshot>empty(),Optional.of(new AccountSnapshot(12L,Role.STUDENT,false,true, false)),
+                Optional.of(new AccountSnapshot(12L,Role.TEACHER,false,true, false)),Optional.of(new AccountSnapshot(12L,Role.ADMIN,true,true, false)),
+                Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,false, false)))) {
             when(accounts.findById(12L)).thenReturn(state);
             assertEquals(TeacherReviewFailure.Reason.DENIED,
                     assertThrows(TeacherReviewFailure.class,()->service.pending(12L,0,20)).reason());

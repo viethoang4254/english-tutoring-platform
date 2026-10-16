@@ -10,6 +10,15 @@ import org.springframework.mail.javamail.JavaMailSender;
 
 class SmtpVerificationMailTests {
     @SuppressWarnings("unchecked")
+    @Test void resetMessageContainsCodeAndFifteenMinuteExpiry() {
+        ObjectProvider<JavaMailSender> provider=mock(ObjectProvider.class);
+        JavaMailSender sender=mock(JavaMailSender.class);when(provider.getIfAvailable()).thenReturn(sender);
+        new SmtpVerificationMail(provider,"noreply@example.invalid").sendReset("account@example.invalid","test-code");
+        var message=ArgumentCaptor.forClass(SimpleMailMessage.class);verify(sender).send(message.capture());
+        assertTrue(message.getValue().getText().contains("test-code"));
+        assertTrue(message.getValue().getText().contains("15 phút"));
+    }
+    @SuppressWarnings("unchecked")
     @Test void sendsOnlyThroughMailAdapterAndSanitizesFailures() {
         ObjectProvider<JavaMailSender> provider=mock(ObjectProvider.class);
         JavaMailSender sender=mock(JavaMailSender.class); when(provider.getIfAvailable()).thenReturn(sender);
