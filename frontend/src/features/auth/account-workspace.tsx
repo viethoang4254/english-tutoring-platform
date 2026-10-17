@@ -147,7 +147,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
       </section>}
     </> : <>
       <p>Đã đăng nhập với vai trò {roleLabels[session.account.role]}.</p>
-      {session.account.role === "STUDENT" && <StudentProfile session={session} />}
+      {(session.account.role === "STUDENT" || session.account.role === "TEACHER") && <StudentProfile session={session} />}
       <ChangePassword session={session} />
 
       {session.account.role === "ADMIN" && session.account.emailVerified &&

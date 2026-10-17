@@ -28,6 +28,6 @@ public class StudentProfileService {
     }
     private void check(AccountSnapshot account){
         if(account==null || !account.loginEligible())throw new ProfileFailure(ProfileFailure.Reason.UNAUTHENTICATED);
-        if(account.role()!=Role.STUDENT)throw new ProfileFailure(ProfileFailure.Reason.DENIED);
+        if(account.role()!=Role.STUDENT && account.role()!=Role.TEACHER)throw new ProfileFailure(ProfileFailure.Reason.DENIED);
     }
 }

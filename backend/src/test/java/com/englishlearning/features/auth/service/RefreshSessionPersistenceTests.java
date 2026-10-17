@@ -54,7 +54,9 @@ class RefreshSessionPersistenceTests {
         username = System.getenv("TASK007_TEST_USER");
         password = System.getenv("TASK007_TEST_PASSWORD");
         assertTrue("jdbc:postgresql://127.0.0.1:55432/task007_refresh".equals(url)
-                || "jdbc:postgresql://127.0.0.1:55434/task007_profile_acceptance".equals(url));
+                || "jdbc:postgresql://127.0.0.1:55434/task007_profile_acceptance".equals(url)
+                || "jdbc:postgresql://127.0.0.1:55434/task009_teacher_profile_acceptance".equals(url)
+                || "jdbc:postgresql://127.0.0.1:55434/task009_teacher_profile_memorysafe".equals(url));
         assertEquals("task007_test", username);
         assertNotNull(password);
         try (var c = connection(); var st = c.createStatement();
@@ -494,6 +496,51 @@ class RefreshSessionPersistenceTests {
         assertEquals("+84912345678",profiles.update(id,Map.of("phone","0912345678")).phone());assertEquals(before,credentials.findByEmail(email).orElseThrow());
         assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.update(id,Map.of("fullName","Should rollback","phone","bad")));assertEquals(" Preserved name ",profiles.read(id).fullName());
         var tx=new org.springframework.transaction.support.TransactionTemplate(manager);assertThrows(IllegalStateException.class,()->tx.execute(status->{profiles.update(id,Map.of("fullName","Rollback"));throw new IllegalStateException("rollback");}));assertEquals(" Preserved name ",profiles.read(id).fullName());
+    }
+    @Test void teacherPersonalProfilePreservesEveryOnboardingStateAndSecurity() throws Exception {
+        var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);
+        for(String state:List.of("PENDING","REJECTED","APPROVED")){
+            long application=pendingApplication(),teacher=applicant(application);
+            if(!state.equals("PENDING"))reviews().review(12L,application,state.equals("APPROVED"),state.equals("REJECTED")?" reason ":null);
+            assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.read(teacher));
+            execute("UPDATE public.users SET email_verified=true WHERE id="+teacher);
+            var accountBefore=accounts.findById(teacher).orElseThrow();var applicationBefore=reviews().detail(12L,application);
+            String securityBefore=rowJson("users", "id="+teacher,"'full_name','phone','updated_at'");
+            String teachingBefore=rowJson("teacher_profiles","teacher_id="+teacher,"'unused'");
+            assertNull(profiles.read(teacher).username());assertNull(profiles.read(teacher).phone());
+            var updated=profiles.update(teacher,Map.of("fullName"," Teacher name ","phone","0912345678"));
+            assertEquals(" Teacher name ",updated.fullName());assertEquals("+84912345678",updated.phone());
+            assertEquals(securityBefore,rowJson("users","id="+teacher,"'full_name','phone','updated_at'"));
+            assertEquals(teachingBefore,rowJson("teacher_profiles","teacher_id="+teacher,"'unused'"));
+            assertEquals(accountBefore,accounts.findById(teacher).orElseThrow());assertEquals(applicationBefore,reviews().detail(12L,application));
+            if(state.equals("APPROVED"))teacherEligibility().requireEligible(teacher);
+            else reviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED,()->teacherEligibility().requireEligible(teacher));
+            var tx=new org.springframework.transaction.support.TransactionTemplate(manager);
+            assertThrows(IllegalStateException.class,()->tx.execute(status->{profiles.update(teacher,Map.of("fullName","Rollback"));throw new IllegalStateException("rollback");}));
+            assertEquals(" Teacher name ",profiles.read(teacher).fullName());
+            execute("UPDATE public.users SET locked=true WHERE id="+teacher);
+            assertThrows(com.englishlearning.features.user.service.ProfileFailure.class,()->profiles.update(teacher,Map.of("fullName","Denied")));
+        }
+    }
+    String rowJson(String table,String predicate,String omitted) throws Exception {
+        try(var c=connection();var s=c.createStatement();var r=s.executeQuery("SELECT (to_jsonb(t)-ARRAY["+omitted+"])::text FROM public."+table+" t WHERE "+predicate)){
+            return r.next()?r.getString(1):null;
+        }
+    }
+    @Test void teacherProfileConcurrentUpdatesRemainPersonalAndOwned() throws Exception {
+        long application=pendingApplication(),teacher=applicant(application);
+        execute("UPDATE public.users SET email_verified=true WHERE id="+teacher);
+        var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);
+        String otherBefore=rowJson("users","id=11","'unused'");
+        var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        try{
+            var a=pool.submit(()->{start.await();return profiles.update(teacher,Map.of("fullName","Concurrent Teacher"));});
+            var b=pool.submit(()->{start.await();return profiles.update(teacher,Map.of("phone","0987654321"));});
+            start.countDown();a.get(15,TimeUnit.SECONDS);b.get(15,TimeUnit.SECONDS);
+            assertEquals("Concurrent Teacher",profiles.read(teacher).fullName());assertEquals("+84987654321",profiles.read(teacher).phone());
+            assertEquals(otherBefore,rowJson("users","id=11","'unused'"));assertEquals("PENDING",reviews().detail(12L,application).status());
+            assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+teacher));
+        }finally{pool.shutdownNow();}
     }
     @Test void profileConcurrentPartialUpdatesPreserveBothFields() throws Exception {
         String email=resetStudent();long id=credentials.findByEmail(email).orElseThrow().id();var profiles=context.getBean(com.englishlearning.features.user.service.StudentProfileService.class);var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);

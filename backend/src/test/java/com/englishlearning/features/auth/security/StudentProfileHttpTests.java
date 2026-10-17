@@ -23,8 +23,20 @@ class StudentProfileHttpTests extends AuthenticationHttpTestSupport {
   mvc.perform(options("/api/v1/users/me/profile").header("Origin",origin()).header("Access-Control-Request-Method","PATCH").header("Access-Control-Request-Headers","Authorization,Content-Type")).andExpect(status().isOk());
  }
  @Test void deniesWrongRolesLockedAndCookieOnly()throws Exception{
-  for(var role:new Role[]{Role.TEACHER,Role.ADMIN}){account(role,false);mvc.perform(get("/api/v1/users/me/profile").header("Authorization","Bearer access")).andExpect(status().isForbidden());}
+  account(Role.ADMIN,false);mvc.perform(get("/api/v1/users/me/profile").header("Authorization","Bearer access")).andExpect(status().isForbidden());
   account(Role.STUDENT,true);mvc.perform(get("/api/v1/users/me/profile").header("Authorization","Bearer access")).andExpect(status().isUnauthorized());mvc.perform(get("/api/v1/users/me/profile").cookie(new jakarta.servlet.http.Cookie("refresh_token",refresh))).andExpect(status().isUnauthorized());verifyNoInteractions(studentProfiles);
+ }
+ @Test void teacherCanUseOnlyOwnPersonalProfileRoutes()throws Exception{
+  account(Role.TEACHER,false);when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true,false)));
+  var dto=new StudentProfile(new ApiId(1L),"Teacher",null,"teacher@example.invalid",null,true);
+  when(studentProfiles.read(1L)).thenReturn(dto);when(studentProfiles.update(eq(1L),any())).thenReturn(dto);
+  mvc.perform(get("/api/v1/users/me/profile").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.emailVerified").value(true));
+  mvc.perform(patch("/api/v1/users/me/profile").header("Authorization","Bearer access").contentType(MediaType.APPLICATION_JSON).content("{\"phone\":\"0912345678\"}")).andExpect(status().isOk());
+  verify(studentProfiles).update(1L,java.util.Map.of("phone","0912345678"));
+  mvc.perform(get("/api/v1/users/me/profile?userId=2").header("Authorization","Bearer access")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/users/2/profile").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+  mvc.perform(get("/api/v1/teacher/courses").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+  account(Role.TEACHER,true);mvc.perform(patch("/api/v1/users/me/profile").header("Authorization","Bearer access").contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Denied\"}")).andExpect(status().isUnauthorized());
  }
  @Test void rejectsQueryAndPreservesSafeFailures()throws Exception{
   account(Role.STUDENT,false);mvc.perform(get("/api/v1/users/me/profile?userId=2").header("Authorization","Bearer access")).andExpect(status().isBadRequest());
