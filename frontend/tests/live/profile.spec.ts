@@ -40,9 +40,12 @@ async function register(request: APIRequestContext, teacher: boolean) {
 }
 
 for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
-  test(`live own profile ${state}`, async ({page, context, playwright}) => {
+  test(`live own profile ${state}`, async ({page, context, playwright}, testInfo) => {
+    const stage = (description: string) => { testInfo.annotations.push({type: 'task009-stage', description}); };
+    stage('registration');
     const teacher = state !== 'STUDENT';
     const account = await register(context.request, teacher);
+    stage('onboarding-review');
     if (state === 'REJECTED' || state === 'APPROVED') {
       const adminRequest = await playwright.request.newContext();
       try {
@@ -60,15 +63,23 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
         expect(result.status()).toBe(204);
       } finally { await adminRequest.dispose(); }
     }
+    stage('snapshot-before');
     const before = JSON.parse(fixture('fixture', {action: 'snapshot', id: account.id}));
     if (!teacher) expect(before.verificationCount).toBe(0);
+    stage('browser-login');
     await page.goto('/account');
     await page.getByLabel('Email', {exact: true}).fill(account.email);
     await page.getByLabel('Mật khẩu', {exact: true}).fill(account.password);
     await page.getByRole('button', {name: 'Đăng nhập', exact: true}).click();
     await expect(page.getByRole('button', {name: 'Chỉnh sửa thông tin'})).toBeVisible();
-    const cookiesBefore = (await context.cookies()).filter(c => c.httpOnly);
+    stage('refresh-cookie-before');
+    const cookiesBefore = (await context.cookies()).filter(c => c.name === 'refresh_token');
     expect(cookiesBefore.length).toBe(1);
+    expect(cookiesBefore[0].httpOnly).toBe(true);
+    expect(cookiesBefore[0].sameSite).toBe('Lax');
+    expect(cookiesBefore[0].path).toBe('/api/v1/auth');
+    expect(cookiesBefore[0].secure).toBe(false); // Approved loopback HTTP CI transport.
+    stage('profile-edit');
     let writes = 0;
     page.on('request', request => {
       if (request.method() === 'PATCH' && request.url().endsWith('/users/me/profile')) writes++;
@@ -87,6 +98,7 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
     expect(writes).toBe(0);
     await page.getByLabel('Họ và tên', {exact: true}).fill(' Hồ sơ mới ');
     await page.getByLabel('Số điện thoại', {exact: true}).fill('0987654321');
+    stage('profile-save');
     const saved = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith('/users/me/profile'));
     await page.getByRole('button', {name: 'Lưu thay đổi'}).evaluate((button: HTMLButtonElement) => {button.click(); button.click();});
     const response = await saved;
@@ -95,6 +107,7 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
     expect(Boolean((await response.request().allHeaders()).cookie)).toBe(false);
     await expect(page.getByText('Đã cập nhật thông tin cá nhân.')).toBeVisible();
     expect(writes).toBe(1);
+    stage('profile-persistence');
     const profile = await context.request.get(api + '/users/me/profile', {headers: account.headers});
     expect(profile.status()).toBe(200);
     const value = await profile.json();
@@ -104,7 +117,13 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
     expect(value.phone).toBe('+84987654321');
     expect(value.emailVerified).toBe(teacher);
     expect(JSON.parse(fixture('fixture', {action: 'snapshot', id: account.id}))).toEqual(before);
-    expect(JSON.stringify((await context.cookies()).filter(c => c.httpOnly)) === JSON.stringify(cookiesBefore)).toBe(true);
+    stage('refresh-cookie-after');
+    const cookiesAfter = (await context.cookies()).filter(c => c.name === 'refresh_token');
+    expect(cookiesAfter.length).toBe(1);
+    expect(cookiesAfter[0].value === cookiesBefore[0].value).toBe(true);
+    expect(cookiesAfter[0].expires).toBe(cookiesBefore[0].expires);
+    expect(JSON.stringify(cookiesAfter[0]) === JSON.stringify(cookiesBefore[0])).toBe(true);
+    stage('authorization-validation');
     for (const data of [{role: 'ADMIN'}, {emailVerified: true}, {fullName: null}, {}]) {
       expect((await context.request.patch(api + '/users/me/profile', {headers: account.headers, data})).status()).toBe(400);
     }
@@ -116,8 +135,10 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
       const onboarding = await context.request.get(api + '/teacher/onboarding', {headers: account.headers});
       expect((await onboarding.json()).status).toBe(state);
     }
+    stage('session-refresh');
     expect((await mutation(context.request, '/auth/refresh')).status()).toBe(200);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    stage('locked-account');
     fixture('fixture', {action: 'lock', id: account.id});
     expect((await context.request.get(api + '/users/me/profile', {headers: account.headers})).status()).toBe(401);
   });
