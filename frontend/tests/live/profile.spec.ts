@@ -1,0 +1,124 @@
+import {expect, test, type APIRequestContext} from '@playwright/test';
+import {execFileSync} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+import path from 'node:path';
+
+const api = 'http://127.0.0.1:8081/api/v1';
+const support = path.resolve(__dirname, '../../../ci/task009/run.py');
+function fixture(action: string, data: object): string {
+  try {
+    return execFileSync('python', [support, action], {input: JSON.stringify(data), encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'], timeout: 15_000}).trim();
+  } catch { throw new Error('Isolated fixture operation failed; private diagnostics withheld'); }
+}
+async function mutation(request: APIRequestContext, route: string, data?: object) {
+  const csrf = await request.get(api + '/auth/csrf');
+  expect(csrf.status()).toBe(200);
+  return request.post(api + route, {headers: {'X-XSRF-TOKEN': (await csrf.json()).token}, data});
+}
+async function register(request: APIRequestContext, teacher: boolean) {
+  const uuid = randomUUID();
+  const account = {email: `ci-${uuid}@example.invalid`, password: 'Test-' + randomUUID(), fullName: 'Hồ sơ kiểm thử'};
+  const response = await mutation(request, '/auth/register/' + (teacher ? 'teacher' : 'student'), {
+    ...account, ...(teacher ? {specialization: 'English', teachingExperience: 'Teaching snapshot', introduction: 'Original snapshot'} :
+      {username: 'u' + uuid.replaceAll('-', '').slice(0, 20), phone: '0912345678'}),
+  });
+  expect(response.status()).toBe(201);
+  expect((await response.json()).verificationRequired).toBe(teacher);
+  if (teacher) {
+    expect((await mutation(request, '/auth/login', {email: account.email, password: account.password})).status()).toBe(403);
+    const token = fixture('verification-code', {email: account.email});
+    expect((await mutation(request, '/auth/email-verification', {token})).status()).toBe(204);
+  }
+  const login = await mutation(request, '/auth/login', {email: account.email, password: account.password});
+  expect(login.status()).toBe(200);
+  const token: string = (await login.json()).accessToken;
+  const headers = {Authorization: 'Bearer ' + token};
+  const me = await request.get(api + '/users/me', {headers});
+  expect(me.status()).toBe(200);
+  return {...account, token, headers, id: (await me.json()).id as string};
+}
+
+for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
+  test(`live own profile ${state}`, async ({page, context, playwright}) => {
+    const teacher = state !== 'STUDENT';
+    const account = await register(context.request, teacher);
+    if (state === 'REJECTED' || state === 'APPROVED') {
+      const adminRequest = await playwright.request.newContext();
+      try {
+        const admin = await register(adminRequest, false);
+        fixture('fixture', {action: 'admin', id: admin.id});
+        const login = await mutation(adminRequest, '/auth/login', {email: admin.email, password: admin.password});
+        expect(login.status()).toBe(200);
+        const adminHeaders = {Authorization: 'Bearer ' + (await login.json()).accessToken};
+        expect((await adminRequest.get(api + '/users/me/profile', {headers: adminHeaders})).status()).toBe(403);
+        const onboarding = await context.request.get(api + '/teacher/onboarding', {headers: account.headers});
+        expect(onboarding.status()).toBe(200);
+        const id = (await onboarding.json()).applicationId;
+        const result = await adminRequest.post(`${api}/admin/teacher-applications/${id}/${state === 'APPROVED' ? 'approve' : 'reject'}`,
+          {headers: adminHeaders, ...(state === 'REJECTED' ? {data: {reason: 'Cần bổ sung thông tin'}} : {})});
+        expect(result.status()).toBe(204);
+      } finally { await adminRequest.dispose(); }
+    }
+    const before = JSON.parse(fixture('fixture', {action: 'snapshot', id: account.id}));
+    if (!teacher) expect(before.verificationCount).toBe(0);
+    await page.goto('/account');
+    await page.getByLabel('Email', {exact: true}).fill(account.email);
+    await page.getByLabel('Mật khẩu', {exact: true}).fill(account.password);
+    await page.getByRole('button', {name: 'Đăng nhập', exact: true}).click();
+    await expect(page.getByRole('button', {name: 'Chỉnh sửa thông tin'})).toBeVisible();
+    const cookiesBefore = (await context.cookies()).filter(c => c.httpOnly);
+    expect(cookiesBefore.length).toBe(1);
+    let writes = 0;
+    page.on('request', request => {
+      if (request.method() === 'PATCH' && request.url().endsWith('/users/me/profile')) writes++;
+    });
+    await page.getByRole('button', {name: 'Chỉnh sửa thông tin'}).click();
+    await page.getByLabel('Họ và tên', {exact: true}).fill('Discard');
+    await page.getByRole('button', {name: 'Hủy', exact: true}).click();
+    expect(writes).toBe(0);
+    await page.getByRole('button', {name: 'Chỉnh sửa thông tin'}).click();
+    const positions = await page.locator('.student-profile-grid label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().top));
+    expect(positions.length).toBe(2);
+    expect(page.viewportSize()!.width < 600 ? positions[1] > positions[0] : positions[1] === positions[0]).toBe(true);
+    await page.getByLabel('Số điện thoại', {exact: true}).fill('bad');
+    await page.getByRole('button', {name: 'Lưu thay đổi'}).click();
+    await expect(page.getByText('Số điện thoại không hợp lệ. Ví dụ: 0912345678.')).toBeVisible();
+    expect(writes).toBe(0);
+    await page.getByLabel('Họ và tên', {exact: true}).fill(' Hồ sơ mới ');
+    await page.getByLabel('Số điện thoại', {exact: true}).fill('0987654321');
+    const saved = page.waitForResponse(r => r.request().method() === 'PATCH' && r.url().endsWith('/users/me/profile'));
+    await page.getByRole('button', {name: 'Lưu thay đổi'}).evaluate((button: HTMLButtonElement) => {button.click(); button.click();});
+    const response = await saved;
+    expect(response.status()).toBe(200);
+    expect(response.headers()['cache-control']).toContain('no-store');
+    expect(Boolean((await response.request().allHeaders()).cookie)).toBe(false);
+    await expect(page.getByText('Đã cập nhật thông tin cá nhân.')).toBeVisible();
+    expect(writes).toBe(1);
+    const profile = await context.request.get(api + '/users/me/profile', {headers: account.headers});
+    expect(profile.status()).toBe(200);
+    const value = await profile.json();
+    expect(Object.keys(value).sort()).toEqual(['email', 'emailVerified', 'fullName', 'id', 'phone', 'username']);
+    expect(value.id === account.id && value.email === account.email).toBe(true);
+    expect(value.fullName).toBe(' Hồ sơ mới ');
+    expect(value.phone).toBe('+84987654321');
+    expect(value.emailVerified).toBe(teacher);
+    expect(JSON.parse(fixture('fixture', {action: 'snapshot', id: account.id}))).toEqual(before);
+    expect(JSON.stringify((await context.cookies()).filter(c => c.httpOnly)) === JSON.stringify(cookiesBefore)).toBe(true);
+    for (const data of [{role: 'ADMIN'}, {emailVerified: true}, {fullName: null}, {}]) {
+      expect((await context.request.patch(api + '/users/me/profile', {headers: account.headers, data})).status()).toBe(400);
+    }
+    expect((await context.request.get(api + '/users/me/profile?userId=1', {headers: account.headers})).status()).toBe(400);
+    expect((await context.request.get(api + '/users/me/profile')).status()).toBe(401);
+    const me = await context.request.get(api + '/users/me', {headers: account.headers});
+    expect(Object.keys(await me.json()).sort()).toEqual(['emailVerified', 'id', 'role']);
+    if (teacher) {
+      const onboarding = await context.request.get(api + '/teacher/onboarding', {headers: account.headers});
+      expect((await onboarding.json()).status).toBe(state);
+    }
+    expect((await mutation(context.request, '/auth/refresh')).status()).toBe(200);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    fixture('fixture', {action: 'lock', id: account.id});
+    expect((await context.request.get(api + '/users/me/profile', {headers: account.headers})).status()).toBe(401);
+  });
+}
