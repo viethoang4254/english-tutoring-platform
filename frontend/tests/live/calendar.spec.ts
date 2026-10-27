@@ -106,6 +106,9 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     stage('calendar-navigation');
     await calendar.getByRole('link',{name:'Xem và quản lý buổi học'}).first().click();
     await expect(page).toHaveURL(`http://127.0.0.1:3000/teacher/courses/${seeded.ownerCourse}?section=sessions`);
+    const sessions=page.getByRole('region',{name:'Lịch và buổi học',exact:true});
+    await expect(sessions).toBeVisible();
+    await sessions.getByRole('button',{name:'Tải lại lịch và buổi học',exact:true}).click();
     await expect(page.getByText('Buổi 1: CI Topic 1',{exact:true}).first()).toBeVisible();
     await page.getByRole('button',{name:'Xem buổi 1',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Chi tiết buổi 1',exact:true})).toBeVisible();
