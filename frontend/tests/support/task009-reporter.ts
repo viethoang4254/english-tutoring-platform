@@ -5,7 +5,10 @@ import path from 'node:path';
 const stages = new Set(['registration', 'onboarding-review', 'snapshot-before', 'browser-login',
   'refresh-cookie-before', 'profile-edit', 'profile-save', 'profile-persistence',
   'refresh-cookie-after', 'authorization-validation', 'session-refresh', 'locked-account',
-  'calendar-fixtures', 'calendar-api', 'calendar-browser', 'calendar-navigation', 'calendar-other-timezone']);
+  'calendar-fixtures', 'calendar-api', 'calendar-browser', 'calendar-navigation', 'calendar-other-timezone',
+  'calendar-browser-response', 'calendar-browser-render', 'calendar-http-200',
+  'calendar-http-400', 'calendar-http-401', 'calendar-http-403', 'calendar-http-404',
+  'calendar-http-500', 'calendar-http-503', 'calendar-http-other']);
 function safeLocation(location: TestCase['location'] | undefined): string {
   if (!location || !Number.isSafeInteger(location.line) || location.line < 1) return 'unavailable';
   for (const file of ['tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',

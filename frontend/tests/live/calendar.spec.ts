@@ -69,11 +69,25 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     stage('calendar-browser');
     // Anchor display date to fixture day, including CI runs near a month boundary.
     await page.clock.setFixedTime(new Date(iso(12)));
-    await page.goto('/login?next=/teacher/calendar');
+    const calendarResponse = page.waitForResponse(response =>
+      response.url().startsWith(api+'/teacher/calendar/sessions?') && response.request().method()==='GET');
+    await page.goto('/login');
     await page.getByLabel('Email',{exact:true}).fill(owner.email);
     await page.getByLabel('Mật khẩu',{exact:true}).fill(owner.password);
     await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-    await expect(page).toHaveURL(/\/teacher\/calendar$/);
+    await expect(page).toHaveURL('http://127.0.0.1:3000/teacher');
+    await teacherPanel(page,'Lịch dạy');
+    await expect(page).toHaveURL('http://127.0.0.1:3000/teacher/calendar');
+    stage('calendar-browser-response');
+    const response = await calendarResponse;
+    const status = response.status();
+    info.annotations.push({type:'task009-stage',description:status===200?'calendar-http-200':
+      [400,401,403,404,500,503].includes(status)?`calendar-http-${status}`:'calendar-http-other'});
+    expect(status).toBe(200);
+    const browserItems:Item[] = (await response.json()).items;
+    expect(browserItems.length).toBeGreaterThan(0);
+    expect(browserItems.every(item=>item.courseId===seeded.ownerCourse)).toBe(true);
+    stage('calendar-browser-render');
     const calendar=page.getByRole('region',{name:'Lịch dạy của tôi'});
     await expect(calendar.getByLabel('Lịch tháng',{exact:true})).toBeVisible();
     await expect(calendar.getByText('CI Calendar A',{exact:true}).first()).toBeVisible();
@@ -91,7 +105,7 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     const nav=page.locator('#dashboard-navigation');await nav.evaluate(e=>e.dataset.calendarTest='mounted');
     stage('calendar-navigation');
     await calendar.getByRole('link',{name:'Xem và quản lý buổi học'}).first().click();
-    await expect(page).toHaveURL(new RegExp(`/teacher/courses/${seeded.ownerCourse}\\?section=sessions$`));
+    await expect(page).toHaveURL(`http://127.0.0.1:3000/teacher/courses/${seeded.ownerCourse}?section=sessions`);
     await expect(page.getByText('Buổi 1: CI Topic 1',{exact:true}).first()).toBeVisible();
     await page.getByRole('button',{name:'Xem buổi 1',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Chi tiết buổi 1',exact:true})).toBeVisible();
@@ -100,11 +114,13 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     await teacherPanel(page,'Lịch dạy');await expect(calendar).toBeVisible();
     stage('calendar-other-timezone');
     expect((await mutation(context.request,'/auth/logout')).status()).toBe(204);
-    await page.goto('/login?next=/teacher/calendar');
+    await page.goto('/login');
     await page.getByLabel('Email',{exact:true}).fill(other.email);
     await page.getByLabel('Mật khẩu',{exact:true}).fill(other.password);
     await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-    await expect(page).toHaveURL(/\/teacher\/calendar$/);
+    await expect(page).toHaveURL('http://127.0.0.1:3000/teacher');
+    await teacherPanel(page,'Lịch dạy');
+    await expect(page).toHaveURL('http://127.0.0.1:3000/teacher/calendar');
     await expect(calendar.getByText('CI Calendar B',{exact:true}).first()).toBeVisible();
     await expect(calendar.getByText('CI Calendar A',{exact:true})).toHaveCount(0);
     await expect(calendar.getByText('America/New_York',{exact:true}).first()).toBeVisible();
