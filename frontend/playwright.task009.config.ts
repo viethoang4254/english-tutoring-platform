@@ -6,7 +6,9 @@ if (process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_ENVIRONMENT !== 
 }
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['e2e/student-profile.spec.ts', 'live/profile.spec.ts'],
+  testMatch: ['e2e/student-profile.spec.ts', 'live/profile.spec.ts', 'live/calendar.spec.ts',
+    'e2e/teacher-calendar.spec.ts', 'e2e/unified-dashboard.spec.ts', 'e2e/teacher-login.spec.ts',
+    'e2e/teacher-courses.spec.ts', 'e2e/teacher-sessions.spec.ts'],
   workers: 1, retries: 0, forbidOnly: true, timeout: 60_000,
   reporter: './tests/support/task009-reporter.ts',
   outputDir: path.join(process.env.RUNNER_TEMP, 'task009', 'browser-results'),

@@ -1,3 +1,4 @@
+import { accountPanel } from "../support/account-navigation";
 import { expect, test, type Page } from "@playwright/test";
 
 const applicationId = "9007199254740993";
@@ -23,9 +24,13 @@ async function login(page: Page) {
   await page.goto("/account"); await page.getByLabel("Email", { exact: true }).fill("account@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
+  await expect(page.locator(".header-account-menu summary")).toBeVisible();
+  // This suite exercises the preserved account interface after role-based login navigation.
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (path: string) => void } } }).next.router.push("/account"));
+  await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
 }
 async function openDetail(page: Page) {
-  await login(page); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
   await page.getByRole("button", { name: `Xem hồ sơ ${applicationId}` }).click();
 }
 async function studentForm(page: Page, password = " password ") {
@@ -47,7 +52,7 @@ test("Student registers with exactly five fields then immediately signs in", asy
   await expect(page).toHaveURL(/\/login\?registered=1$/);
   expect(calls.some(c => c.path.includes("verification"))).toBe(false);
   await login(page);
-  await expect(page.getByText("Đã đăng nhập với vai trò học viên.")).toBeVisible();
+  await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
 });
 
 test("Student password and blank name validation prevent requests", async ({ page }) => {
@@ -94,7 +99,7 @@ test("queue pagination and empty results use approved fixed-size query", async (
     const index = Number(url.searchParams.get("page"));
     await route.fulfill({ json: { items: [], page: index, size: 20, hasNext: index === 0 } });
   });
-  await login(page); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
   await expect(page.getByText("Không có hồ sơ chờ xét duyệt trên trang này.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Trang trước" })).toBeDisabled();
   await page.getByRole("button", { name: "Trang sau" }).click(); await expect(page.getByText("Trang 2", { exact: true })).toBeVisible();
@@ -105,7 +110,7 @@ test("queue pagination and empty results use approved fixed-size query", async (
 
 for (const [role, verified] of [["STUDENT", true], ["TEACHER", true], ["ADMIN", false]] as const)
   test(`${role} verified=${verified} cannot see review controls`, async ({ page }) => {
-    const calls = await backend(page, role, verified); await login(page); await expect(page.getByText(`Đã đăng nhập với vai trò ${{ STUDENT: "học viên", TEACHER: "gia sư", ADMIN: "quản trị viên" }[role]}.`)).toBeVisible();
+    const calls = await backend(page, role, verified); await login(page); await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
     await expect(page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" })).toHaveCount(0);
     expect(calls.some(c => c.path.includes("/admin/"))).toBe(false);
   });
@@ -134,7 +139,7 @@ test("uncertain review with failed reconciliation removes mutation controls", as
 });
 
 for (const status of [401, 403, 404, 500, 503]) test(`Admin detail ${status} removes stale review controls`, async ({ page }) => {
-  await backend(page); await login(page); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await backend(page); await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
   await page.route(`**/teacher-applications/${applicationId}`, route => route.fulfill({ status, json: { code: "ERROR", message: "PRIVATE" } }));
   await page.getByRole("button", { name: `Xem hồ sơ ${applicationId}` }).click();
   await expect(page.getByRole("status").first()).not.toBeEmpty(); await expect(page.getByText("PRIVATE")).toHaveCount(0);

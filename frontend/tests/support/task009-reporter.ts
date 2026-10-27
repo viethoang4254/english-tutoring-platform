@@ -4,10 +4,14 @@ import path from 'node:path';
 
 const stages = new Set(['registration', 'onboarding-review', 'snapshot-before', 'browser-login',
   'refresh-cookie-before', 'profile-edit', 'profile-save', 'profile-persistence',
-  'refresh-cookie-after', 'authorization-validation', 'session-refresh', 'locked-account']);
+  'refresh-cookie-after', 'authorization-validation', 'session-refresh', 'locked-account',
+  'calendar-fixtures', 'calendar-api', 'calendar-browser', 'calendar-navigation', 'calendar-other-timezone']);
 function safeLocation(location: TestCase['location'] | undefined): string {
   if (!location || !Number.isSafeInteger(location.line) || location.line < 1) return 'unavailable';
-  for (const file of ['tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts']) {
+  for (const file of ['tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',
+    'tests/live/calendar.spec.ts', 'tests/support/live-fixtures.ts', 'tests/e2e/teacher-calendar.spec.ts',
+    'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
+    'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts']) {
     if (path.resolve(location.file) === path.resolve(__dirname, '../../', file)) return `${file}:${location.line}`;
   }
   return 'unavailable';

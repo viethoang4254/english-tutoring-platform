@@ -1,0 +1,23 @@
+.panel { margin-block: 2rem; padding: clamp(1rem,3vw,2rem); background: white; border: 1px solid #e2e8f0; border-radius: 20px; color: #0f172a; min-width: 0; }
+.toolbar { display:flex; flex-wrap:wrap; gap:1rem; align-items:end; margin-block:1rem; }
+.grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+.grid label,.toolbar label { display:flex; flex-direction:column; gap:.5rem; min-width:0; }
+.panel input,.panel select,.panel textarea { width:100%; box-sizing:border-box; min-height:44px; padding:.7rem; border:1px solid #cbd5e1; border-radius:10px; color:#0f172a; background:white; }
+.wide { grid-column:1/-1; }
+.list { list-style:none; padding:0; display:grid; gap:1rem; }
+.list li { border:1px solid #e2e8f0; padding:1rem; border-radius:14px; display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; overflow-wrap:anywhere; }
+.panel dl { display:grid; grid-template-columns:minmax(100px,1fr) 2fr; gap:.75rem; overflow-wrap:anywhere; }
+.panel dd { margin:0; white-space:pre-wrap; }
+.notice { padding:1rem; background:#f1f5f9; border-radius:10px; }
+.plain { white-space:pre-wrap; overflow-wrap:anywhere; }
+.confirm { max-width:min(32rem,90vw); border:1px solid #cbd5e1; border-radius:16px; padding:1.5rem; }
+.confirm::backdrop { background:rgb(15 23 42 / 60%); }
+.panel fieldset { min-width:0; border:1px solid #e2e8f0; border-radius:12px; margin-block:1rem; }
+.steps { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); list-style:none; padding:0; gap:.75rem; }
+.steps li { display:flex; flex-direction:column; gap:.5rem; padding:.85rem; background:#eef2ff; border-radius:12px; color:#3730a3; overflow-wrap:anywhere; }
+.steps span { display:grid; place-items:center; width:1.8rem; height:1.8rem; border-radius:50%; background:#4f46e5; color:white; font-weight:700; }
+.formSection { border-bottom:1px solid #e2e8f0; padding-block:1rem 1.5rem; }
+.formSection h4 { margin-top:0; color:#3730a3; font-size:1.1rem; }
+.toolbar button[aria-pressed="true"] { background:#eef2ff; border-color:#4f46e5; color:#3730a3; }
+@media(max-width:800px) { .steps { grid-template-columns:1fr; } .steps li { flex-direction:row; align-items:center; } .steps span { flex-shrink:0; } }
+@media(max-width:600px) { .grid { grid-template-columns:1fr; } .panel dl { grid-template-columns:1fr; } .toolbar>* { flex:1 1 100%; } }

@@ -26,7 +26,7 @@ jobs:
   profile-browser-acceptance:
     needs: smtp-acceptance
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       NODE_OPTIONS: --max-old-space-size=1536
     steps:
@@ -66,5 +66,17 @@ jobs:
         working-directory: frontend
         env:
           TASK009_EXPECTED_TESTS: '8'
+      - run: python ci/task009/run.py resources
+      - name: Mocked Dashboard and Calendar regressions (58 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/teacher-calendar.spec.ts tests/e2e/unified-dashboard.spec.ts tests/e2e/teacher-login.spec.ts tests/e2e/teacher-courses.spec.ts tests/e2e/teacher-sessions.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '58'
+      - run: python ci/task009/run.py resources
+      - name: Live populated Calendar acceptance (2 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/live/calendar.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '2'
       - if: always()
         run: python ci/task009/run.py cleanup

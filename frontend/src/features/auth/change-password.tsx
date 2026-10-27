@@ -22,6 +22,6 @@ export function ChangePassword({session}:{session:Session}) {
       <PasswordField name="currentPassword" label="Mật khẩu hiện tại" />
       <PasswordField registration name="newPassword" label="Mật khẩu mới" />
       <PasswordField registration confirm />
-      <button type="submit">{busy?"Đang cập nhật…":"Lưu mật khẩu"}</button>
+      <button className="ui-button ui-button-primary" type="submit">{busy?"Đang cập nhật…":"Lưu mật khẩu"}</button>
     </fieldset></form></details>;
 }

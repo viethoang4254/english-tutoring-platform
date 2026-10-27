@@ -73,7 +73,7 @@ def prepare():
             "APP_SECURITY_JWT_PUBLICKEY": (directory / "jwt-public.pem").as_uri(),
             "APP_SECURITY_BROWSER_LOCALHTTP": "true", "APP_SECURITY_BROWSER_ALLOWEDORIGINS": "http://127.0.0.1:3000",
             "SERVER_ADDRESS": "127.0.0.1", "SERVER_PORT": "8081",
-            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true",
+            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "6",
             "SPRING_JPA_HIBERNATE_DDLAUTO": "validate", "SPRING_SQL_INIT_MODE": "never",
             "NEXT_PUBLIC_API_ORIGIN": "http://127.0.0.1:8081",
             "MAVEN_OPTS": "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=192m"})
@@ -194,10 +194,10 @@ def start_backend():
         with urllib.request.urlopen("http://127.0.0.1:8081/api/v1/auth/csrf", timeout=3) as response:
             require(response.status == 200 and bool(json.load(response).get("token")), "Backend not ready")
     wait_for(ready)
-    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5", "Unexpected migration history")
-    require(sql("SELECT count(*) FROM flyway_schema_history") == "5", "Unexpected migration entry")
+    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6", "Unexpected migration history")
+    require(sql("SELECT count(*) FROM flyway_schema_history") == "6", "Unexpected migration entry")
     require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "23", "Unexpected table count")
-    print("Isolated backend ready; V1-V5 and 23 application tables verified")
+    print("Isolated backend ready; V1-V6 and 23 application tables verified")
 
 
 def fixture():
@@ -218,6 +218,50 @@ def fixture():
           'verificationCount',(SELECT count(*) FROM email_verification_credentials WHERE user_id=u.id)) FROM users u WHERE id={identifier}"""))
     else:
         raise RuntimeError("Unknown fixture operation")
+
+
+def calendar_fixture():
+    """Seed only fresh, API-approved Teachers inside the guarded CI container."""
+    data = json.load(sys.stdin)
+    owners = [str(data[key]) for key in ("owner", "other")]
+    require(len(set(owners)) == 2 and all(re.fullmatch(r"[1-9][0-9]*", x) for x in owners), "Distinct numeric owners required")
+    for owner in owners:
+        require(sql(f"""SELECT count(*) FROM users u WHERE u.id={owner}
+          AND u.email LIKE 'ci-%@example.invalid' AND u.role='TEACHER'
+          AND u.email_verified AND NOT u.locked
+          AND EXISTS(SELECT 1 FROM teacher_applications a WHERE a.teacher_id=u.id AND a.status='APPROVED')""") == "1", "Approved CI Teacher required")
+        require(sql(f"SELECT count(*) FROM courses WHERE teacher_id={owner}") == "0", "Fresh owners required")
+    # A single statement makes fixture creation atomic.
+    print(sql(f"""WITH category AS (
+      INSERT INTO course_categories(name,active,created_at,updated_at)
+      VALUES ('CI Calendar {owners[0]}',true,now(),now()) RETURNING id
+    ), courses AS (
+      INSERT INTO courses(teacher_id,category_id,name,description,tuition,currency,min_students,max_students,
+        planned_start_date,timezone,session_count,status,created_at,updated_at)
+      SELECT owner,category.id,title,'CI disposable calendar',100000,'VND',1,10,
+        (now() AT TIME ZONE 'UTC')::date,zone,total,'DRAFT',now(),now()
+      FROM category CROSS JOIN (VALUES
+        ({owners[0]}::bigint,'CI Calendar A','Asia/Ho_Chi_Minh',6),
+        ({owners[1]}::bigint,'CI Calendar B','America/New_York',2)) AS v(owner,title,zone,total)
+      RETURNING id,teacher_id
+    ), sessions AS (
+      INSERT INTO sessions(course_id,session_number,title,content,scheduled_start_at,scheduled_end_at,status,created_at,updated_at)
+      SELECT c.id,n,'CI Topic '||n,'CI plain text',
+        (date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') + offset_start,
+        (date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') + offset_end,
+        status,now(),now()
+      FROM courses c CROSS JOIN (VALUES
+        (1,interval '12 hours',interval '13 hours','SCHEDULED'),
+        (2,interval '14 hours',interval '15 hours','CANCELLED'),
+        (3,interval '16 hours',interval '17 hours','SCHEDULED'),
+        (4,interval '18 hours',interval '19 hours','SCHEDULED'),
+        (5,interval '23 hours 30 minutes',interval '24 hours 30 minutes','SCHEDULED'),
+        (6,interval '12 hours',interval '13 hours','CANCELLED')) AS v(n,offset_start,offset_end,status)
+      WHERE c.teacher_id={owners[0]} OR n<=2 RETURNING id
+    ) SELECT json_build_object('ownerCourse',(SELECT id::text FROM courses WHERE teacher_id={owners[0]}),
+       'otherCourse',(SELECT id::text FROM courses WHERE teacher_id={owners[1]}),
+       'sessionCount',(SELECT count(*) FROM sessions),
+       'day',to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD'))"""))
 
 
 def verification_code():
@@ -265,6 +309,7 @@ if __name__ == "__main__":
         elif action == "database": start_db()
         elif action == "backend": start_backend()
         elif action == "fixture": fixture()
+        elif action == "calendar-fixture": calendar_fixture()
         elif action == "verification-code": verification_code()
         elif action == "resources": resources()
         elif action == "cleanup": cleanup()

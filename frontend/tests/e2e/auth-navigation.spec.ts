@@ -122,7 +122,7 @@ test("dedicated login and registration share shell and navigate independently of
   await page.getByRole("button", { name: "Hiện mật khẩu", exact: true }).click();
   await expect(page.getByLabel("Mật khẩu", { exact: true })).toHaveAttribute("type", "text");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.getByText("Đã đăng nhập với vai trò học viên.")).toBeVisible();
+  await expect(page).toHaveURL(/\/student\/dashboard$/);
   expect(logins).toBe(1); expect(refreshes).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

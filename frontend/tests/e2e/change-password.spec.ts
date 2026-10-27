@@ -1,3 +1,4 @@
+import { accountPanel } from "../support/account-navigation";
 import {expect,test} from '@playwright/test';
 for(const status of [204,400,401,403,500,503]) test(`change password handles ${status} without retries`,async({page})=>{
  const calls:{body:unknown;headers:Record<string,string>}[]=[];
@@ -11,7 +12,9 @@ for(const status of [204,400,401,403,500,503]) test(`change password handles ${s
   else await route.abort();
  });
  await page.goto('/account');await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('old password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- await page.getByText('Đổi mật khẩu',{exact:true}).click();
+ await expect(page).toHaveURL(/\/student\/dashboard$/);await page.locator('.header-account-menu summary').click();await page.getByRole('link',{name:'Tài khoản của tôi',exact:true}).click();
+ await accountPanel(page,'Đổi mật khẩu');
+ await page.locator('#change-password summary').click();
  await page.getByLabel('Mật khẩu hiện tại',{exact:true}).fill('old password');await page.getByLabel('Mật khẩu mới',{exact:true}).fill('new password');await page.getByLabel('Xác nhận mật khẩu',{exact:true}).fill('mismatch password');await page.getByRole('button',{name:'Lưu mật khẩu',exact:true}).click();
  await expect(page.getByText('Mật khẩu xác nhận không khớp.')).toBeVisible();expect(calls).toHaveLength(0);
  await page.getByLabel('Xác nhận mật khẩu',{exact:true}).fill('new password');await page.getByRole('button',{name:'Lưu mật khẩu',exact:true}).evaluate((b:HTMLButtonElement)=>{b.click();b.click();});

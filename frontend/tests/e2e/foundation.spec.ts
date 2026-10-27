@@ -8,12 +8,14 @@ test("landing page renders without overflow or browser errors", async ({ page })
   expect(response?.status()).toBe(200);
   await expect(page.locator("html")).toHaveAttribute("lang", "vi");
   await expect(page.getByRole("heading", { name: "Học tiếng Anh. Có người đồng hành." })).toBeVisible();
-  await expect(page.getByText("Danh sách khóa học và chức năng tham gia lớp đang được hoàn thiện.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Khám phá giao diện danh sách khóa học với dữ liệu minh họa.", { exact: false })).toBeVisible();
   const fitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth,
   );
   expect(fitsViewport).toBe(true);
   expect(pageErrors).toEqual([]);
+  await expect(page.getByRole("heading", { name: "Đăng ký tài khoản học viên", exact: true })).toBeVisible();
+  await expect(page.getByText("Tạo tài khoản học viên, sau đó đăng nhập bằng email và mật khẩu để bắt đầu.")).toBeVisible();
 });
 
 
@@ -34,8 +36,8 @@ test("landing navigation and separate registration links use existing forms", as
   } else {
     await page.getByRole("navigation", { name: "Điều hướng chính" }).getByRole("link", { name: "Khóa học" }).click();
   }
-  await expect(page).toHaveURL(/#khoa-hoc$/);
-  await page.getByRole("link", { name: "Tạo tài khoản học viên" }).click();
+  await expect(page).toHaveURL(/\/courses$/);
+  await page.getByRole("contentinfo").getByRole("link", { name: "Đăng ký học viên", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Đăng ký học viên", exact: true })).toBeVisible();
   await expect(page.getByLabel("Chuyên môn")).toHaveCount(0);
   await page.goto("/");

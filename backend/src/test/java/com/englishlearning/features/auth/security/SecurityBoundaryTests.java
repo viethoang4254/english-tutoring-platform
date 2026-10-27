@@ -48,6 +48,8 @@ class SecurityBoundaryTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.category.repository.CategoryRepository categoryRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.course.repository.CourseRepository courseRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -178,11 +180,14 @@ class SecurityBoundaryTests {
     }
 
     @Test void teacherRoleDoesNotGrantBusinessAccess() throws Exception {
+        doThrow(new com.englishlearning.features.teacher.service.TeacherReviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED))
+                .when(teacherEligibility).requireEligible(1L);
         when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, Role.TEACHER, false, true, false)));
         mvc.perform(get("/api/v1/teacher/courses").header("Authorization", "Bearer " + token("valid")))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/__security_test/admin").header("Authorization", "Bearer " + token("valid")))
                 .andExpect(status().isForbidden());
+        verifyNoInteractions(courseRepository);
     }
 
     @Test void databaseOutagesAreSafe503WithoutCredentialChallenge() throws Exception {

@@ -6,10 +6,36 @@ GitHub-hosted Ubuntu, never on a developer machine or self-hosted runner.
 The SMTP job executes one `LocalResetSmtpTests` test, including decoded capture
 assertions. Only after it passes, the browser job builds the frontend, creates its
 own labelled PostgreSQL 18 container, checks the exact empty database target,
-and starts the backend to apply unchanged Flyway V1–V5. It then runs 24 existing
+and starts the backend to apply unchanged Flyway V1–V6 (target pinned to 6). It then runs 24 existing
 mocked cases and 8 live cases (Student and pending/rejected/approved Teachers,
 each on mobile and desktop). Missing services, skipped cases and wrong test
 counts fail acceptance. These expected counts are not execution evidence.
+
+Calendar 01.2 extends the same browser job, without another workflow or service stack.
+After the existing profile groups, it runs 58 mocked Dashboard/Course/Session/Calendar
+regressions, then 2 live populated Calendar cases (one desktop, one mobile). Groups
+run sequentially with one worker and zero retries. The job timeout is 45 minutes.
+
+Each live Calendar case registers two Teachers, one rejected Teacher and an Admin
+fixture through the shared registration/verification helper. The real Admin review
+API approves/rejects applications. Only then can `calendar-fixture` seed one Category,
+two paid DRAFT Courses and eight concrete Sessions (six for A, two for B), including
+cancelled rows, equal-start tie ordering and a UTC-midnight-crossing interval.
+The helper checks distinct numeric owners, disposable CI emails, current approval,
+empty owned Course sets, exact database/user and labelled loopback container identity.
+The fixture insert is atomic and no existing owner data is reused or cleaned.
+
+Live assertions exercise real PostgreSQL through Spring Boot: ownership both ways,
+rejected eligibility, privacy, stable ordering, size-2 pagination, half-open overlap,
+explicit UTC-offset equivalence and midnight crossing. Browser assertions cover real
+populated month/week views, cancelled styling, Vietnam/New York Course timezone
+formatting, Session detail navigation, persistent sidebar and mobile overflow.
+Fixtures are removed with the disposable container by the existing always-cleanup.
+No screenshots, traces, credentials or captured mail are uploaded.
+
+Static validation is not CI execution. The branch dispatched later must include the
+uncommitted Course/Session/Calendar backend and unified Dashboard dependencies, not
+just these CI files. No Supabase credentials or connection are used.
 
 Live fixtures register through existing APIs. A narrowly scoped SQL helper
 provisions a verified Admin only inside the owned disposable container; review

@@ -1,0 +1,9 @@
+.workspace { max-width: 1440px; width: 100%; }
+.workspace [hidden] { display: none !important; }
+.workspace nav { flex-direction: column; }
+.workspace h2 { overflow-wrap: anywhere; }
+.sidebar { position: sticky; top: 24px; }
+@media (max-width: 900px) {
+  .sidebar { position: static; }
+  .workspace nav[data-open="false"] { display: none; }
+}

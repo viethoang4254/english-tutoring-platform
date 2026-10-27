@@ -33,7 +33,7 @@ export default function Home() {
         <p className={styles.kicker}>BẮT ĐẦU HÀNH TRÌNH</p><h2 id="steps-title">Từ lần đăng ký đầu tiên<br />đến buổi học cùng gia sư</h2>
         <p className={styles.sectionIntro}>Ba bước để hiểu cách học trên nền tảng.</p>
         <ol className={styles.stepGrid}>
-          <li><div className={styles.stepIcon}><span>01</span><Icon kind="person" /></div><h3>Đăng ký và xác minh email</h3><p>Tạo tài khoản học viên và xác minh địa chỉ email để bắt đầu.</p></li>
+          <li><div className={styles.stepIcon}><span>01</span><Icon kind="person" /></div><h3>Đăng ký tài khoản học viên</h3><p>Tạo tài khoản học viên, sau đó đăng nhập bằng email và mật khẩu để bắt đầu.</p></li>
           <li><div className={styles.stepIcon}><span>02</span><Icon kind="book" /></div><h3>Chọn khóa học phù hợp</h3><p>Tìm hiểu gia sư, lịch học và học phí trước khi đăng ký cả khóa.</p></li>
           <li><div className={styles.stepIcon}><span>03</span><Icon kind="video" /></div><h3>Bắt đầu học cùng gia sư</h3><p>Khi đăng ký khóa học có hiệu lực, tham gia các buổi học theo lịch qua Google Meet.</p></li>
         </ol>
@@ -48,7 +48,7 @@ export default function Home() {
         </div>
       </div></section>
       <section className={styles.courses} id="khoa-hoc" aria-labelledby="courses-title"><div className={styles.container}><div className={styles.coursePanel}>
-        <div><p className={styles.kicker}>KHÓA HỌC TRÊN NỀN TẢNG</p><h2 id="courses-title">Chuẩn bị cho hành trình<br />học tiếng Anh của bạn.</h2><p>Danh sách khóa học và chức năng tham gia lớp đang được hoàn thiện. Hiện tại, bạn có thể tạo tài khoản và xác minh email.</p><Link className={styles.primary} href="/register">Tạo tài khoản học viên <span aria-hidden="true">→</span></Link></div>
+        <div><p className={styles.kicker}>KHÓA HỌC TRÊN NỀN TẢNG</p><h2 id="courses-title">Chuẩn bị cho hành trình<br />học tiếng Anh của bạn.</h2><p>Khám phá giao diện danh sách khóa học với dữ liệu minh họa. Chức năng đăng ký khóa học và thanh toán chưa khả dụng.</p><Link className={styles.primary} href="/courses">Khám phá khóa học <span aria-hidden="true">→</span></Link></div>
         <div className={styles.courseSymbol} aria-hidden="true"><Icon kind="book" /><span>Học có lịch trình.<br />Có gia sư đồng hành.</span></div>
       </div></div></section>
     </main>

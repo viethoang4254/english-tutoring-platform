@@ -35,7 +35,9 @@ class StudentProfileHttpTests extends AuthenticationHttpTestSupport {
   verify(studentProfiles).update(1L,java.util.Map.of("phone","0912345678"));
   mvc.perform(get("/api/v1/users/me/profile?userId=2").header("Authorization","Bearer access")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/v1/users/2/profile").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+  doThrow(new com.englishlearning.features.teacher.service.TeacherReviewFailure(com.englishlearning.features.teacher.service.TeacherReviewFailure.Reason.DENIED)).when(teacherEligibility).requireEligible(1L);
   mvc.perform(get("/api/v1/teacher/courses").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+  verifyNoInteractions(courseRepository);
   account(Role.TEACHER,true);mvc.perform(patch("/api/v1/users/me/profile").header("Authorization","Bearer access").contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Denied\"}")).andExpect(status().isUnauthorized());
  }
  @Test void rejectsQueryAndPreservesSafeFailures()throws Exception{

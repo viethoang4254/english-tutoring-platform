@@ -275,6 +275,13 @@ advance implementation.
 - **Forbidden scope:** No client-controlled ownership transfer, unsupported lifecycle
   transitions or invented publication/completion policy. Apply the approved VND, discount
   and Meet publication rules; remaining operation validation stays gated.
+- **Approved Phase 1 boundary (2026-10-24):** Four Teacher-owned draft-management
+  endpoints under `/api/v1/teacher/courses`, defined in API_DESIGN Section 7. All owned
+  states may be read; only DRAFT may be updated. Transactional active-Category selection,
+  retained inactive references and row-locked merged PATCH validation are required.
+  No scheduling, publication, Meet, Calendar, Enrollment or Payment implementation is
+  authorized by this slice. No migration is required. Implementation/test evidence is
+  recorded only in FEATURE_STATUS, not as a duplicate live status here.
 - **Expected areas:** Backend Course use cases and minimal persistence, frontend owned-Course management, ownership tests.
 - **Acceptance:** Given an eligible Teacher, permitted creation binds that Teacher as owner; approved edits affect only owned Courses and publication follows its approved prerequisites.
 - **Negative acceptance:** Teacher A cannot read private management data or mutate Teacher B Course; forged ownership or protected properties cannot transfer ownership; rejected edits leave state unchanged.
@@ -327,6 +334,15 @@ advance implementation.
 
 - **Planning readiness:** TODO; decision gates below remain binding.
 - **Objective:** Manage Sessions under an owned Course using approved Session contracts.
+- **Approved Phase 1 boundary:** Initial generation only, under API_DESIGN Section 9.1;
+  individual reads/edits, rescheduling, cancellation and UI remain later scope.
+- **Approved Phase 2 boundary:** Teacher-owned Session list/detail and title/content
+  PATCH under API_DESIGN Section 9.2. Text editing is limited to SCHEDULED Sessions
+  under DRAFT/PUBLISHED Courses. No scheduling/status/numbering mutation or UI.
+- **Approved Phase 3 boundary:** Owned future Session rescheduling/history and
+  irreversible cancellation under API_DESIGN Section 9.3, with stale-time checks,
+  same-Course overlap prevention and Calendar-record mutation guard. No regeneration,
+  publication, frontend or external synchronization.
 - **Source authority:** FR-SES-001, FR-SES-002; BR-SES-001, BR-SES-002, BR-TEA-001; DM-SES-001; INV-017; UC-SES-MANAGE-01; API_DESIGN Section 9.
 - **Prerequisites:** TASK-010.
 - **Decision gates:** G-TIME, G-SESSION, G-API, G-UI, G-PHYSICAL.
@@ -359,6 +375,11 @@ advance implementation.
 
 - **Planning readiness:** DEFERRED; decision gates below remain binding.
 - **Objective:** Represent approved Course recurrence and individual occurrence adjustments as distinct responsibilities.
+- **Approved Phase 1 boundary:** Weekly-rule GET/PUT and atomic initial generation,
+  strict DST rejection, future-only cutoff, 100-rule/1,000-generation operational
+  limits and planning-field protection are approved in API_DESIGN Section 9.1.
+  The remaining decision gates apply to later phases; implementation status and
+  actual verification remain exclusively in FEATURE_STATUS.md.
 - **Source authority:** FR-SCH-001, FR-SCH-002; BR-SCH-001; DM-SCH-001; INV-020; UC-SCH-COURSE-01, UC-SCH-SESSION-01; API_DESIGN Section 9.
 - **Prerequisites:** TASK-035.
 - **Decision gates:** G-TIME, G-RECURRENCE, G-SESSION, G-API, G-UI, G-PHYSICAL.

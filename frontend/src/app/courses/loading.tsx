@@ -1,0 +1,2 @@
+import styles from '../../features/course/discovery.module.css';
+export default function Loading() { return <main className={styles.page} aria-busy="true"><p role="status">Đang tải thông tin khóa học…</p></main>; }

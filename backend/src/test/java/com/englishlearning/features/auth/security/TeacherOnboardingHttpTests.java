@@ -137,8 +137,10 @@ class TeacherOnboardingHttpTests extends AuthenticationHttpTestSupport {
                         "{\"code\":\"INTERNAL_ERROR\",\"message\":\"An unexpected error occurred.\"}",org.springframework.test.json.JsonCompareMode.STRICT));
     }
     @Test void routeDoesNotGrantBusinessOrMutationPermission() throws Exception {
+        doThrow(new TeacherReviewFailure(TeacherReviewFailure.Reason.DENIED)).when(teacherEligibility).requireEligible(22L);
         mvc.perform(post(PATH).header("Authorization","Bearer teacher-token")).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/teacher/courses").header("Authorization","Bearer teacher-token")).andExpect(status().isForbidden());
         verifyNoInteractions(teacherOnboarding);
+        verifyNoInteractions(courseRepository);
     }
 }

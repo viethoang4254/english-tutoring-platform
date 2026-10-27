@@ -37,7 +37,7 @@ export function AccountControl() {
   return <div className="header-account">
     {!session ? <button ref={trigger} className="account-trigger" aria-label="Tài khoản" disabled={busy} onClick={() => setOpen(true)}>
       <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M3 23v-3a9 9 0 0 1 18 0v3"/></svg><span>Tài khoản</span>
-    </button> : <details className="header-account-menu"><summary>Tài khoản</summary><div><Link href="/account">Tài khoản của tôi</Link><button disabled={busy} onClick={() => void logout()}>Đăng xuất</button></div></details>}
+    </button> : <details className="header-account-menu"><summary>Tài khoản</summary><div>{session.account.role === "STUDENT" && <Link href="/student/dashboard">Bảng học tập</Link>}{session.account.role === "ADMIN" && <Link href="/admin/dashboard">Bảng quản trị</Link>}{session.account.role === "TEACHER" && <Link href="/teacher">Không gian gia sư</Link>}<Link href="/account">Tài khoản của tôi</Link><button disabled={busy} onClick={() => void logout()}>Đăng xuất</button></div></details>}
     {message && <p role="status" className="header-account-notice">{message}</p>}
     {open && <dialog className="login-dialog" ref={dialog} aria-label="Đăng nhập" onKeyDown={event => {
       if (event.key !== "Tab") return;

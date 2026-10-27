@@ -19,7 +19,7 @@ function Brand() {
 }
 
 function Navigation({ home }: { home: boolean }) {
-  return <><Link href={home ? "#trang-chu" : "/#trang-chu"} aria-current={home ? "page" : undefined}>Trang chủ</Link><Link href={home ? "#khoa-hoc" : "/#khoa-hoc"}>Khóa học</Link><Link href={home ? "#gioi-thieu" : "/#gioi-thieu"}>Giới thiệu</Link><Link href={home ? "#lien-he" : "/#lien-he"}>Liên hệ</Link></>;
+  return <><Link href={home ? "#trang-chu" : "/#trang-chu"} aria-current={home ? "page" : undefined}>Trang chủ</Link><Link href="/courses">Khóa học</Link><Link href={home ? "#gioi-thieu" : "/#gioi-thieu"}>Giới thiệu</Link><Link href={home ? "#lien-he" : "/#lien-he"}>Liên hệ</Link></>;
 }
 
 export function SiteHeader({ home = false }: { home?: boolean }) {
@@ -34,7 +34,7 @@ export function SiteHeader({ home = false }: { home?: boolean }) {
 export function SiteFooter() {
   return <footer className={`${styles.landing} ${styles.footer}`} id="lien-he"><div className={styles.container}>
       <div className={styles.footerGrid}><div><h2>THÔNG TIN</h2><Brand /><p>Nền tảng kết nối học viên với gia sư tiếng Anh qua các khóa học trực tuyến.</p><Link className={styles.teacherLink} href="/become-a-teacher">Đăng ký giảng viên <span aria-hidden="true">↗</span></Link></div>
-        <div><h2>Khám phá</h2><Link href="/#trang-chu">Trang chủ</Link><Link href="/#khoa-hoc">Khóa học</Link><Link href="/#gioi-thieu">Giới thiệu</Link></div>
+        <div><h2>Khám phá</h2><Link href="/#trang-chu">Trang chủ</Link><Link href="/courses">Khóa học</Link><Link href="/#gioi-thieu">Giới thiệu</Link></div>
         <div><h2>Tài khoản</h2><Link href="/login">Đăng nhập</Link><Link href="/register">Đăng ký học viên</Link></div>
         <div><h2>Liên hệ</h2><p>Thông tin liên hệ chính thức sẽ được cập nhật tại đây.</p></div>
       </div><div className={styles.footerBottom}>Nền tảng gia sư tiếng Anh<span>Kết nối để cùng tiến bộ.</span></div>

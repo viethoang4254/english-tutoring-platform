@@ -1,3 +1,4 @@
+import { accountPanel } from "../support/account-navigation";
 import { expect, test, type Page } from "@playwright/test";
 
 const initial = { applicationId: "9007199254740993", status: "REJECTED", submittedAt: "2026-10-13T00:00:00Z", reviewedAt: "2026-10-13T01:00:00Z", rejectionReason: "Please describe your experience." };
@@ -20,11 +21,12 @@ async function backend(page: Page, state = "REJECTED", role = "TEACHER") {
   });
   return calls;
 }
-async function login(page: Page) {
+async function login(page: Page, navigate = true) {
   await page.goto("/account");
   await page.getByLabel("Email", { exact: true }).fill("teacher@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
+  if (navigate) await accountPanel(page,"Hồ sơ gia sư");
 }
 async function application(page: Page) {
   await page.getByLabel("Chuyên môn").fill(" English ");
@@ -56,6 +58,7 @@ test("resubmits exact fields and preserves string IDs without duplicate clicks",
 
 test("uncertain mutation reconciles and failed lookup keeps resubmission disabled", async ({ page }) => {
   const calls = await backend(page); await login(page); await application(page);
+  const initialReads = calls.filter(c => c.path.endsWith("/onboarding")).length;
   await page.route("**/resubmit", route => route.abort());
   await page.route("**/teacher/onboarding", route => route.fulfill({ status: 503, json: { code: "AUTHENTICATION_UNAVAILABLE", message: "PRIVATE" } }));
   await page.getByRole("button", { name: "Gửi lại hồ sơ", exact: true }).click();
@@ -65,7 +68,7 @@ test("uncertain mutation reconciles and failed lookup keeps resubmission disable
   await page.unroute("**/teacher/onboarding");
   await page.getByRole("button", { name: "Cập nhật trạng thái hồ sơ" }).click();
   await expect(page.getByRole("button", { name: "Gửi lại hồ sơ", exact: true })).toBeEnabled();
-  expect(calls.filter(c => c.path.endsWith("/onboarding")).length).toBe(2);
+  expect(calls.filter(c => c.path.endsWith("/onboarding")).length).toBe(initialReads + 1);
 });
 
 test("reload does not silently recover and logout clears the local session", async ({ page }) => {
@@ -75,7 +78,7 @@ test("reload does not silently recover and logout clears the local session", asy
   await expect(page.getByRole("button", { name: "Tiếp tục đăng nhập" })).toHaveCount(0);
   await login(page);
   await expect(page.getByText("Chờ xét duyệt", { exact: true })).toBeVisible();
-  await page.locator(".account-menu summary").click();
+  const toggle = page.locator('button[aria-controls="dashboard-navigation"]'); if(await toggle.isVisible())await toggle.click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("kết thúc phiên đăng nhập hiện tại");
@@ -85,7 +88,7 @@ test("reload does not silently recover and logout clears the local session", asy
 test("failed logout clears local data but does not claim server success", async ({ page }) => {
   await backend(page, "PENDING"); await login(page);
   await page.route("**/auth/logout", route => route.fulfill({ status: 503, json: { code: "AUTHENTICATION_UNAVAILABLE", message: "PRIVATE" } }));
-  await page.locator(".account-menu summary").click();
+  const toggle = page.locator('button[aria-controls="dashboard-navigation"]'); if(await toggle.isVisible())await toggle.click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("chưa xác nhận được việc đăng xuất trên máy chủ");
   await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeVisible();
@@ -124,14 +127,14 @@ test("blank application input is rejected without a request", async ({ page }) =
 for (const status of [400, 401, 403, 404, 409, 500, 503]) test(`safe onboarding ${status} response`, async ({ page }) => {
   await backend(page);
   await page.route("**/teacher/onboarding", route => route.fulfill({ status, json: { code: "TEST_ERROR", message: "PRIVATE DATABASE VALUE" } }));
-  await login(page); await expect(page.getByRole("status")).not.toBeEmpty();
+  await login(page, status !== 401); await expect(page.getByRole("status")).not.toBeEmpty();
   await expect(page.getByText("PRIVATE DATABASE VALUE")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Gửi lại hồ sơ", exact: true })).toHaveCount(0);
 });
 
 test("Student cannot enter Teacher onboarding", async ({ page }) => {
-  const calls = await backend(page, "PENDING", "STUDENT"); await login(page);
-  await expect(page.getByText("Chỉ tài khoản gia sư đã xác minh email mới có thể truy cập hồ sơ đăng ký gia sư.")).toBeVisible();
+  const calls = await backend(page, "PENDING", "STUDENT"); await login(page, false);
+  await expect(page.getByText("Chỉ tài khoản gia sư đã xác minh email mới có thể truy cập hồ sơ đăng ký gia sư.")).toHaveCount(0);
   expect(calls.filter(c => c.path.endsWith("/onboarding"))).toHaveLength(0);
 });
 
@@ -162,14 +165,14 @@ test("uncertain submission reconciles a committed PENDING result without replay"
 test("CSRF bootstrap failure cannot perform login", async ({ page }) => {
   const calls = await backend(page);
   await page.route("**/auth/csrf", route => route.fulfill({ status: 403, json: { code: "ACCESS_DENIED", message: "PRIVATE" } }));
-  await login(page); await expect(page.getByRole("status")).toContainText("không được phép");
+  await login(page, false); await expect(page.getByRole("status")).toContainText("không được phép");
   expect(calls.filter(c => c.path.endsWith("/login"))).toHaveLength(0);
 });
 
 test("unverified login and SMTP delivery failure retain recovery guidance", async ({ page }) => {
   const calls = await backend(page);
   await page.route("**/auth/login", route => route.fulfill({ status: 403, json: { code: "EMAIL_VERIFICATION_REQUIRED", message: "PRIVATE" } }));
-  await login(page); await expect(page.getByRole("status")).toContainText("Vui lòng xác minh email");
+  await login(page, false); await expect(page.getByRole("status")).toContainText("Vui lòng xác minh email");
   expect(calls.filter(c => c.path.endsWith("/onboarding"))).toHaveLength(0);
   await page.goto("/verify-email");
   await page.route("**/resend", route => route.fulfill({ status: 503, json: { code: "VERIFICATION_DELIVERY_UNAVAILABLE", message: "PRIVATE" } }));
@@ -201,6 +204,7 @@ test("native required and email validation use Vietnamese and clear after input"
   await email.fill("teacher@example.test");
   await expect(email).toHaveJSProperty("validationMessage", "");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
+  await accountPanel(page,"Hồ sơ gia sư");
   await expect(page.getByText("Bị từ chối", { exact: true })).toBeVisible();
   await expect(page.locator("time")).toHaveAttribute("datetime", initial.submittedAt);
   await expect(page.locator("time")).toContainText("13/10/2026");

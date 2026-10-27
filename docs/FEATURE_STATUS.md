@@ -1116,3 +1116,78 @@ port55432, production email, migration modification, staging, commit or push. No
 
 Student profile slice is ready for final review/acceptance. Final `git diff --check` passed;
 staging remains empty. Teacher profile work is the remaining TASK-009 scope.
+
+### Batch Calendar 01 evidence — 2026-10-27
+
+- Added eligible-Teacher, owned-Course interval Calendar API and `/teacher/calendar`
+  month/week UI inside the existing persistent Dashboard. The existing Lịch dạy
+  navigation opens this route; Course/Session management remains unchanged.
+- Backend: 39 passed, 0 failures, 0 errors, 0 skipped (Calendar HTTP/repository/range,
+  Course service/HTTP, Session HTTP and Teacher Category HTTP focused tests).
+- Frontend: TypeScript and ESLint passed; 19 unit tests passed; isolated production
+  build passed with NEXT_PUBLIC_API_ORIGIN=http://localhost:8081.
+- Mocked desktop/mobile browser regressions: 58 passed, 0 failed, 0 skipped,
+  one worker, zero retries, isolated port 3012. Includes 8 Calendar cases plus
+  Unified Dashboard, Teacher login, Course and Session regressions.
+- Evidence: E:/CodexHome/tmp/calendar01-backend-final.log and
+  E:/CodexHome/tmp/calendar01-validation/{checks.log,browser.log}.
+- Repository query tests verify ownership predicates, overlap SQL and pagination
+  through mocked EntityManager; they do not prove real PostgreSQL query execution.
+- Live Calendar acceptance remains pending: the running backend has previous classes
+  and the available approved disposable Teacher has no Courses/Sessions. No fixtures,
+  migrations or Supabase records were changed; existing services were preserved.
+- TASK-035/TASK-037 remain IN_PROGRESS. Student Calendar remains sample-based;
+  authorized Enrollment integration and Google Calendar are outside this batch.
+
+### Batch Calendar 01.1 live acceptance — 2026-10-27
+
+- Restarted only the verified project backend using the existing guarded launcher;
+  loaded the Calendar classes with Flyway disabled, ddl-auto=none, SQL init=never.
+  JWT, authenticated STARTTLS and Hikari startup passed. Existing SMTP preserved.
+- Served the previously verified Calendar build from the isolated validation directory
+  on port 3000, with NEXT_PUBLIC_API_ORIGIN=http://localhost:8081.
+- Pinned Supabase project ddmjdhnjhyllirjqhqrc, database postgres, schema public.
+  Bounded READ ONLY transaction confirmed successful V1–V6, zero Courses and zero
+  Sessions, and ended with ROLLBACK. No schema or application records changed.
+- Live API assertions: 28 passed, 0 failed. Includes existing disposable account
+  login/logout, approved Teacher 200, Student/PENDING Teacher 403, anonymous 401,
+  range/pagination/unknown-identity validation, no-store, offset-boundary queries,
+  empty response contract and repeated/paginated real repository query execution.
+- The fixture named rejected is actually PENDING. REJECTED denial remains untested
+  live; no application status was changed to manufacture coverage.
+- Live browser assertions: desktop 15 passed, mobile 15 passed, 0 failed. No mocked
+  API responses. Covered Calendar month/week/navigation, empty state, persistent
+  shell, back/forward, refresh-to-login boundary, overflow, offline error and online
+  retry, and logout cleanup. Desktop/mobile screenshots reviewed.
+- Evidence outside repository: E:/CodexHome/tmp/calendar011-api-results.json,
+  calendar011-browser-results.json, calendar011-api.cjs, calendar011-browser.cjs,
+  calendar011-1440.png and calendar011-390.png. git diff --check passed.
+- SQL compatibility and parameter binding succeeded against real PostgreSQL for
+  empty results. Populated DTO mapping, ordering, timezone display, cancelled rows
+  and cross-Teacher disclosure cannot be established with zero Session fixtures.
+- Batch Calendar 01 is not DONE. Required approved fixtures: a second eligible
+  disposable Teacher, Teacher-owned Courses with distinct Sessions across both
+  owners (including a cancelled Session and timezone/boundary cases), and a genuinely
+  REJECTED disposable Teacher. Fixture creation and onboarding changes need approval.
+- No application source changes were required. Existing dirty work preserved.
+  Only authorized authentication sessions were created/revoked during acceptance;
+  no account/profile/Course/Session business records were modified.
+
+
+### Batch Calendar 01.2 — CI preparation (2026-10-27)
+
+- Extended the existing manual-only task009-acceptance.yml; no duplicate workflow.
+  Existing sequential SMTP/profile jobs and 24 mocked/8 live profile cases remain.
+- Browser job adds 58 mocked Dashboard/Course/Session/Calendar regressions and two
+  live populated Calendar cases (desktop/mobile) using the existing PostgreSQL 18
+  container, private SMTP sink, generated secrets and single-worker safe reporter.
+- Flyway target/history checks now require exactly V1–V6; no migration SQL changes.
+- Calendar fixtures use API registration/email verification and Admin review, then
+  guarded atomic insertion of two owned Courses/eight Sessions only in the exact
+  disposable CI container. No Supabase connection or local service startup occurred.
+- Live tests cover both owners, rejected eligibility, cancelled Sessions, stable
+  ordering, pagination, strict overlap, offset/midnight boundaries, month/week UI,
+  Course timezone display and navigation into existing Session details.
+- CI has NOT been triggered. Batch Calendar 01 remains IN_PROGRESS pending actual
+  populated execution. Publishing must include the existing uncommitted backend
+  and frontend dependencies. No commits or pushes.

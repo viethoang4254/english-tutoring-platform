@@ -17,7 +17,7 @@ export async function authMutation<T>(path: string, body?: Record<string, string
   });
 }
 
-export function authorized<T>(token: string, path: string, body?: Record<string, string>, method = body ? "POST" : "GET") {
+export function authorized<T>(token: string, path: string, body?: Record<string, unknown>, method = body ? "POST" : "GET") {
   return apiRequest<T>(path, {
     method, credentials: "omit", cache: "no-store",
     headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },

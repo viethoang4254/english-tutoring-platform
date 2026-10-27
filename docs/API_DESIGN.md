@@ -659,8 +659,74 @@ percentage-discount windows are supported; Payments retain their price snapshots
 
 Teachers retain authorized own-Course content management. Public, Teacher and Admin
 DTOs have separate visibility purposes. Backend resolves owner; requests cannot
-transfer it. Detailed create/update validation, publication and
+transfer it. The approved draft-only operation contract follows. Publication,
 completion prerequisites and Meet supply timing remain DEFERRED.
+
+### TASK-010 Phase 1 — Teacher-owned Draft Course API
+
+Bearer-only; reuse TeacherBusinessEligibility (current TEACHER role, verified email,
+unlocked account and approved onboarding). Identity comes exclusively from the principal.
+Student/Admin roles cannot call these routes. Every detail query/update includes the
+owning Teacher ID; foreign and missing Courses both return COURSE_NOT_FOUND.
+
+- POST `/api/v1/teacher/courses`: create DRAFT, return 201, detail DTO and Location.
+- GET `/api/v1/teacher/courses`: page=0, size=20 (1–100), optional status from
+  DRAFT/PUBLISHED/COMPLETED/CANCELLED/ARCHIVED. All owned states by default, ID ascending.
+  Response `{items,page,size,hasNext}`; no total count.
+- GET `/api/v1/teacher/courses/{courseId}`: return owned detail in any existing state.
+- PATCH `/api/v1/teacher/courses/{courseId}`: update only DRAFT; return detail, 200.
+
+Reject duplicate/unknown list query keys, invalid/overflowed pagination, GET bodies,
+and query parameters on detail/mutation routes. Success responses use no-store.
+IDs are positive decimal-string ApiId values within BIGINT; counts are JSON integers.
+
+POST requires categoryId, name, description, tuition, minStudents, maxStudents,
+plannedStartDate, timezone and sessionCount. Optional discount defaults to null.
+PATCH permits these same fields; omitted values are preserved and the complete merged
+state is validated. Reject empty updates, wrong types, unknown/protected fields and
+explicit null except discount. Nested objects are complete replacements with exact keys.
+
+| Field | Approved Phase 1 validation |
+| --- | --- |
+| name | ASCII-space trim, nonblank, 1–200 Unicode code points; no ISO control characters or malformed UTF-16 |
+| description | Plain text, ASCII-space trim, nonblank, 1–10,000 Unicode code points; only TAB/CR/LF controls allowed; no malformed UTF-16 |
+| tuition | ApiMoney `{amount,currency}`; amount decimal string, 0 through 9999999999999.99, maximum two fractional digits, no rounding/exponent; currency exactly VND |
+| minStudents/maxStudents | Integers 1 through 2147483647, maximum >= minimum; no arbitrary 30/100 capacity cap |
+| sessionCount | Integer 1 through 2147483647; no Sessions generated |
+| plannedStartDate | Strict valid YYYY-MM-DD, years 0001–9999; past dates permitted in drafts |
+| timezone | Java-supported IANA zone ID, not a numeric offset |
+| discount | null or complete `{percent,startAt,endAt}`; decimal-string percent 0 < percent < 100, at most two decimals; explicit-offset timestamps with at most microsecond precision and UTC years 0001–9999; start < end |
+
+PATCH discount null clears the entire window; omission preserves it. No current-time
+discount constraint or payable-price calculation is introduced. Money/percent responses
+have two fractional digits. Duplicate Course names are allowed.
+
+Detail DTO: `{id,name,status,category:{id,name,active},tuition,plannedStartDate,timezone,
+sessionCount,minStudents,maxStudents,createdAt,updatedAt,description,discount}`.
+List items omit description and discount. Category data is current, including inactive
+retained references. Do not expose Meet URLs, storage paths, private Teacher information,
+participants or payment data. Ownership/status/timestamps are not writable inputs.
+
+Writes use READ_COMMITTED and lock User -> existing owned Course -> newly selected
+Category. Recheck the locked User snapshot and TeacherBusinessEligibility. Lock the
+Category FOR UPDATE and validate active before insert/change; Admin deactivation uses
+the same Category lock. If deactivation commits first, reject the new selection; if the
+Course write locks first, it may commit before later deactivation. Foreign keys alone
+do not enforce this rule. Unchanged Category IDs, including explicitly repeated IDs,
+retain inactive references; unrelated edits do not require reselection.
+
+PATCH merges against the locked current Course. Disjoint edits preserve each other;
+same-field edits use last-committed-write-wins. No version column or ETag is introduced.
+POST has no idempotency key: repeated successful requests create separate drafts.
+Clients must not automatically retry mutations; uncertain responses require explicit
+reconciliation. No Session generation, publication, Meet/Calendar, Enrollment or Payment
+side effect is permitted. Existing excluded columns are preserved during PATCH.
+
+Safe ApiError mapping: INVALID_REQUEST 400; existing AUTHENTICATION_REQUIRED 401 and
+ACCESS_DENIED 403; COURSE_NOT_FOUND/CATEGORY_NOT_FOUND 404; CATEGORY_INACTIVE and
+COURSE_NOT_DRAFT 409; COURSE_UNAVAILABLE 503 for persistence/transaction failures.
+Existing AUTHENTICATION_UNAVAILABLE, REQUEST_REJECTED and INTERNAL_ERROR handling remains.
+Messages do not echo SQL, rejected values or private records. No migration is required.
 
 References: FR-TCR-001, FR-TCR-003, FR-TCR-004, FR-TCR-005, FR-TCR-006,
 FR-TCR-007, FR-TCR-008, FR-TCR-009;
@@ -670,12 +736,68 @@ DM-COURSE-001, INV-002; AR-015.
 
 ## 8. Category / Topic
 
+### TASK-034 Phase 1 — bounded Admin Category API
+
+Bearer-only; current verified, unlocked ADMIN required. No refresh-cookie authentication,
+public listing, Teacher selection endpoint, Course creation or DELETE operation is added.
+GET `/api/v1/admin/categories` accepts only `page` (default 0), `size` (default 20,
+1–100) and optional `active=true|false`. Duplicate/unknown query keys, negative/overflowed
+pagination and nonempty GET bodies are rejected. Sort is ID ascending. Response is
+`{items:[{id:"1",name:"English",active:true,createdAt:"...",updatedAt:"..."}],page:0,size:20,hasNext:false}`.
+IDs are decimal-string ApiId; pagination remains numeric. No total count is implied.
+
+POST accepts `{name:"English"}` with optional boolean `active` (default true), returns
+201 and the safe Category DTO. PATCH `/{categoryId}` accepts name and/or active, returns
+200 and that DTO. Omitted fields are preserved; empty updates, explicit null, wrong types,
+unknown fields and mutation query parameters are invalid. Names trim only ASCII spaces,
+contain 1–100 Unicode code points and reject ISO control characters and malformed UTF-16.
+No Unicode normalization or accent stripping is performed. Database `lower(btrim(name))`
+uniqueness reserves inactive names too; PostgreSQL database locale defines lowercasing.
+
+All success responses are no-store. Safe failures use existing ApiError: 400
+INVALID_REQUEST, 401 AUTHENTICATION_REQUIRED, 403 ACCESS_DENIED, 404 CATEGORY_NOT_FOUND,
+409 CATEGORY_NAME_CONFLICT and 503 CATEGORY_UNAVAILABLE for database failures. Existing
+security-filter error conventions apply before controller execution. Unexpected failures
+retain the generic 500 handler. SQL or rejected values are not returned.
+
+Mutations recheck and lock the acting User in READ COMMITTED; PATCH also locks the Category
+before merging omitted fields. Same-field updates use serialized last-writer semantics.
+The V6 unique expression index resolves cross-Admin create/rename races. Course references,
+created_at and all unrelated data remain unchanged. V6 is not deployed automatically by
+this implementation task; see `TASK034_CATEGORY_BACKEND.md` for the deployment gate.
+
+
 Each Course selects exactly one Admin-managed Category. Categories use active/inactive;
 a used Category is retained and deactivated, not deleted. No hierarchy or automatic
-Course reassignment. Exact management DTOs/validation remain DEFERRED.
+Course reassignment. Admin management DTOs/validation are specified above; Course write-time selection remains deferred.
 
 References: FR-ADM-007, FR-TCR-008; BR-ADM-001; DM-CAT-001.
 
+
+
+### TASK-034 — Teacher Category read-only API
+
+GET `/api/v1/teacher/categories` accepts only page (default 0) and size
+(default 20, 1–100). Duplicate/unknown parameters, pagination overflow and nonempty
+GET bodies are rejected. An active query parameter is not supported: the server
+always filters active=true in SQL before pagination, ordered by ID ascending.
+
+Bearer authentication is required. The existing TeacherBusinessEligibility policy
+requires current TEACHER role, verified email, unlocked account and approved
+onboarding. ADMIN and STUDENT cannot use this endpoint. No cookie authentication,
+Teacher mutation endpoint or DELETE is added.
+
+Response is the existing {items,page,size,hasNext} page; each item uses CategoryDto
+{id,name,active,createdAt,updatedAt}, with decimal-string ApiId and active=true.
+Responses use Cache-Control: no-store. Invalid requests return 400 INVALID_REQUEST;
+eligibility denial returns 403 ACCESS_DENIED; database failures return safe
+503 CATEGORY_UNAVAILABLE. Existing security-filter 401/403 behavior is unchanged.
+
+This endpoint is a read-time selection view, not authorization to save a Course.
+Future Course create/update transactions must recheck Teacher eligibility, ownership
+and selected Category eligibility at write time, including concurrent deactivation.
+Deactivation must not delete a Category or rewrite existing Course references.
+No Course logic, Teacher UI, schema change or migration is included in this slice.
 
 ## 9. Session and Scheduling
 
@@ -690,14 +812,175 @@ protected learning content, never public preview content. V1 has no attendance t
 Teacher ownership traverses Course; Student content reads require Enrollment.
 Public preview must omit nullable sessions.content and the protected Meet URL.
 Weekly rules/local timezone and generated absolute Session times are distinct.
-Exact scheduling payloads, DST gap/overlap and cutoff validation remain DEFERRED;
-ISO weekday generation, fixed unique numbering and cancellation without replacement
-are settled. No attendance API or RESCHEDULED status.
+Phase 1 weekly rules and initial generation are implemented under the following
+approved contract. Teacher Session reads/content are implemented in Phase 2 below.
+Individual rescheduling/history and cancellation are implemented in Phase 3 below.
+Regeneration and publication remain outside these phases. No attendance API or
+RESCHEDULED status.
+
+### 9.1 Teacher weekly rules and initial generation (TASK-037 / TASK-035 Phase 1)
+
+Base path: `/api/v1/teacher/courses/{courseId}`. Bearer-only authentication,
+current TeacherBusinessEligibility and database-enforced Course ownership apply
+to every operation. Successful responses use `Cache-Control: no-store`; all IDs
+are decimal strings. Cookie-backed authentication/CSRF behavior is unchanged.
+
+- GET `/schedule`: no body/query; returns `{courseId, plannedStartDate, timezone,
+  sessionCount, generatedSessionCount, rules}`. Each rule is
+  `{id, dayOfWeek, startTime, endTime}`, ordered by ISO weekday then start time.
+- PUT `/schedule`: accepts only `{rules:[{dayOfWeek,startTime,endTime}]}` and
+  returns the schedule representation (200). Replaces the complete rule set only
+  for an owned DRAFT with no Sessions. An identical canonical set preserves IDs
+  and timestamps. Rules are nonempty, at most 100, with integer ISO weekdays 1–7
+  and strict minute-precision `HH:mm`. Start must precede end on the same date.
+  Duplicate/overlapping intervals are rejected; adjacent half-open intervals are
+  allowed. Unknown fields, null elements and malformed types are rejected.
+- POST `/sessions/generate`: no body or query parameters. Returns 201 with
+  `{courseId, generatedSessionCount}` and Location
+  `/api/v1/teacher/courses/{courseId}/sessions`, implemented in Phase 2 below.
+  No Session array is returned by generation.
+
+Generation requires an owned DRAFT, no existing Sessions, valid planning metadata
+and valid nonempty rules. The synchronous limit is 1,000 Sessions; this does not
+change Course creation or persisted integer constraints. Each weekly stream starts
+on its first matching date on/after plannedStartDate; a priority queue merges the
+streams and advances the selected stream by seven days. Exactly sessionCount
+occurrences are numbered chronologically 1..N. The Course IANA timezone resolves
+each local endpoint explicitly: zero or multiple valid offsets are rejected.
+The first occurrence must start strictly after the injected backend Clock time;
+past occurrences are never skipped. Concrete overlaps and invalid end instants
+are rejected. All occurrences are validated before insertion and all inserts
+commit atomically. Initial status is SCHEDULED; title, content and cancellation
+reason are null.
+
+Transactions lock the acting User, then the owned Course, before dependent reads
+or writes. This serializes generation, rule replacement and Course PATCH, including
+duplicate generation. Schedule reads also hold these locks for a coherent snapshot.
+Once any Session exists, PATCH changes to plannedStartDate, timezone or sessionCount
+return `COURSE_SCHEDULE_LOCKED`; unchanged values and unrelated valid Draft edits
+remain permitted. No automatic mutation retries are performed.
+
+Errors follow the existing safe ApiError envelope:
+
+| Status | Code | Meaning |
+|---|---|---|
+| 400 | INVALID_REQUEST | Invalid payload, query, ID, rules or planning metadata |
+| 401 | AUTHENTICATION_REQUIRED | Missing/invalid authentication under existing security mapping |
+| 403 | ACCESS_DENIED | Wrong role or current Teacher eligibility denied |
+| 404 | COURSE_NOT_FOUND | Missing or non-owned Course |
+| 409 | COURSE_NOT_DRAFT | Write attempted outside DRAFT |
+| 409 | COURSE_SCHEDULE_LOCKED | Rule replacement or changed planning field after generation |
+| 409 | SESSIONS_ALREADY_GENERATED | Repeated initial generation |
+| 409 | SCHEDULE_OVERLAP | Duplicate/overlapping rules or concrete occurrences |
+| 409 | SCHEDULE_TIME_CONFLICT | Past/equal-now start, DST gap/ambiguity or invalid instant ordering |
+| 422 | SCHEDULE_GENERATION_LIMIT | Stored sessionCount exceeds 1,000 |
+| 503 | COURSE_UNAVAILABLE | Existing sanitized Course persistence/transaction failure mapping |
+
+Clients must explicitly recover uncertain mutation outcomes; never automatically
+retry writes. No migration, publication, Calendar/Meet operation, Enrollment or
+Payment is introduced by this slice.
 
 References: FR-SES-001, FR-SES-002, FR-SES-003, FR-SES-004,
 FR-SCH-001, FR-SCH-002; BR-SES-001, BR-SES-002, BR-SCH-001;
 DM-SES-001, DM-SCH-001, INV-017, INV-020.
 
+
+### 9.2 Teacher Session listing, detail and content (TASK-035 Backend Phase 2)
+
+Base: `/api/v1/teacher/courses/{courseId}`. All three operations require header
+Bearer authentication, current TeacherBusinessEligibility and actual Course
+ownership. A Session must belong to the route Course; client IDs are lookup inputs,
+never authorization. Successful responses use `Cache-Control: no-store`.
+
+- GET `/sessions`: page=0, size=20 (1–100), optional status SCHEDULED/CANCELLED;
+  order by sessionNumber ascending. Return `{items,page,size,hasNext}`. Each summary
+  contains only `{id,courseId,sessionNumber,title,scheduledStartAt,scheduledEndAt,status}`.
+  IDs are decimal strings, timestamps are ISO-8601 UTC instants, title may be null.
+  Unknown/duplicate query parameters, invalid values and request bodies are rejected.
+- GET `/sessions/{sessionId}`: no query/body; summary fields plus nullable content,
+  nullable cancellationReason, createdAt and updatedAt. Owned reads are permitted
+  in all existing Course and Session lifecycle states.
+- PATCH `/sessions/{sessionId}`: no query; accepts only title and/or content, with
+  at least one field present. Omitted values are preserved; explicit null clears.
+  Non-null text is trimmed only for leading/trailing ASCII spaces, must not be
+  blank, and is limited to 200 title / 10,000 content Unicode code points. Malformed
+  UTF-16 and ISO control characters are rejected; content alone permits tab, CR and
+  LF for plain-text formatting, consistent with existing Course description rules.
+  Content is stored/returned as plain text, never interpreted as HTML; future UI
+  must render it as text. Return the updated detail (200).
+
+PATCH permits only SCHEDULED Sessions under DRAFT/PUBLISHED Courses. It locks the
+acting User, owned Course, then nested Session, reads the current state under lock,
+and writes only title/content/updated_at. Scheduling instants, numbering, status,
+cancellation reason, creation time and parentage remain unchanged. Concurrent
+updates serialize: different omitted fields merge and the last committed update
+to the same field wins. Failures roll back the complete mutation. No automatic
+mutation retry is introduced.
+
+Existing 400 INVALID_REQUEST, 401 AUTHENTICATION_REQUIRED, 403 ACCESS_DENIED and
+503 COURSE_UNAVAILABLE mappings apply. Missing/non-owned Course is 404
+COURSE_NOT_FOUND; a missing Session or nested Course mismatch is 404
+SESSION_NOT_FOUND. Noneditable Course/Session state returns 409 SESSION_NOT_EDITABLE.
+Errors contain safe generic messages without SQL or private record details.
+No DTO exposes Meet URLs, Student/payment records or Calendar credentials.
+No migration, rescheduling, cancellation, regeneration, frontend or publication
+operation is introduced.
+
+### 9.3 Teacher Session rescheduling, history and cancellation (TASK-035 Backend Phase 3)
+
+Base: `/api/v1/teacher/courses/{courseId}/sessions/{sessionId}`. Existing Bearer-only
+current Teacher eligibility, Course ownership and nested Session parentage checks
+apply. Successful responses are no-store; all IDs use decimal strings.
+
+- POST `/reschedule`: accepts exactly expectedStartAt, expectedEndAt,
+  scheduledStartAt and scheduledEndAt. Values are ISO timestamps with explicit Z
+  or ±HH:mm offsets, seconds and at most six fractional digits. New times must
+  have zero seconds/fractional seconds, end > start, start strictly after the
+  injected backend Clock, and endpoints within the same Course-local date.
+  Expected values compare as absolute instants to the locked stored interval;
+  stale values return 409 SESSION_CHANGED. Matching expected values plus unchanged
+  new times return current detail without a write/history row. Actual changes
+  return updated detail (200) and atomically append one history row.
+- GET `/schedule-changes`: page=0, size=20 (1–100), sorted by history ID ascending;
+  returns `{items,page,size,hasNext}`. Items contain only id, sessionId, oldStartAt,
+  oldEndAt, newStartAt, newEndAt, changedAt. No actor/reason fields are invented.
+  History remains readable after cancellation and in all owned Course states.
+- POST `/cancel`: requires a JSON object, optionally containing reason. Empty
+  object, omitted reason or null means no reason. Non-null reason uses ASCII-space
+  trimming, nonblank text, at most 1,000 Unicode code points, no malformed UTF-16
+  or ISO control characters. Unknown fields/types are rejected. Returns detail
+  (200). A valid repeated request on an already CANCELLED Session returns the
+  stored result without changing reason or timestamps, including after its start
+  or a later Course state change; current authorization still applies.
+
+Initial cancellation and rescheduling require a SCHEDULED Session whose current
+start is strictly future and Course state DRAFT/PUBLISHED. Mutations lock User ->
+Course -> Session. Rescheduling checks overlap under the Course lock against other
+SCHEDULED Sessions only, using half-open intervals; adjacency is allowed. Individual
+times need not match weekly rules. Explicit instants determine the local date;
+the Phase 1 local-time DST inference algorithm is not used for these offset inputs.
+Session ID/number/title/content/status remain unchanged during rescheduling,
+even if chronological order changes. updated_at records actual mutations.
+
+Before a reschedule (including its same-time request) or initial cancellation,
+any session_calendar_events record causes 409 CALENDAR_SYNC_REQUIRED. No Calendar
+record is altered. An already-completed cancellation replay is a read, not a new
+Calendar-affecting mutation. Future Calendar writers must coordinate with the same
+Session/Course locks; no synchronization worker is implemented here.
+
+Cancellation preserves the row, number, interval and all schedule history; only
+status, cancellation_reason and updated_at change. It does not alter Course status
+or count, generate replacements, initiate refunds or allow restoration.
+History insertion failure rolls back the reschedule. Concurrent same-Session
+changes detect stale expectations; concurrent same-Course overlap checks serialize.
+No automatic mutation retry is introduced.
+
+Strict payload/query/ID errors return 400 INVALID_REQUEST. Existing authentication,
+ownership and nested-not-found errors apply. State denial uses 409
+SESSION_NOT_EDITABLE; past/equal-now cutoff uses 409 SCHEDULE_TIME_CONFLICT;
+overlap uses 409 SCHEDULE_OVERLAP. Transaction failures retain sanitized 503
+COURSE_UNAVAILABLE. POST routes accept no query parameters; history rejects unknown
+or duplicate query parameters and request bodies. No migrations or external calls.
 
 ## 10. Assignment
 
@@ -1414,3 +1697,22 @@ refresh/recovery lock order. The UI under `/account` never retries a mutation au
   before another attempt. Change Password remains the existing separate component.
 - Avatar, address, birth date, email/username changes and Teacher profile editing are excluded.
   This slice does not complete TASK-009's Teacher profile scope.
+
+## Batch Calendar 01 — Teacher calendar (2026-10-27)
+
+- `GET /api/v1/teacher/calendar/sessions` uses Bearer authentication and current
+  TeacherBusinessEligibility. Ownership is derived from the authenticated account.
+- Required `from` and `to` are offset timestamps (Z or explicit offset), years 1–9999.
+  Require from < to and a maximum 62-day range. Default page=0, size=20; size 1–100.
+  Duplicate/unknown query parameters and request bodies are rejected.
+- Response: `{items,page,size,hasNext}`. Each item contains decimal-string sessionId
+  and courseId, courseTitle, sessionNumber, nullable sessionTitle, startsAt, endsAt,
+  courseTimezone and status. No content, Meet URL, payment or Student data is returned.
+- Strict interval overlap: scheduled_start_at < to AND scheduled_end_at > from.
+  Include CANCELLED Sessions; order by scheduled_start_at then Session ID ascending.
+  Pagination uses a bounded size+1 query, not a total count.
+- Successful responses use Cache-Control: no-store. Existing Course error mapping
+  applies (400 invalid input, 401 authentication, 403 eligibility, safe 503 persistence).
+- `/teacher/calendar` reuses the persistent Dashboard and authenticated API client.
+  Month/week date buckets use explicitly labelled Asia/Ho_Chi_Minh time; each card
+  displays its own Course timezone. Pagination is visible and never silently truncated.

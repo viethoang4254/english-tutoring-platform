@@ -12,6 +12,10 @@ import { authMutation, authorized, safeMessage, signIn, validPassword, type Onbo
 import { roleLabels, statusLabels, formatDate } from "../../lib/vi";
 import { AdminApplications } from "../teacher/admin-applications";
 
+import dashboard from "../admin/admin-dashboard.module.css";
+import layout from "./account-layout.module.css";
+
+type Panel = "overview" | "profile" | "teacher" | "password" | "reviews";
 type View = "login" | "register" | "student" | "verify";
 const applicationFields = ["specialization", "teachingExperience", "introduction"] as const;
 const labels = { specialization: "Chuyên môn", teachingExperience: "Kinh nghiệm giảng dạy", introduction: "Giới thiệu" };
@@ -20,11 +24,14 @@ function ApplicationFields() {
   return applicationFields.map(name => <label key={name}>{labels[name]}<textarea name={name} required rows={3} /></label>);
 }
 
-export function AccountWorkspace({ initialView = "login", modal = false, dedicatedLogin = false, initialMessage = "", onAuthenticated }: {
-  initialView?: View; modal?: boolean; dedicatedLogin?: boolean; initialMessage?: string; onAuthenticated?: () => void;
+export function AccountWorkspace({ initialView = "login", modal = false, dedicatedLogin = false, initialMessage = "", embeddedPanel, dashboardPanel, onAuthenticated }: {
+  dashboardPanel?: Panel; embeddedPanel?: "teacher" | "settings" | "dashboard"; initialView?: View; modal?: boolean; dedicatedLogin?: boolean; initialMessage?: string; onAuthenticated?: () => void;
 }) {
   const { session, setSession, clearSession: clearSharedSession } = useSession();
   const router = useRouter();
+  const [panel, setPanel] = useState<Panel>("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const panelHeading = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState<View>(initialView);
   const [status, setStatus] = useState<Onboarding | null>(null);
   const [ready, setReady] = useState(false);
@@ -33,7 +40,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
   const [message, setMessage] = useState(initialMessage);
 
   function clearSession() {
-    clearSharedSession(); setStatus(null); setReady(false);
+    clearSharedSession(); setStatus(null); setReady(false); setPanel("overview");
   }
   async function run(work: () => Promise<void>) {
     if (inFlight.current) return;
@@ -55,6 +62,8 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     const current = await signIn(body);
     setSession(current);
     onAuthenticated?.();
+    if (current.account.role === "STUDENT") router.replace("/student/dashboard");
+    else if (current.account.role === "ADMIN") router.replace("/admin/dashboard");
   }
   useEffect(() => {
     if (modal || !session || session.account.role !== "TEACHER" || !session.account.emailVerified) return;
@@ -79,7 +88,16 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     if (data.password !== undefined && !validPassword(data.password)) throw new ApiRequestError(400, "INVALID_REQUEST", "Invalid input");
   }
 
-  return <div className={`account-workspace auth-panel ${modal ? "auth-modal-panel" : ""}`} onInvalid={event => {
+  const teaching = session?.account.role === "TEACHER" && session.account.emailVerified && ready && status?.status === "APPROVED";
+  const navigation: [Panel, string][] = [["overview", "Tổng quan"]];
+  if (session?.account.role === "STUDENT" || session?.account.role === "TEACHER") navigation.push(["profile", "Hồ sơ cá nhân"]);
+  if (session?.account.role === "TEACHER") navigation.push(["teacher", "Hồ sơ gia sư"]);
+  if (session?.account.role === "ADMIN" && session.account.emailVerified) navigation.push(["reviews", "Xét duyệt gia sư"]);
+  navigation.push(["password", "Đổi mật khẩu"]);
+  const activePanel = dashboardPanel ?? (embeddedPanel === "teacher" ? "teacher" : navigation.some(([key]) => key === panel) ? panel : "overview");
+  function selectPanel(next: Panel) { setPanel(next); setMenuOpen(false); panelHeading.current?.focus(); }
+
+  return <div className={`account-workspace auth-panel ${session && !modal ? layout.workspace : ""} ${modal ? "auth-modal-panel" : ""}`} onInvalid={event => {
     const field = event.target;
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
       field.setCustomValidity(field.validity.valueMissing ? "Vui lòng điền thông tin này." :
@@ -89,8 +107,8 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     const field = event.target;
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.setCustomValidity("");
   }}>
-    {!modal && !dedicatedLogin && initialView === "login" && <h1>Tài khoản</h1>}
-    {!modal && !dedicatedLogin && session && initialView === "login" && <details key={session ? "signed-in" : "signed-out"} className="account-menu">
+    {!embeddedPanel && !modal && !dedicatedLogin && initialView === "login" && <h1>Tài khoản</h1>}
+    {!embeddedPanel && !modal && !dedicatedLogin && session && initialView === "login" && <details key={session ? "signed-in" : "signed-out"} className="account-menu">
       <summary>Tài khoản</summary>
       {(
       <button disabled={busy} onClick={() => void run(async () => {
@@ -145,14 +163,27 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
           setMessage("Nếu đủ điều kiện, email xác minh đã được gửi. Vui lòng chờ ít nhất 60 giây trước khi yêu cầu gửi lại.");
         }); }}><fieldset disabled={busy}><label>Địa chỉ email nhận lại mã<input name="email" type="email" autoComplete="email" placeholder="ban@example.com" required /></label><button type="submit">Gửi lại email xác minh</button></fieldset></form>
       </section>}
-    </> : <>
-      <p>Đã đăng nhập với vai trò {roleLabels[session.account.role]}.</p>
-      {(session.account.role === "STUDENT" || session.account.role === "TEACHER") && <StudentProfile session={session} />}
-      <ChangePassword session={session} />
+    </> : <div className={embeddedPanel ? undefined : dashboard.dashboard}>
+      {!embeddedPanel && <aside className={`${dashboard.sidebar} ${layout.sidebar}`}>
+        <div className={dashboard.identity}><span aria-hidden="true">TK</span><div><strong>Không gian tài khoản</strong><p>{roleLabels[session.account.role]}</p></div></div>
+        <button className={dashboard.mobileToggle} aria-expanded={menuOpen} aria-controls="account-navigation" onClick={() => setMenuOpen(!menuOpen)}>Điều hướng tài khoản</button>
+        <nav id="account-navigation" data-open={menuOpen} aria-label="Điều hướng tài khoản" className={menuOpen ? dashboard.open : dashboard.navigation}>
+          {navigation.map(([key, label]) => <button key={key} aria-current={activePanel === key ? "page" : undefined} onClick={() => selectPanel(key)}>{label}</button>)}
+          {teaching && <Link href="/teacher">Không gian gia sư</Link>}
+          {session.account.role === "STUDENT" && <Link href="/student/dashboard">Bảng học tập</Link>}
+          {session.account.role === "ADMIN" && <Link href="/admin/dashboard">Bảng quản trị</Link>}
+        </nav>
+      </aside>}
+      <div className={dashboard.content}>
+      {!embeddedPanel && <header className={dashboard.welcome}><p>KHÔNG GIAN TÀI KHOẢN</p><h2 ref={panelHeading} tabIndex={-1}>{navigation.find(([key]) => key === activePanel)?.[1]}</h2></header>}
+      <section hidden={(!dashboardPanel && !!embeddedPanel) || activePanel !== "overview"} className={dashboard.card}><h3>Chào mừng bạn</h3><p>Chọn mục trong điều hướng để quản lý hồ sơ, khóa học và bảo mật tài khoản.</p>
+      <p>Đã đăng nhập với vai trò {roleLabels[session.account.role]}.</p></section>
+      {(session.account.role === "STUDENT" || session.account.role === "TEACHER") && <div hidden={embeddedPanel !== "settings" && activePanel !== "profile" && !(embeddedPanel === "dashboard" && (activePanel === "password" || activePanel === "teacher"))}><StudentProfile session={session} /></div>}
+      <div hidden={embeddedPanel !== "settings" && activePanel !== "password"}><ChangePassword session={session} /></div>
 
       {session.account.role === "ADMIN" && session.account.emailVerified &&
-        <AdminApplications session={session} busy={busy} run={run} />}
-      {session.account.role === "TEACHER" && session.account.emailVerified ? <section>
+        <div hidden={activePanel !== "reviews"}><AdminApplications session={session} busy={busy} run={run} /></div>}
+      {session.account.role === "TEACHER" && session.account.emailVerified ? <section hidden={activePanel !== "teacher"} className={dashboard.card}>
         <h2>Hồ sơ đăng ký gia sư</h2>
         <button disabled={busy} onClick={() => void run(() => loadStatus(session))}>Cập nhật trạng thái hồ sơ</button>
         {!ready && <p>Vui lòng kiểm tra trạng thái mới nhất trước khi gửi. Chỉ có thể gửi lại sau khi kiểm tra thành công.</p>}
@@ -160,7 +191,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
           <p>Trạng thái hồ sơ: <strong>{statusLabels[status.status]}</strong>{!ready && " (lần cập nhật gần nhất)"}</p>
           <p>Ngày gửi: <time dateTime={status.submittedAt}>{formatDate(status.submittedAt)}</time></p>
           {status.status === "PENDING" && <p>Hồ sơ của bạn đang chờ xét duyệt.</p>}
-          {status.status === "APPROVED" && <p>Hồ sơ của bạn đã được phê duyệt. Quyền giảng dạy vẫn phụ thuộc vào điều kiện hiện tại của tài khoản.</p>}
+          {status.status === "APPROVED" && <><p>Hồ sơ của bạn đã được phê duyệt. Quyền giảng dạy vẫn phụ thuộc vào điều kiện hiện tại của tài khoản.</p></>}
           {status.status === "REJECTED" && <>
             <p className="review-reason">Lý do từ chối: {status.rejectionReason ?? "Chưa có lý do."}</p>
             <form onSubmit={event => { const [form, data] = values(event);
@@ -184,7 +215,8 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
             }}><fieldset disabled={busy || !ready}><legend>Gửi lại hồ sơ</legend><ApplicationFields /><button type="submit">Gửi lại hồ sơ</button></fieldset></form>
           </>}
         </>}
-      </section> : <p>Chỉ tài khoản gia sư đã xác minh email mới có thể truy cập hồ sơ đăng ký gia sư.</p>}
-    </>}
+      </section> : session.account.role === "TEACHER" && <p hidden={activePanel !== "teacher"}>Chỉ tài khoản gia sư đã xác minh email mới có thể truy cập hồ sơ đăng ký gia sư.</p>}
+      </div>
+    </div>}
   </div>;
 }
