@@ -169,7 +169,7 @@ def main():
                        ["task034_categories", "task034_migration_clean", "task034_migration_conflict"],
                        ["CategoryPersistenceTests", "CategoryMigrationTests"], ["-DcategoryPersistence=true"], "CATEGORY")
     with stage("category-http", "group"):
-        database_group("category-http", 55436, "task034_test", ["task034_live"],
+        database_group("category-http", 55438, "task034_test", ["task034_live"],
                        ["CategoryLiveHttpTests"], ["-DcategoryLive=true"], "CATEGORY")
     with stage("course-persistence", "group"):
         database_group("course-persistence", 55437, "task010_test", ["task010_courses"],

@@ -87,7 +87,7 @@ profile-browser-acceptance. No parallel database groups or browser workers.
 `backend_tests.py` runs 18 explicit unit/HTTP suites, then CategoryPersistenceTests
 and CategoryMigrationTests, CategoryLiveHttpTests, and CoursePersistenceTests.
 The latter groups create fresh labelled PostgreSQL 18 containers bound only to
-127.0.0.1:55436 or :55437, with generated CI passwords and the exact test identities.
+127.0.0.1:55436 (Category Persistence/Migration), :55438 (Category Live HTTP), or :55437 (Course Persistence), with generated CI passwords and the exact test identities.
 Migration tests own V1-V6 application; the legacy-conflict test intentionally
 expects V6 rejection and verifies preservation of V1-V5 and conflicting rows.
 Each container is removed in finally; runner disposal covers interrupted jobs.

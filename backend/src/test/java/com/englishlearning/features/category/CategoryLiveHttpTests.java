@@ -37,7 +37,7 @@ class CategoryLiveHttpTests {
     void sql(String query) throws Exception { try(var c=connect();var s=c.createStatement()){s.execute(query);} }
     @BeforeAll void start() throws Exception {
         url=System.getenv("CATEGORY_LIVE_URL");user=System.getenv("CATEGORY_TEST_USER");password=System.getenv("CATEGORY_TEST_PASSWORD");
-        assertEquals("jdbc:postgresql://127.0.0.1:55436/task034_live",url);
+        assertEquals("jdbc:postgresql://127.0.0.1:55438/task034_live",url);
         assertEquals("task034_test",user);
         assertEquals(0,scalar("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();

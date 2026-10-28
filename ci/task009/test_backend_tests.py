@@ -37,6 +37,20 @@ class FeatureReportChecks(unittest.TestCase):
             with self.subTest(attributes=attributes):
                 self.check_report(attributes, False)
 
+    def test_main_preserves_group_order_and_uses_distinct_database_ports(self):
+        executed = []
+        with patch.object(feature.support, "root"), patch("sys.stdout", io.StringIO()), \
+                patch.object(feature, "tests", side_effect=lambda label, suites: executed.append((label, None))), \
+                patch.object(feature, "database_group", side_effect=lambda label, port, *args: executed.append((label, port))):
+            feature.main()
+        self.assertEqual(executed, [
+            ("feature-unit-http", None),
+            ("category-persistence", 55436),
+            ("category-http", 55438),
+            ("course-persistence", 55437),
+        ])
+        self.assertEqual(len({port for _, port in executed[1:]}), 3)
+
     def test_main_requires_runner_guard_before_tests(self):
         with patch.object(feature.support, "root", side_effect=RuntimeError("Not CI")), patch.object(feature, "tests") as tests:
             with self.assertRaises(RuntimeError):
