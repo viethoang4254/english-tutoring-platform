@@ -1,10 +1,12 @@
 """Sequential feature tests; only fresh, labelled GitHub-runner containers."""
 from contextlib import contextmanager
+import errno
 import json
 import os
 import secrets
 import socket
 import sys
+import time
 import xml.etree.ElementTree as ET
 import run as support
 
@@ -21,7 +23,7 @@ STAGES = {"group", "memory-preflight", "port-availability", "postgres-create",
           "postgres-cleanup"}
 
 
-def diagnostic(group, stage, event, failure=None):
+def diagnostic(group, stage, event, failure=None, *, attempt=None, retry_exhausted=False):
     # Allowlisted names and numeric metadata only; never serialize exceptions/commands.
     code, timed_out = None, False
     current = failure
@@ -33,10 +35,15 @@ def diagnostic(group, stage, event, failure=None):
         if isinstance(current, support.ResourceFailure) and stage == "maven-execution":
             stage = "memory-preflight"
         current = current.__cause__
-    print(json.dumps({"group": group if group in GROUPS else "unknown",
-                      "stage": stage if stage in STAGES else "unknown",
-                      "event": event if event in {"start", "complete", "failure"} else "unknown",
-                      "exit_code": code, "timeout": timed_out}), flush=True)
+    fields = {"group": group if group in GROUPS else "unknown",
+              "stage": stage if stage in STAGES else "unknown",
+              "event": event if event in {"start", "complete", "failure"} else "unknown",
+              "exit_code": code, "timeout": timed_out}
+    if attempt is not None:
+        fields.update({"socket_errno": failure.errno if isinstance(failure, OSError) and type(failure.errno) is int else None,
+                       "attempt": attempt if type(attempt) is int else None,
+                       "retry_exhausted": retry_exhausted is True})
+    print(json.dumps(fields), flush=True)
 
 
 @contextmanager
@@ -80,14 +87,52 @@ def tests(label, suites, flags=()):
                             "Required feature suite failed, missing or skipped")
 
 
+PORT_ATTEMPTS = 5
+PORT_RETRY_DELAY = 1
+
+
+def check_port(label, port):
+    for attempt in range(1, PORT_ATTEMPTS + 1):
+        try:
+            with socket.socket() as check:
+                check.bind(("127.0.0.1", port))
+            return
+        except OSError as failure:
+            exhausted = failure.errno == errno.EADDRINUSE and attempt == PORT_ATTEMPTS
+            diagnostic(label, "port-availability", "failure", failure,
+                       attempt=attempt, retry_exhausted=exhausted)
+            if failure.errno != errno.EADDRINUSE or exhausted:
+                raise
+            time.sleep(PORT_RETRY_DELAY)
+
+
+@contextmanager
+def container_cleanup(label, name):
+    try:
+        yield
+    finally:
+        primary = sys.exc_info()[1]
+        try:
+            with stage(label, "postgres-cleanup"):
+                listing = ["docker", "ps", "--all", "--filter", "name=^/" + name + "$", "--format", "{{.Names}}"]
+                if support.run(listing):
+                    info = json.loads(support.run(["docker", "inspect", name]))[0]
+                    support.require(info["Config"]["Labels"].get("task009-feature") == name, "Cleanup ownership mismatch")
+                    support.run(["docker", "rm", "-f", "-v", name])
+                support.require(not support.run(listing), "Container removal not confirmed")
+        except Exception:
+            # Cleanup is already reported; preserve the original failure when both fail.
+            if primary is None:
+                raise
+
+
 def database_group(label, port, user, databases, suites, flags, prefix):
     with stage(label, "memory-preflight"):
         support.resources(3072)
     with stage(label, "port-availability"):
-        with socket.socket() as check:
-            check.bind(("127.0.0.1", port))
+        check_port(label, port)
     name = "task009-feature-" + secrets.token_hex(6)
-    try:
+    with container_cleanup(label, name):
         with stage(label, "postgres-create"):
             support.run(["docker", "run", "--detach", "--name", name, "--label", "task009-feature=" + name,
                          "--memory", "512m", "--publish", f"127.0.0.1:{port}:5432",
@@ -113,13 +158,6 @@ def database_group(label, port, user, databases, suites, flags, prefix):
             key = "CATEGORY_LIVE_URL" if label == "category-http" else prefix + "_TEST_URL"
             os.environ[key] = f"jdbc:postgresql://127.0.0.1:{port}/{databases[0]}"
         tests(label, suites, flags)
-    finally:
-        with stage(label, "postgres-cleanup"):
-            inspection = support.subprocess.run(["docker", "inspect", name], capture_output=True, text=True)
-            if inspection.returncode == 0:
-                info = json.loads(inspection.stdout)[0]
-                support.require(info["Config"]["Labels"].get("task009-feature") == name, "Cleanup ownership mismatch")
-                support.run(["docker", "rm", "-f", "-v", name])
 
 
 def main():

@@ -4,7 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 import backend_tests as feature
 
 
@@ -66,22 +66,6 @@ class DiagnosticChecks(unittest.TestCase):
             self.assertEqual(rows[0]["timeout"], timeout)
             self.assertNotIn("SECRET", json.dumps(rows))
 
-    def test_primary_failure_and_cleanup_failure_both_survive(self):
-        def work():
-            with self.assertRaises(feature.support.CommandFailure):
-                with feature.stage("category-http", "group"):
-                    try:
-                        with feature.stage("category-http", "postgres-readiness"):
-                            raise feature.support.ReadinessTimeout("SECRET")
-                    finally:
-                        with feature.stage("category-http", "postgres-cleanup"):
-                            raise feature.support.CommandFailure(9)
-        rows = self.events(work)
-        failures = [r for r in rows if r["event"] == "failure"]
-        self.assertEqual([r["stage"] for r in failures], ["postgres-readiness", "postgres-cleanup", "group"])
-        self.assertTrue(failures[0]["timeout"])
-        self.assertEqual(failures[1]["exit_code"], 9)
-
     def test_maven_memory_failure_is_identified(self):
         rows = self.events(lambda: feature.diagnostic("feature-unit-http", "maven-execution", "failure", feature.support.ResourceFailure("SECRET")))
         self.assertEqual(rows[0]["stage"], "memory-preflight")
@@ -93,3 +77,105 @@ class DiagnosticChecks(unittest.TestCase):
                 feature.support.run(["SECRET"])
         self.assertEqual(caught.exception.exit_code, 3)
         self.assertNotIn("SECRET", str(caught.exception))
+
+
+class PortChecks(unittest.TestCase):
+    def probe(self, failures, expected=None):
+        output = io.StringIO()
+        with patch.object(feature.socket, "socket") as sockets, patch.object(feature.time, "sleep") as sleep, patch("sys.stdout", output):
+            bind = sockets.return_value.__enter__.return_value.bind
+            bind.side_effect = failures
+            if expected is None:
+                feature.check_port("category-http", 55436)
+            else:
+                with self.assertRaises(OSError) as caught:
+                    feature.check_port("category-http", 55436)
+                self.assertIs(caught.exception, expected)
+            self.assertEqual(bind.call_args_list, [call(("127.0.0.1", 55436))] * len(failures))
+            self.assertEqual(sockets.return_value.__exit__.call_count, len(failures))
+        self.assertNotIn("SECRET", output.getvalue())
+        return [json.loads(line) for line in output.getvalue().splitlines()], sleep.call_args_list
+
+    def test_available_first_attempt(self):
+        rows, delays = self.probe([None])
+        self.assertEqual(rows, [])
+        self.assertEqual(delays, [])
+
+    def test_transient_address_in_use(self):
+        rows, delays = self.probe([OSError(feature.errno.EADDRINUSE, "SECRET"), None])
+        self.assertEqual(rows, [{"group": "category-http", "stage": "port-availability", "event": "failure",
+                                 "exit_code": None, "timeout": False, "socket_errno": feature.errno.EADDRINUSE,
+                                 "attempt": 1, "retry_exhausted": False}])
+        self.assertEqual(delays, [call(1)])
+
+    def test_persistent_address_in_use(self):
+        failure = OSError(feature.errno.EADDRINUSE, "SECRET")
+        rows, delays = self.probe([failure] * 5, failure)
+        self.assertEqual([r["attempt"] for r in rows], [1, 2, 3, 4, 5])
+        self.assertEqual([r["retry_exhausted"] for r in rows], [False] * 4 + [True])
+        self.assertEqual(delays, [call(1)] * 4)
+
+    def test_other_socket_errors_fail_immediately(self):
+        for number in [feature.errno.EACCES, None]:
+            with self.subTest(errno=number):
+                failure = OSError(number, "SECRET")
+                rows, delays = self.probe([failure], failure)
+                self.assertEqual(rows[0]["socket_errno"], number)
+                self.assertFalse(rows[0]["retry_exhausted"])
+                self.assertEqual(delays, [])
+
+
+class CleanupChecks(unittest.TestCase):
+    name = "task009-feature-test"
+
+    def test_removal_verified_after_ownership_check(self):
+        inspection = json.dumps([{"Config": {"Labels": {"task009-feature": self.name}}}])
+        with patch.object(feature.support, "run", side_effect=[self.name, inspection, "", ""]) as run, patch("sys.stdout", io.StringIO()):
+            with feature.container_cleanup("category-http", self.name):
+                pass
+        listing = ["docker", "ps", "--all", "--filter", "name=^/" + self.name + "$", "--format", "{{.Names}}"]
+        self.assertEqual(run.call_args_list, [call(listing), call(["docker", "inspect", self.name]),
+                                            call(["docker", "rm", "-f", "-v", self.name]), call(listing)])
+
+    def test_missing_container_is_confirmed_without_removal(self):
+        with patch.object(feature.support, "run", return_value="") as run, patch("sys.stdout", io.StringIO()):
+            with feature.container_cleanup("category-http", self.name):
+                pass
+        self.assertEqual(run.call_count, 2)
+        self.assertTrue(all(c.args[0][:2] == ["docker", "ps"] for c in run.call_args_list))
+
+    def test_wrong_owner_is_not_removed(self):
+        inspection = json.dumps([{"Config": {"Labels": {"task009-feature": "other"}}}])
+        with patch.object(feature.support, "run", side_effect=[self.name, inspection]) as run, patch("sys.stdout", io.StringIO()):
+            with self.assertRaises(RuntimeError):
+                with feature.container_cleanup("category-http", self.name):
+                    pass
+        self.assertEqual(run.call_count, 2)
+
+    def test_remaining_container_fails_verification(self):
+        inspection = json.dumps([{"Config": {"Labels": {"task009-feature": self.name}}}])
+        with patch.object(feature.support, "run", side_effect=[self.name, inspection, "", self.name]), patch("sys.stdout", io.StringIO()):
+            with self.assertRaises(RuntimeError):
+                with feature.container_cleanup("category-http", self.name):
+                    pass
+
+    def test_cleanup_failure_fails_successful_group_and_preserves_primary(self):
+        for primary in [None, feature.support.ReadinessTimeout("SECRET")]:
+            with self.subTest(primary=primary is not None):
+                cleanup = feature.support.CommandFailure(9)
+                output = io.StringIO()
+                with patch.object(feature.support, "run", side_effect=cleanup), patch("sys.stdout", output):
+                    with self.assertRaises(Exception) as caught:
+                        with feature.stage("category-http", "group"):
+                            with feature.container_cleanup("category-http", self.name):
+                                if primary is not None:
+                                    with feature.stage("category-http", "postgres-readiness"):
+                                        raise primary
+                self.assertIs(caught.exception, primary if primary is not None else cleanup)
+                rows = [json.loads(line) for line in output.getvalue().splitlines()]
+                failures = [r for r in rows if r["event"] == "failure"]
+                expected = ["postgres-cleanup", "group"] if primary is None else ["postgres-readiness", "postgres-cleanup", "group"]
+                self.assertEqual([r["stage"] for r in failures], expected)
+                self.assertEqual(failures[-2]["exit_code"], 9)
+                self.assertEqual(failures[-1]["timeout"], primary is not None)
+                self.assertNotIn("SECRET", output.getvalue())
