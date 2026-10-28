@@ -112,7 +112,7 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     await expect(page.getByText('Buổi 1: CI Topic 1',{exact:true}).first()).toBeVisible();
     await page.getByRole('button',{name:'Xem buổi 1',exact:true}).click();
     await expect(page.getByRole('heading',{name:'Chi tiết buổi 1',exact:true})).toBeVisible();
-    await expect(page.getByText('CI plain text',{exact:true})).toBeVisible();
+    await expect(sessions.getByRole('paragraph').filter({hasText:/^CI plain text$/})).toBeVisible();
     expect(await nav.getAttribute('data-calendar-test')).toBe('mounted');
     await teacherPanel(page,'Lịch dạy');await expect(calendar).toBeVisible();
     stage('calendar-other-timezone');
