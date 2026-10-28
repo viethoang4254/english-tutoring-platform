@@ -18,7 +18,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 @org.springframework.boot.test.context.SpringBootTest(properties={
     "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-    "spring.flyway.enabled=false","app.security.browser.allowed-origins=https://frontend.example"})
+    "spring.flyway.enabled=false","app.security.browser.local-http=false","app.security.browser.allowed-origins=https://frontend.example"})
 class CourseHttpTests extends AuthenticationHttpTestSupport {
     String origin() { return "https://frontend.example"; }
     String api() { return "https://backend.example"; }
