@@ -1,4 +1,6 @@
 """Offline checks for the new CI report gate; executed in GitHub Actions only."""
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -40,3 +42,54 @@ class FeatureReportChecks(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 feature.main()
             tests.assert_not_called()
+
+
+class DiagnosticChecks(unittest.TestCase):
+    def events(self, action):
+        output = io.StringIO()
+        with patch("sys.stdout", output):
+            action()
+        return [json.loads(line) for line in output.getvalue().splitlines()]
+
+    def test_untrusted_values_and_exception_text_are_not_logged(self):
+        rows = self.events(lambda: feature.diagnostic("SECRET", "SECRET", "SECRET", RuntimeError("SECRET")))
+        self.assertEqual(rows, [{"group": "unknown", "stage": "unknown", "event": "unknown", "exit_code": None, "timeout": False}])
+
+    def test_exit_code_and_timeout_without_command_or_output(self):
+        for failure, code, timeout in [
+            (feature.support.CommandFailure(7), 7, False),
+            (feature.support.subprocess.TimeoutExpired(["SECRET"], 10, output="SECRET"), None, True),
+            (feature.support.ReadinessTimeout("SECRET"), None, True),
+        ]:
+            rows = self.events(lambda: feature.diagnostic("category-http", "maven-execution", "failure", failure))
+            self.assertEqual(rows[0]["exit_code"], code)
+            self.assertEqual(rows[0]["timeout"], timeout)
+            self.assertNotIn("SECRET", json.dumps(rows))
+
+    def test_primary_failure_and_cleanup_failure_both_survive(self):
+        def work():
+            with self.assertRaises(feature.support.CommandFailure):
+                with feature.stage("category-http", "group"):
+                    try:
+                        with feature.stage("category-http", "postgres-readiness"):
+                            raise feature.support.ReadinessTimeout("SECRET")
+                    finally:
+                        with feature.stage("category-http", "postgres-cleanup"):
+                            raise feature.support.CommandFailure(9)
+        rows = self.events(work)
+        failures = [r for r in rows if r["event"] == "failure"]
+        self.assertEqual([r["stage"] for r in failures], ["postgres-readiness", "postgres-cleanup", "group"])
+        self.assertTrue(failures[0]["timeout"])
+        self.assertEqual(failures[1]["exit_code"], 9)
+
+    def test_maven_memory_failure_is_identified(self):
+        rows = self.events(lambda: feature.diagnostic("feature-unit-http", "maven-execution", "failure", feature.support.ResourceFailure("SECRET")))
+        self.assertEqual(rows[0]["stage"], "memory-preflight")
+
+    def test_subprocess_failure_retains_only_numeric_exit_metadata(self):
+        result = feature.support.subprocess.CompletedProcess(["SECRET"], 3, "SECRET", "SECRET")
+        with patch.object(feature.support.subprocess, "run", return_value=result):
+            with self.assertRaises(feature.support.CommandFailure) as caught:
+                feature.support.run(["SECRET"])
+        self.assertEqual(caught.exception.exit_code, 3)
+        self.assertNotIn("SECRET", str(caught.exception))

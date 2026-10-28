@@ -33,16 +33,31 @@ def root():
     return Path(os.environ["RUNNER_TEMP"]) / "task009"
 
 
+class ResourceFailure(RuntimeError):
+    pass
+
+
+class ReadinessTimeout(RuntimeError):
+    pass
+
+
+class CommandFailure(RuntimeError):
+    def __init__(self, exit_code):
+        super().__init__("CI command failed; private output withheld")
+        self.exit_code = exit_code
+
+
 def run(args, *, data=None, cwd=None, timeout=120):
     result = subprocess.run(args, input=data, text=True, capture_output=True, cwd=cwd, timeout=timeout)
-    require(result.returncode == 0, "CI command failed; private output withheld")
+    if result.returncode != 0:
+        raise CommandFailure(result.returncode)
     return result.stdout.strip()
 
 
 def resources(minimum=1536):
     memory = dict(re.findall(r"^(\w+):\s+(\d+)", Path("/proc/meminfo").read_text(), re.M))
-    require(int(memory["MemTotal"]) >= 6_500_000, "Runner needs at least 7 GB RAM")
-    require(int(memory["MemAvailable"]) // 1024 >= minimum, "Insufficient available memory")
+    if int(memory["MemTotal"]) < 6_500_000 or int(memory["MemAvailable"]) // 1024 < minimum:
+        raise ResourceFailure("Insufficient runner memory")
 
 
 def export(values):
@@ -99,13 +114,15 @@ def spawn(name, args, cwd=REPO):
 
 
 def wait_for(check):
+    last_failure = None
     for _ in range(60):
         try:
             check()
             return
-        except (OSError, RuntimeError, smtplib.SMTPException):
+        except (OSError, RuntimeError, smtplib.SMTPException) as failure:
+            last_failure = failure
             time.sleep(1)
-    raise RuntimeError("Required isolated service did not become ready")
+    raise ReadinessTimeout("Required isolated service did not become ready") from last_failure
 
 
 def smtp_check():
