@@ -23,10 +23,37 @@ jobs:
       - run: python ci/task009/run.py smtp-test
       - if: always()
         run: python ci/task009/run.py cleanup
-  profile-browser-acceptance:
+  backend-feature-acceptance:
     needs: smtp-acceptance
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
+      - run: python ci/task009/run.py prepare
+      - run: python -m unittest discover -s ci/task009 -p 'test_*.py'
+      - run: python ci/task009/backend_tests.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: backend-feature-counts
+          path: ${{ runner.temp }}/task009/reports/*.json
+          retention-days: 7
+          if-no-files-found: warn
+      - if: always()
+        run: python ci/task009/run.py cleanup
+  profile-browser-acceptance:
+    needs: backend-feature-acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     env:
       NODE_OPTIONS: --max-old-space-size=1536
     steps:
@@ -48,6 +75,12 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: node --test --test-concurrency=1 tests/api.spec.ts tests/browser-api.spec.ts tests/vi.spec.ts tests/session-input.spec.ts
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
@@ -73,6 +106,12 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '58'
       - run: python ci/task009/run.py resources
+      - name: Additional feature browser acceptance (64 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '64'
+      - run: python ci/task009/run.py resources
       - name: Live populated Calendar acceptance (2 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/live/calendar.spec.ts
         working-directory: frontend
@@ -80,3 +119,10 @@ jobs:
           TASK009_EXPECTED_TESTS: '2'
       - if: always()
         run: python ci/task009/run.py cleanup
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: browser-acceptance-counts
+          path: ${{ runner.temp }}/task009/reports/*.json
+          retention-days: 7
+          if-no-files-found: warn

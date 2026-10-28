@@ -14,7 +14,7 @@ counts fail acceptance. These expected counts are not execution evidence.
 Calendar 01.2 extends the same browser job, without another workflow or service stack.
 After the existing profile groups, it runs 58 mocked Dashboard/Course/Session/Calendar
 regressions, then 2 live populated Calendar cases (one desktop, one mobile). Groups
-run sequentially with one worker and zero retries. The job timeout is 45 minutes.
+run sequentially with one worker and zero retries. The browser job timeout is 60 minutes.
 
 Each live Calendar case registers two Teachers, one rejected Teacher and an Admin
 fixture through the shared registration/verification helper. The real Admin review
@@ -79,3 +79,38 @@ before it can be manually dispatched on another ref. Use the repository's normal
 review/merge policy; do not switch the trigger to push or pull_request to bypass it.
 Inspect both job conclusions and safe counts before recording acceptance. No
 runtime result is claimed by adding this infrastructure.
+
+## Full feature acceptance expansion (pending CI execution)
+
+The existing workflow runs sequentially: SMTP -> backend-feature-acceptance ->
+profile-browser-acceptance. No parallel database groups or browser workers.
+`backend_tests.py` runs 18 explicit unit/HTTP suites, then CategoryPersistenceTests
+and CategoryMigrationTests, CategoryLiveHttpTests, and CoursePersistenceTests.
+The latter groups create fresh labelled PostgreSQL 18 containers bound only to
+127.0.0.1:55436 or :55437, with generated CI passwords and the exact test identities.
+Migration tests own V1-V6 application; the legacy-conflict test intentionally
+expects V6 rejection and verifies preservation of V1-V5 and conflicting rows.
+Each container is removed in finally; runner disposal covers interrupted jobs.
+No Supabase configuration or shared database is used.
+
+The browser runner adds Admin Categories (12), Admin Dashboard (12), Course
+Discovery (4), Student Dashboard (16), Teacher Dashboard (20): 64 additional
+cases, 156 total including the existing 92. Counts include desktop and mobile.
+Frontend CI also runs typecheck, lint, all four existing Node unit-test files and
+production build. Backend packaging in the browser job still skips duplicate
+execution; it depends on the required backend test job succeeding first.
+
+Only sanitized suite counts are uploaded for seven days. Raw Surefire XML can
+contain environment properties and raw browser artifacts can contain credentials,
+so neither is uploaded. Build/startup failures may consequently require a separate
+safe diagnostic patch. Exact backend counts come from CI reports, not estimates.
+Unrelated opt-in auth persistence/SMTP/operator suites are not enabled by this
+expansion; existing SMTP and live profile acceptance remain. Other E2E files
+(account, auth-navigation, change-password, foundation, password-recovery,
+post-login, student-admin) remain outside this workflow selection.
+
+Estimated sequential runtime: 20-45 minutes, dependent on dependency downloads;
+job limits are 20/45/60 minutes. Use GitHub-hosted Ubuntu with at least 7 GB RAM;
+database groups require at least 3 GiB available before startup, 512 MiB PostgreSQL
+and a single 512 MiB Maven test JVM. Browser workers remain one, retries zero.
+No results are claimed until the expanded workflow runs on its published commit.

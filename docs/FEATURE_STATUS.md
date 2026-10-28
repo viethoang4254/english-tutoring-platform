@@ -1188,6 +1188,22 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Live tests cover both owners, rejected eligibility, cancelled Sessions, stable
   ordering, pagination, strict overlap, offset/midnight boundaries, month/week UI,
   Course timezone display and navigation into existing Session details.
-- CI has NOT been triggered. Batch Calendar 01 remains IN_PROGRESS pending actual
-  populated execution. Publishing must include the existing uncommitted backend
-  and frontend dependencies. No commits or pushes.
+- Calendar populated acceptance subsequently passed in GitHub Actions run
+  40685452883 on commit f1dde737268c26a6778a0e2fa6cc648585d02fc0:
+  SMTP and profile-browser jobs succeeded; 92 browser cases passed with no failures
+  or skips, including desktop/mobile populated Calendar. This verifies the bounded
+  Calendar slice, not all bundled Category/Course/Session features.
+
+### Full feature CI expansion prepared — 2026-10-28
+
+- Existing manual workflow now prepares sequential backend feature tests and fresh
+  PostgreSQL 18 Category migration/persistence/live HTTP and Course/Session
+  persistence/concurrency groups. Existing test target guards remain unchanged.
+- Adds frontend type checking, lint and four Node unit-test files, plus 64 browser
+  cases for Admin Categories, Admin Dashboard, Course Discovery, Student Dashboard
+  and Teacher Dashboard. Original 92 browser cases remain; expected total is 156.
+- Sanitized suite-count artifacts exclude raw logs, captured mail, credentials and
+  browser traces. Required backend groups fail on missing reports or skipped cases.
+- Expansion is prepared only: no local tests/builds, commit, push or CI dispatch.
+  Broader feature acceptance remains pending a successful expanded workflow.
+  TASK-035/TASK-037 remain IN_PROGRESS; Google Calendar is not implemented.
