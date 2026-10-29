@@ -365,11 +365,36 @@ It is distinct from Payment; individual Sessions are not purchased. Protected
 Session/content, Assignment and Meet access requires authoritative participation
 eligibility where required by the current rules.
 
+TASK-016 reconciliation (2026-10-29): paid-only participation starts PENDING with a
+maximum 15-minute reservation capped at first Session start. Spring Boot enforces
+ACTIVE Enrollment access; other lifecycle access remains OPEN. The authoritative
+transition table is BR-ENR-001. Provider automatic confirmation and authorized manual
+Teacher attestation are distinct trust paths under BR-PAY-009.
+
+Proposed transaction design: current acting User -> Course -> Enrollment -> Payment
+locks, matching existing parent-Course serialization; provider handlers must use a
+compatible lock order. Recheck capacity and cutoff inside the transaction, use an
+injectable backend Clock, and retain Student/Course uniqueness as the final safeguard.
+Confirmation, audit persistence and allowed activation commit or roll back together.
+Do not call external providers while holding database locks. Deduplicate provider
+transactions within the verified adapter context; never assume global ID uniqueness.
+Cleanup jobs are not required for correct expired-seat counting. Late evidence is
+retained for reconciliation, never blind activation or automatic refund.
+
+Receiving-account ownership assurance and reconciliation connectivity are distinct.
+Teacher-entered account details alone enable neither verified ownership nor automatic
+bank evidence. Dynamic VietQR derives from immutable server-selected Payment data.
+Manual attestation requires durable actor/time/method/evidence and reviewed dispute/
+Admin oversight controls; it must not manufacture a bank-transaction record. Existing
+V1 lacks dedicated representation for these new facts; schema review is required,
+without authorizing migration execution or extra infrastructure here.
+
 Public discovery and My Courses listing do not prove current protected access.
 Payment initiation or a browser success claim cannot grant participation. A
 trustworthily confirmed payment may permit an Enrollment effect only under the
 approved capacity/cutoff/lifecycle rules. Enrollment is unique per Student/Course;
-free activation does not create a Payment and late confirmation cannot overbook.
+new participation starts PENDING; only approved automatic or audited manual confirmation
+may activate it, and late confirmation cannot overbook.
 
 Students must not access another Student's private work/results. Teachers inspect
 only authorized information within owned Courses. Admin authorization is explicit:
@@ -454,8 +479,9 @@ keep their historical account reference.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 

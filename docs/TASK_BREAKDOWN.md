@@ -318,7 +318,7 @@ advance implementation.
 - **Prerequisites:** TASK-004, TASK-007, TASK-010.
 - **Decision gates:** G-ENROLLMENT, G-CAPACITY, G-PAYEFFECT, G-ADMIN, G-API, G-UI, G-PHYSICAL.
 - **Allowed scope:** Unique Student/Course Enrollment, PENDING/ACTIVE/COMPLETED/CANCELLED;
-  free activation without Payment. Capacity includes ACTIVE plus unexpired reserved PENDING,
+  paid-only activation through approved confirmation. Capacity includes ACTIVE plus unexpired reserved PENDING,
   minimum counts ACTIVE. Enforce first-Session cutoff and concurrency.
 - **Forbidden scope:** No completed-record re-enrollment into same instance, expired-seat
   occupancy, browser-authoritative access or unconditional late-payment activation.
@@ -327,6 +327,53 @@ advance implementation.
 - **Negative acceptance:** Forged studentId, another Student relationship or mere public discovery cannot grant access. Rejected/duplicate/capacity cases follow approved policy and cannot silently activate access.
 - **Verification:** Test role/identity/resource access and state preservation; add approved lifecycle/capacity concurrency checks after decisions. TASK-022 integrates payment effects later; it is not this task prerequisite.
 - **Completion evidence:** Record actual files, checks, remaining work and available commit references in FEATURE_STATUS.md under TASK-016; no evidence is claimed here.
+
+### TASK-016 / TASK-022 reconciliation and implementation gates (2026-10-29)
+
+Approved: paid-only positive tuition; PENDING reservation capped at 15 minutes/first
+start; explicit renewal; no duplicate extension; own-PENDING cancellation; ACTIVE
+backend access; dynamic VietQR; separate account ownership/reconciliation facts;
+automatic evidence or audited owning-Teacher manual attestation. See BR-ENR-001,
+BR-PAY-009 and API_DESIGN Section 12. API routes/DTOs remain proposals. This records
+contract approval only; authoritative implementation status remains FEATURE_STATUS.md.
+
+Recommended slices: (1) approve remaining Enrollment API/eligibility decisions and
+reconcile positive tuition validation; (2) reservation/read/cancel/renew and capacity
+concurrency; (3) roster and protected access; (4) receiving-account verification and
+confirmation-audit schema design; (5) dynamic QR and automatic/manual confirmation;
+(6) Student UI and full payment-to-access CI acceptance. TASK-016 need not implement
+Payment first, but no paid activation can be claimed before TASK-022 integration.
+
+Later implementation follow-ups (not changed here): CourseInput.java currently accepts
+zero tuition; teacher-courses.tsx accepts zero and defaults to 0.00. Update their
+validation and associated tests under separate approval. V1 tuition constraints also
+allow zero; any strengthening needs a data-compatibility review and new approved
+migration, never a V1 rewrite. V1 Enrollment supports reservations without a new state;
+manual audit/account assurance/connection facts need a separate schema mapping review.
+
+| CI acceptance area | Required coverage, not executed evidence |
+| --- | --- |
+| Reservation | New PENDING; deadline capped at first start; exact expiry/cutoff equality; explicit renewal; duplicate no extension; no fake Payments. |
+| Concurrency | Same-Student duplicate yields one row; last-seat race; ACTIVE plus unexpired PENDING; expiration needs no cleanup job; cancellation/renewal/confirmation races. |
+| Authorization | Student identity from principal; cross-Student reads/mutations denied; eligible owned-Course Teacher roster/confirmation only; no Admin confirmation by role alone. |
+| Access | PENDING and unauthorized non-ACTIVE access denied for nested content/Assignments/Meet; public descriptions still visible; UI cannot activate. |
+| Receiving/QR | Account entry not verification; separate reconciliation capability; server amount/account/reference; immutable historical account; no static upload requirement. |
+| Confirmation | Authenticated automatic evidence matches all required fields and deduplicates; manual bank-check attestation records actor/time/method/evidence; screenshots never auto-confirm; audit failure rolls back. |
+| Late payment | No blind expired activation, overbooking or invented refund outcome; preserve evidence; unresolved policy blocks dependent release. |
+| Persistence/UI | Disposable PostgreSQL transaction tests; pagination/privacy; uncertain mutation reload; frontend access states; no production provider calls. |
+
+CI-first validation uses existing GitHub Actions infrastructure and disposable data.
+OPEN: provider/multi-account support; verified-email eligibility; cancelled re-entry;
+refund policy; COMPLETED access; post-first-start rescheduling; late-payment handling;
+account-verification method; manual evidence/dispute/Admin oversight details. Do not
+mark implementation DONE or treat documentation as acceptance evidence.
+
+Reconciliation note (2026-10-29): AGENTS.md, PROJECT_SPEC.md, DATABASE_DESIGN.md
+and the bounded FEATURE_STATUS.md policy paragraphs now reflect the approved contract.
+Existing SQL and implementation evidence remain unchanged; unrelated status edits are
+preserved. Positive-tuition validation and any schema changes still require implementation
+approval. Payment expiry versus reservation expiry and final Enrollment DTO/error
+contracts remain OPEN alongside the gates above.
 
 ## 10. Sessions and Scheduling
 
@@ -507,7 +554,7 @@ advance implementation.
   actual bank transactions, independent optional receiving context, trustworthy
   matching/confirmation and capacity-safe Enrollment effects. Include full Teacher-performed
   refund/proof; Admin verification integrates TASK-026.
-- **Forbidden scope:** No claims-as-confirmation, partial-transfer aggregation, overbooking,
+- **Forbidden scope:** No Student/browser claims-as-confirmation, unaudited Teacher attestation, partial-transfer aggregation, overbooking,
   unsupported provider API/identifier scopes, platform
   custody/payout/wallet/escrow/commission/accounting.
 - **Expected areas:** Backend payment workflow and approved persistence/integration, Student/Teacher views, trust and replay tests; no real transactions required by this plan.
@@ -515,7 +562,7 @@ advance implementation.
   Payment; retry/late evidence cannot duplicate access or overbook. Full refunds preserve
   history and Teacher proof; authorized Admin completion is integrated and verified by
   TASK-026.
-- **Negative acceptance:** Browser/Student claims and Teacher positive or negative testimony alone cannot confirm outcomes; Admin role alone cannot confirm. Unknown evidence is not confirmed failure. Forged amount/recipient/destination and unapproved replay cannot alter payment or participation authority.
+- **Negative acceptance:** Browser/Student claims cannot confirm outcomes; Teacher manual confirmation requires the owned-Course authorization and audit contract in BR-PAY-009. Admin role alone cannot confirm. Unknown evidence is not confirmed failure. Forged amount/recipient/destination and unapproved replay cannot alter payment or participation authority.
 - **Verification:** Use controlled evidence fixtures to test authority, unknown/invalid evidence, privacy and approved retry/effect atomicity. Live provider tests require separate approval; do not implement a fake production confirmer to complete the task.
 - **Completion evidence:** Record actual files, checks, remaining work and available commit references in FEATURE_STATUS.md under TASK-022; no evidence is claimed here.
 
@@ -674,7 +721,7 @@ The following matrix applies incrementally through TASK-045 and the owning featu
 | Public visitor | Read approved Teacher/Course projection | Meet URL, receiving information, private work, transaction/evidence and security data remain absent. |
 | Owning Teacher | Manage approved private receiving information | Foreign Teacher/public access fails; destination remains unchanged. |
 | Student selects a Course | Backend resolves tuition and owner/destination | Client amount, recipient or destination cannot become authoritative. |
-| Actor supplies payment claims | Process only according to approved trustworthy-evidence contract | Student/browser/redirect and Teacher positive or negative testimony alone cannot confirm outcomes or change participation. |
+| Actor supplies payment claims | Process only according to approved trustworthy-evidence contract | Student/browser/redirect claims cannot confirm; Teacher attestation requires the authorized audited manual path in BR-PAY-009, never automatic bank-verification labeling. |
 | Unknown/insufficient payment evidence | Preserve its uncertainty under approved representation | It cannot become confirmed failure or success merely to close a workflow. |
 | Authorized Admin monitor | Inspect only approved account/Course/Enrollment/transaction data | No implicit ownership, grading, payment confirmation, custody or refund authority. |
 | Student with approved participation | Retrieve the one protected Course Meet URL | Public/unauthorized retrieval fails; no per-Session meeting is introduced. |
@@ -773,9 +820,9 @@ Planning labels are not implementation statuses. Nine tasks defer their central 
 | G-PROFILE | Approved User/Teacher profile fields and verified email-change direction; exact editable/public DTO, limits and null semantics remain open. | TASK-007, TASK-032, TASK-009, TASK-033, TASK-023 | BR-PROFILE-002; API_DESIGN Sections 3 and 6 |
 | G-COURSE | Approved five-state lifecycle/nontransferable owner; detailed publication/completion/cancellation/archive/delete validations remain open. | TASK-011, TASK-010, TASK-024 | USE_CASES Section 6; API_DESIGN Section 7 |
 | G-CATEGORY | One active/inactive Category per Course and used-Category retention settled; operation validation remains open. | TASK-011, TASK-010, TASK-034 | DM-CAT-001; API_DESIGN Section 8 |
-| G-ENROLLMENT | Four states, Student/Course uniqueness and completed history settled; cancellation/re-entry and exact participation edge rules remain open. | TASK-016, TASK-036, TASK-042, TASK-045 | BR-ENR-006, BR-ENR-008; DATABASE_DESIGN; API_DESIGN Section 12 |
-| G-CAPACITY | ACTIVE plus unexpired PENDING occupancy and ACTIVE-only minimum settled; reservation duration and transactional strategy/edge validation remain open. | TASK-010, TASK-016 | FR-TCR-009; API_DESIGN Sections 7 and 12 |
-| G-PAYEFFECT | Trusted confirmation plus capacity/cutoff settled; exact atomic retry/late reconciliation and allowed edge transitions remain open. | TASK-016, TASK-022, TASK-045 | BR-ENR-008, BR-PAY-009; API_DESIGN Sections 12 and 15 |
+| G-ENROLLMENT | Four states, uniqueness, completed history and own-PENDING cancellation settled; cancelled re-entry and other participation edge rules remain OPEN. | TASK-016, TASK-036, TASK-042, TASK-045 | BR-ENR-006, BR-ENR-008; DATABASE_DESIGN; API_DESIGN Section 12 |
+| G-CAPACITY | ACTIVE plus unexpired PENDING occupancy and ACTIVE-only minimum settled; 15-minute maximum capped at first start settled; transactional edge validation remains open. | TASK-010, TASK-016 | FR-TCR-009; API_DESIGN Sections 7 and 12 |
+| G-PAYEFFECT | Automatic evidence or audited owning-Teacher manual confirmation plus capacity/cutoff approved; audit/dispute design, atomic retry/late reconciliation and edge transitions remain OPEN. | TASK-016, TASK-022, TASK-045 | BR-ENR-008, BR-PAY-009; API_DESIGN Sections 12 and 15 |
 | G-TIME | IANA timezone settled; DST gap/overlap and operation date/time boundary validation remain open. | TASK-035, TASK-037, TASK-043 | BR-SCH-001; API_DESIGN Section 9 |
 | G-RECURRENCE | ISO weekly generation, IANA timezone, fixed count/unique numbering settled; DST gap/overlap and exception validation remain implementation contracts. | TASK-037 | DM-SCH-001; DATABASE_DESIGN; API_DESIGN Section 9 |
 | G-SESSION | SCHEDULED/CANCELLED and same-row history settled; no replacements or count changes. Conflict/cutoff validation remains open. | TASK-035, TASK-036, TASK-037, TASK-043 | BR-SES-002, BR-SCH-001; API_DESIGN Section 9 |
@@ -786,7 +833,7 @@ Planning labels are not implementation statuses. Nine tasks defer their central 
 | G-PROGRESS | Derived progress settled, no table; indicators, formulas and projection remain open. | TASK-018, TASK-025 | DM-PRO-002; API_DESIGN Section 13 |
 | G-RECEIVING | Historical bank accounts and one ACTIVE settled; bank validation and verified adapter mapping remain open; provider_account_ref is omitted. | TASK-041 | DM-PAY-002; API_DESIGN Section 14 |
 | G-PAYMENT | VietQR direction settled; actual provider contract/evidence ingestion and adapter-context durable retry identity remain open; provider_order_id is omitted. | TASK-041, TASK-022 | API_DESIGN Section 15; ARCHITECTURE Section 12 |
-| G-CONFIRMATION | Trustworthy receiver/code/amount/currency bank evidence settled; actual authenticity/ingestion and reconciliation protocol remain open. | TASK-022, TASK-026, TASK-045 | BR-PAY-002, BR-PAY-009, BR-ADM-005 |
+| G-CONFIRMATION | Automatic authenticated receiver/code/amount/currency evidence and authorized audited owning-Teacher manual attestation are approved, distinct mechanisms. Manual attestation is not independent bank verification; provider authenticity/ingestion, audit/oversight and reconciliation details remain OPEN. | TASK-022, TASK-026, TASK-045 | BR-PAY-002, BR-PAY-009, BR-ADM-005 |
 | G-OUTCOME | Approved Payment/Refund states and full refund settled; cancellation/late retry edge policy, provider namespace and refund eligibility/review contracts remain open. | TASK-022, TASK-026, TASK-027 | DM-PAY-001; API_DESIGN Section 15 |
 | G-FEEDBACK | COMPLETED Enrollment, one rating 1..5 and no aggregates settled; exact DTO/visibility/edit/moderation contracts remain open. | TASK-044 | BR-RATE-001; API_DESIGN Section 17 |
 | G-CALENDAR | System/organization account and synchronization settled; one configured Calendar/event-ID scope settled; execution/retry/reminder contracts remain open. | TASK-043 | INT-CAL-001; API_DESIGN Section 16 |

@@ -287,11 +287,11 @@ The platform supports multiple Teachers. Teacher identity alone grants no author
 ## BR-COURSE-004 — Owned-Course Management
 
 A draft Course may omit meet_url; backend publication requires a valid Teacher-provided
-Meet URL. Tuition is nonnegative and finite; zero means free. V1 currency is VND only.
+Meet URL. Tuition must be finite and greater than zero; all Courses require payment. V1 currency is VND only.
 min_students is positive and max_students >= min_students. session_count is the fixed
 positive planned count and cancellation does not change it. Discount fields are all
 absent or all present, with 0 < discount_percent < 100 and start < end. A 100% discount
-is not the representation of a free Course.
+is not permitted; payment amount rounding remains an implementation decision.
 
 Every Course has one non-transferable owning Teacher and exactly one Category. Used
 Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,
@@ -324,8 +324,10 @@ Teacher management of protected teaching content is restricted to owned Courses 
 
 Students purchase entire Courses, never individual Sessions. Enrollment is unique per
 Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A COMPLETED Enrollment is
-historical and cannot simply re-enroll into that Course instance. Free Courses activate
-participation without fake Payments. Paid participation may reserve a seat while PENDING.
+historical and cannot simply re-enroll into that Course instance. All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
 Capacity counts ACTIVE plus PENDING Enrollments with unexpired reservations; min_students
 counts ACTIVE only. Expired reservations consume no capacity. No new Enrollment or Payment
 may begin after the first Session has started. Activation, reservation and late-payment
@@ -428,17 +430,57 @@ separate result identity. Numeric scores remain optional unless a later rule req
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
 
 **Requirements:** FR-ENR-004, FR-ENR-006.
 
+### TASK-016 approval reconciliation — 2026-10-29
+
+The user-approved BR-01 through BR-06 supersede earlier free-Course activation and
+provider-only confirmation wording. They are business approval, not implementation
+or migration approval. Existing IDs remain unchanged.
+
+| State | Event | Result / rule |
+| --- | --- | --- |
+| No Enrollment | Eligible Student reserves Course | PENDING; one row per Student/Course; deadline is min(serverNow + 15 minutes, firstSessionStart). |
+| Valid PENDING | Duplicate request | Same row and deadline; no extension. |
+| PENDING | Deadline reached | Remains PENDING; expired reservation consumes no capacity and grants no access. No EXPIRED Enrollment status. |
+| Expired PENDING | Explicit renewal | Reuse the relationship; revalidate eligibility, capacity and first-start cutoff. Coordinate historical Payment attempts; no second PENDING Payment. |
+| PENDING | Student cancels own reservation | CANCELLED; release seat and preserve history. Payment coordination is required; cancellation is not a refund. |
+| PENDING | Approved confirmation | Atomically CONFIRMED Payment and ACTIVE Enrollment only if reservation/capacity/lifecycle checks pass. |
+| ACTIVE | Completion or cancellation | Governed by separate lifecycle/refund decisions; no new authority granted here. |
+| CANCELLED | Re-entry | OPEN; no automatic reactivation. |
+| COMPLETED | Re-enroll same Course instance | Not permitted under the existing historical rule. |
+
+Capacity counts ACTIVE plus PENDING with seat_reserved_until > serverNow;
+min_students counts ACTIVE only. Equality is expired. No new Enrollment, renewal
+or new Payment at/after firstSessionStart. Concurrent creation, renewal, cancellation
+and confirmation must not overbook. A late transfer or manual attestation must not
+silently acquire a seat: retain evidence for reconciliation and do not blindly
+activate. Exact late-payment outcome/refund policy remains OPEN.
+
+Only an eligible Student with an authorized ACTIVE Enrollment can access protected
+Session content, Assignments and Meet information. PENDING never grants access.
+Public descriptions remain public. COMPLETED/CANCELLED/refunded/archived access is
+OPEN and must not be inferred from historical payment.
+
+**OPEN decisions:** provider selection and support for independent Teacher accounts;
+Student verified-email eligibility; cancelled re-entry; refund eligibility/policy;
+COMPLETED access; Course rescheduling after first start and its cutoff consequences;
+late-payment refund/reconciliation; receiving-account verification method. Existing
+full-refund-only representation does not settle refund eligibility. Detailed manual
+confirmation evidence, retention, disputes and administrative oversight require review.
+
 ## BR-ENR-006 — Authoritative Participation
 
-Protected Course participation requires valid authoritative Enrollment where applicable. This governs Student access to protected Session content, Assignments, submissions/results/progress, Meet information and related participation data as appropriate. Enrollment does not grant access to another Student's private information or Teacher/Admin management.
+Protected Student Course participation requires an eligible Student and authorized ACTIVE Enrollment; PENDING grants no access and other lifecycle access remains OPEN. This governs Student access to protected Session content, Assignments, submissions/results/progress, Meet information and related participation data as appropriate. Enrollment does not grant access to another Student's private information or Teacher/Admin management.
 
 **Requirements:** FR-ENR-007, FR-ASN-006, FR-AUTH-002, FR-AUTH-013.
 
@@ -457,8 +499,9 @@ CANCELLED. An Enrollment may have historical attempts but at most one PENDING Pa
 Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
 keep their historical account reference. Actual provider/bank transactions may be unmatched.
 They retain receiving-account context when resolvable, independently of Payment matching; an
-unresolved receiver remains a reconciliation concern. Browser, Student and Teacher claims
-are not confirmation evidence. Confirmation requires trustworthy provider/bank evidence
+unresolved receiver remains a reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence
 matching the intended receiver, code, amount and currency; wrong/missing codes or amounts do
 not auto-confirm, partial transfers are not summed automatically, and late transactions
 cannot cause overbooking. Payment and Enrollment transitions require one concurrency-safe
@@ -512,8 +555,9 @@ CANCELLED. An Enrollment may have historical attempts but at most one PENDING Pa
 Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
 keep their historical account reference. Actual provider/bank transactions may be unmatched.
 They retain receiving-account context when resolvable, independently of Payment matching; an
-unresolved receiver remains a reconciliation concern. Browser, Student and Teacher claims
-are not confirmation evidence. Confirmation requires trustworthy provider/bank evidence
+unresolved receiver remains a reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence
 matching the intended receiver, code, amount and currency; wrong/missing codes or amounts do
 not auto-confirm, partial transfers are not summed automatically, and late transactions
 cannot cause overbooking. Unmatched transactions retain a nullable receiving-account
@@ -525,14 +569,42 @@ reference independently of nullable Payment matching.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking. A
 CONFIRMED Payment requires confirmation time. Amount alone is not matching evidence.
 Physical V1 omits provider_account_ref/provider_order_id and their order index.
 Provider transaction IDs carry no unverified global uniqueness guarantee; the selected
 adapter must enforce verified-context transactional idempotency before integration.
+
+**Approved dual confirmation contract (2026-10-29):** Automatic confirmation is
+available only for a verified, supported reconciliation connection on the receiving
+account. Authenticate provider evidence; match receiver, amount, VND currency, unique
+Payment reference and transaction uniqueness in the verified provider context.
+
+When automatic reconciliation is unavailable, the authorized owning Course Teacher
+may manually confirm only after checking the receiving bank account. Record confirmer
+identity from authentication, timestamp, confirmation method and audit evidence.
+This is Teacher attestation, not independent bank verification. An account form or
+Student screenshot never enables automatic confirmation. Both mechanisms require
+atomic Payment/Enrollment effects and the same capacity/late-payment safeguards.
+Admin role alone does not confer confirmation authority. Dispute handling and detailed
+administrative oversight are OPEN approval gates before manual confirmation release.
+
+**Proposed dispute/oversight boundary (requires approval):** related Student may
+raise a disputed manual confirmation for authorized Admin review. Preserve the original
+attestation and restrict evidence to involved parties and explicitly authorized reviewers.
+Review must not silently rewrite bank evidence, reverse Enrollment, issue a refund or
+confer generic Admin confirmation authority. Intake API, evidence requirements, retention,
+review outcomes and escalation deadlines remain OPEN; no dispute status/table is approved.
+
+Teacher personal account ownership assurance is separate from reconciliation status;
+the verification method is OPEN. Generate each Payment's dynamic VietQR information
+from its server-selected historical Teacher account, server-calculated amount and
+unique reference. Student input cannot set amount or destination. Static QR image
+uploads are not required. Provider selection/multi-account support remain OPEN.
 
 **Requirements:** FR-PAY-010, FR-ENR-008, FR-PAY-012.
 

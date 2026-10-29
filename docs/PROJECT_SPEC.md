@@ -159,8 +159,22 @@ percentage-discount windows are supported; Payments retain their price snapshots
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+TASK-016 approval reconciliation (2026-10-29): protected learning content requires
+an eligible Student and authorized ACTIVE Enrollment, enforced by Spring Boot.
+PENDING grants no access; unresolved lifecycle cases remain denied until approved.
+Public descriptions remain accessible. Approved confirmation is required for activation.
+OPEN: provider selection/multi-Teacher reconciliation support; Student verified-email
+requirement; cancelled re-entry; refund eligibility/workflow; COMPLETED/archived access;
+first-Session rescheduling cutoff; late-payment reconciliation; bank ownership verification;
+manual audit/oversight; Payment expiry versus reservation expiry; final Enrollment DTO/error
+contracts. Existing full-refund representation does not settle those policy decisions.
+
+All Courses require positive tuition and payment; no free activation or fake Payment.
+New Enrollment starts PENDING. The reservation deadline is
+min(serverNow + 15 minutes, firstSessionStart). Expiration introduces no new status;
+explicit renewal revalidates eligibility, capacity and cutoff. Duplicate requests do
+not extend a valid deadline. Students may cancel their own PENDING Enrollment.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
@@ -172,10 +186,21 @@ CANCELLED. An Enrollment may have historical attempts but at most one PENDING Pa
 Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
 keep their historical account reference.
 
+Teachers may register personal receiving accounts; account ownership, ownership
+verification and reconciliation connectivity are distinct. Entered details alone do
+not prove bank ownership or enable automatic reconciliation. Payment-specific dynamic
+VietQR uses the selected Teacher account and backend-generated amount and unique
+reference; Students cannot choose authoritative amounts or destinations. Static QR
+image uploads are not required. Platform custody remains excluded.
+
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Automatic confirmation requires a
+verified supported reconciliation connection and authenticated provider/bank evidence.
+Authorized owning-Teacher manual confirmation is audited attestation after checking
+the receiving bank account, not independent bank verification. Preserve actor, time,
+method and audit evidence; detailed audit/oversight remains OPEN. Automatic evidence must match
+the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 

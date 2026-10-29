@@ -991,26 +991,47 @@ availability; owning-Teacher grading is approved. Enrollment: applicable access 
 1. Validate Student identity, Course eligibility and that the first Session has not started.
 2. Enforce unique Student/Course Enrollment; COMPLETED historical participation cannot
    simply re-enroll.
-3. Free Course activation creates no Payment. Paid enrollment may reserve a PENDING seat
-   with expiry.
+3. Create a PENDING reservation until min(serverNow + 15 minutes, firstSessionStart).
+   An existing valid reservation is returned without extending its deadline.
 4. Under concurrency control count ACTIVE plus unexpired PENDING seats; activate only
-   through the approved free or trustworthy-payment workflow.
+   through approved automatic or audited Teacher manual confirmation.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without
 protected disclosure or applying the requested change. Enforce the operation-specific
 constraints above; do not invent defaults for remaining gates.
 
-**Postconditions:** The unique Enrollment reflects the approved free activation or paid
+**Postconditions:** The unique Enrollment reflects the approved paid
 pending workflow without exceeding capacity; Payment remains separate.
 
 **Requirement Traceability:** `FR-ENR-006`, `FR-ENR-007`, `FR-ENR-008`, `FR-PAY-012`.
 
 **Business Rule Traceability:** `BR-COURSE-007`, `BR-ENR-001`, `BR-ENR-008`, `BR-PAY-009`.
 
-**Decision Gates / Deferred Details:** Reservation duration, cancellation/re-entry and
+**Decision Gates / Deferred Details:** Cancelled re-entry and
 late/cutoff edge behavior.
 
 ---
+
+### Enrollment alternatives approved on 2026-10-29
+
+UC-STU-ENROLL-01: valid duplicate returns the existing deadline. Expired PENDING
+reserves no seat; Student explicitly requests renewal, and the backend rechecks
+eligibility, capacity and cutoff on the same relationship. Student may cancel own
+PENDING reservation; retain history and coordinate pending Payment state. Cancelled
+re-entry, active cancellation/refund and post-completion access remain OPEN.
+
+UC-PAY-RECEIVING-01: Teacher registers a personal bank account under own-account
+permissions. Ownership verification and reconciliation connection are separate;
+entered details alone establish neither. Verification method remains OPEN.
+
+UC-PAY-COURSE-01: generate dynamic VietQR from the authoritative account, amount and
+unique reference for each Payment. Where verified supported reconciliation exists,
+use authenticated matching evidence. Otherwise the owning authorized Teacher checks
+the bank and submits manual attestation with auditable identity/time/method/evidence.
+Student screenshots cannot automatically confirm. Recheck reservation/capacity and
+commit allowed Payment/Enrollment effects atomically. For late/conflicting payment,
+retain evidence without granting access; reconciliation/refund policy remains OPEN.
+Manual dispute handling and Admin oversight must be reviewed before implementation.
 
 ## UC-STU-MY-COURSES-01 --- View My Courses
 
@@ -1092,8 +1113,10 @@ provider_account_ref is omitted from Physical V1.
    Payment per Enrollment.
 3. Follow the VietQR direction subject to verified provider contracts. Record actual
    transactions even when unmatched, retaining receiver context when resolvable.
-4. Confirm only from trustworthy receiver/code/amount/currency evidence and timestamp
-   confirmation; reject claims, wrong codes/amounts and automatic partial aggregation.
+4. Use authenticated automatic evidence only for a verified supported reconciliation
+   connection; otherwise use authorized Teacher manual attestation after checking the bank.
+   Record method, confirmer identity where applicable, timestamp and audit evidence.
+   Student screenshots never auto-confirm; wrong automatic evidence and partial aggregation are rejected.
 5. Apply Enrollment effects transactionally; late evidence must not overbook capacity.
 
 **Alternate / Exception / Denial Flows:** Reject unauthorized or invalid requests without

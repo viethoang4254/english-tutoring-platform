@@ -690,7 +690,7 @@ explicit null except discount. Nested objects are complete replacements with exa
 | --- | --- |
 | name | ASCII-space trim, nonblank, 1–200 Unicode code points; no ISO control characters or malformed UTF-16 |
 | description | Plain text, ASCII-space trim, nonblank, 1–10,000 Unicode code points; only TAB/CR/LF controls allowed; no malformed UTF-16 |
-| tuition | ApiMoney `{amount,currency}`; amount decimal string, 0 through 9999999999999.99, maximum two fractional digits, no rounding/exponent; currency exactly VND |
+| tuition | Current implemented API: ApiMoney `{amount,currency}`; amount decimal string, 0 through 9999999999999.99, maximum two fractional digits, no rounding/exponent; currency exactly VND. Approved paid-only policy requires amount > 0; backend/frontend validation updates are pending, not implemented by this documentation change. |
 | minStudents/maxStudents | Integers 1 through 2147483647, maximum >= minimum; no arbitrary 30/100 capacity cap |
 | sessionCount | Integer 1 through 2147483647; no Sessions generated |
 | plannedStartDate | Strict valid YYYY-MM-DD, years 0001–9999; past dates permitted in drafts |
@@ -1019,20 +1019,71 @@ DM-ASN-002, DM-ASN-003, INV-018; AR-015, AR-016.
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
 
 Enrollment is distinct from payment. Backend participation and personal-data checks
 protect content/work/Meet; listing My Courses or browser success grants no access.
-Exact operation DTOs, reservation duration and edge-transition rules remain DEFERRED.
+Reservation duration is approved above; operation DTOs remain proposals and unresolved
+edge transitions remain OPEN.
 
 References: FR-ENR-004, FR-ENR-005, FR-ENR-006, FR-ENR-007, FR-ENR-008,
 FR-TCR-010, FR-ADM-008, FR-PAY-012; BR-ENR-001, BR-ENR-006, BR-ENR-007,
 BR-ENR-008, BR-COURSE-007, BR-TEA-003; DM-ENR-001, INV-013, INV-014; AR-018.
 
+
+### TASK-016 / TASK-022 proposed operations — not yet approved or implemented
+
+Business decisions BR-01..06 are approved on 2026-10-29; the following transport and
+DTO choices remain proposals requiring API review. BR-ENR-001 governs state transitions.
+
+| Proposed endpoint | Request | Result |
+| --- | --- | --- |
+| POST /api/v1/student/courses/{courseId}/enrollment | No body/query; principal supplies Student identity | 201 + Location for new PENDING; 200 existing valid PENDING without extension or ACTIVE relationship; expired PENDING requires explicit renewal. |
+| GET /api/v1/student/enrollments | page=0, size=20 (1..100), optional status | Own relationships only. |
+| GET /api/v1/student/enrollments/{enrollmentId} | No query | Own detail only. |
+| POST /api/v1/student/enrollments/{enrollmentId}/renew | No body/query | Revalidate and reuse expired PENDING; no implicit renewal. |
+| POST /api/v1/student/enrollments/{enrollmentId}/cancel | No body/query | Own PENDING cancellation; repeated cancellation returns existing result without overwriting history. |
+| GET /api/v1/teacher/courses/{courseId}/enrollments | page, size, optional status | Eligible owning Teacher roster; exact personal-data fields require privacy review. |
+| POST /api/v1/student/enrollments/{enrollmentId}/payments | No client amount/account/status | Server creates or returns the one pending Payment and dynamic VietQR information. Exact retry, pricing/rounding and expiry contract remains OPEN. |
+| GET /api/v1/student/payments/{paymentId} | No query | Own Payment status and required transfer instructions, not provider secrets. |
+| POST /api/v1/teacher/courses/{courseId}/payments/{paymentId}/confirm-manually | Audit evidence request schema OPEN | Owning eligible Teacher attestation; receiver-bank check required; actor/time/method server-set. Not enabled before audit/dispute contract and schema review. |
+
+Automatic evidence ingress is a separate authenticated provider adapter, not a Student
+or Teacher status-setting endpoint; route/authentication/replay envelope remains OPEN.
+Receiving-account management reuses the owned-account boundary in Section 14; exact
+ownership-verification and connection-management operations await provider selection.
+
+Proposed Enrollment DTO: id, courseId, courseTitle, status, enrolledAt,
+seatReservedUntil, reservationExpired, cancelledAt, cancellationReason, createdAt,
+updatedAt, canAccessContent. IDs are decimal strings; timestamps ISO-8601 UTC;
+enrolledAt/reservation/cancellation fields may be null. Proposed enrolledAt means
+activation time. Derived flags are not persisted and never substitute for resource
+endpoint authorization. No Meet URL, protected content, bank evidence or unrelated
+Student information in this DTO. Lists use {items, page, size, hasNext}, ordered by
+Enrollment ID descending. Proposed roster fields: enrollmentId, studentId,
+studentDisplayName, status, enrolledAt; email and historical visibility remain OPEN.
+
+Use existing Bearer authentication, safe ApiError {code,message,fieldErrors?}, strict
+field/query validation and Cache-Control: no-store. Proposed mappings: 400 malformed
+request; 401 invalid authentication; 403 wrong role/ineligibility/protected access;
+404 missing or non-owned private resource; 409 capacity/cutoff/lifecycle/renewal
+conflict; 503 unavailable dependency. Never bind Student identity, receiver, amount,
+confirmation status or audit actor from untrusted input. Clients must explicitly
+reload after uncertain mutations, not automatically retry or extend reservations.
+
+OPEN: Student verified-email eligibility; cancelled re-entry; completed/cancelled/
+refunded/archived access; post-first-start rescheduling; late-payment/refund policy;
+provider selection and multi-account support; account verification; manual audit,
+dispute and Admin oversight details; Payment expiry versus reservation expiry; final
+Enrollment DTO and error contracts. Unresolved lifecycle access remains denied until
+approved. Do not implement dependent operations from these proposed routes alone.
 
 ## 13. Course Progress
 
@@ -1074,8 +1125,9 @@ keep their historical account reference.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 
@@ -1187,8 +1239,8 @@ allowlisted DTOs are required; never serialize JPA entities as public contracts.
 
 Represent money as { amount: decimal string, currency: explicit currency }; never use floating-point money.
 NUMERIC(15,2)/BigDecimal, VND-only currency and historical price snapshots are approved.
-Discounts require a complete window, 0 < percent < 100 and start < end; zero tuition
-represents free Courses. Rounding remains an implementation contract; no conversion is added.
+Discounts require a complete window, 0 < percent < 100 and start < end; tuition
+must be greater than zero. The existing zero-tuition implementation requires a later update. Rounding remains an implementation contract; no conversion is added.
 Absolute timestamps use ISO-8601 strings with an explicit offset or Z. Weekly local times use
 Course timezone; exact wire format, DST and reporting boundaries remain deferred.
 

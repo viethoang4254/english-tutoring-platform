@@ -133,10 +133,10 @@ The following core implementation cannot proceed until the named decisions are a
 | Task | Current blocker / required decision |
 |---|---|
 | TASK-018 | G-PROGRESS/G-RESULT: derived representation is settled; formulas, result availability and applicable API contracts remain open. |
-| TASK-022 | G-PAYMENT/G-CONFIRMATION/G-OUTCOME/G-PAYEFFECT: VietQR, trustworthy bank evidence and full refunds are settled directions; concrete provider/authenticity, retry/late and refund contracts remain open. |
+| TASK-022 | G-PAYMENT/G-CONFIRMATION/G-OUTCOME/G-PAYEFFECT: payment-specific dynamic VietQR and automatic evidence or audited owning-Teacher manual attestation are approved directions, not implemented capabilities. Provider/multi-account support, audit/oversight, expiry/retry/late and refund policy/workflow remain OPEN. |
 | TASK-029 | G-DEPLOY: approve production hosting, secrets and operational/release procedures. |
 | TASK-037 | G-TIME/G-RECURRENCE/G-SESSION: ISO weekly generation, IANA timezone, fixed unique numbering and no-replacement cancellation settled; DST/cutoff and operation exceptions remain open. |
-| TASK-041 | G-RECEIVING/G-PAYMENT: historical bank accounts and one ACTIVE settled; bank checks and verified adapter integration contracts remain open; conceptual provider fields are omitted. |
+| TASK-041 | G-RECEIVING/G-PAYMENT: Teacher personal accounts, history and one ACTIVE are approved. Account ownership, verification and reconciliation connectivity are distinct; verification method and supported multi-Teacher integration remain OPEN and unimplemented; conceptual provider fields are omitted. |
 | TASK-043 | G-CALENDAR: organizational synchronization settled; single configured Calendar/event-ID scope settled; execution/retry contracts remain open. |
 | TASK-044 | G-FEEDBACK/G-API: one completed-Enrollment rating 1..5 settled; exact acceptance/visibility/edit/moderation and executable contracts remain open. |
 
@@ -160,7 +160,7 @@ The table distinguishes implemented responsibilities from remaining gated work. 
 | Submissions/results | Authenticated Student authorship, Teacher inspection and own-result visibility are not implemented; one current Submission and owning-Teacher grading on it are approved; detailed validation/contracts remain gated. | TASK-039, TASK-040 |
 | CourseProgress | No implementation; derived representation is approved; calculation/projection remain unresolved. | TASK-018 |
 | PaymentReceivingInformation | No implementation; historical bank accounts/one ACTIVE are approved; provider verification and concrete contracts remain gated. | TASK-041 |
-| Course payments/transactions | No implementation of VietQR execution, trustworthy bank-evidence confirmation, reconciliation or full refund. Detailed provider/retry contracts remain dependencies; Teacher/Admin claims cannot confirm payment. | TASK-022 |
+| Course payments/transactions | No implementation of dynamic VietQR, automatic confirmation, audited Teacher manual confirmation, reconciliation or full refund. Approved manual confirmation is Teacher attestation, not independent bank evidence; provider, audit/oversight and lifecycle contracts remain dependencies. Admin role alone grants no confirmation authority. | TASK-022 |
 | Google Meet | No implementation. Approved direction is one manually configured protected Course URL shared by all its Sessions; Student access requires authorized participation. No Meet API, OAuth or automatic creation. | TASK-042 |
 | Google Calendar | No implementation; organizational Google Calendar synchronization is approved, with configured-calendar/identifier and delivery contracts still blocked. | TASK-043 |
 | ParticipantFeedback | No implementation; one COMPLETED-Enrollment rating 1..5 is approved; exact DTO/visibility/edit/moderation remains gated. | TASK-044 |
@@ -169,7 +169,7 @@ The table distinguishes implemented responsibilities from remaining gated work. 
 | Tutoring E2E | Foundation tests do not prove integrated tutoring journeys. Playwright browser checks remain separate from Spring Boot/JUnit/backend integration tests. | TASK-028 |
 | Deployment / CI | Production hosting is unresolved; no deployment or CI implementation. Safe build/test CI is separate from later release automation. Development Supabase connectivity is not deployment. | TASK-029, TASK-030 |
 
-The approved payment trust path remains Course -> owning Teacher -> authoritative tuition -> receiving destination -> payment -> trustworthy confirmation -> only the approved Enrollment effect. This is a design boundary, not implemented behavior. Client identity, amount, recipient or destination cannot become authoritative. Teacher positive/negative testimony, Admin role and browser/Student claims alone do not confirm payment; unknown evidence is not confirmed failure. No platform tuition custody or accounting subsystem is approved here.
+The approved payment path is Course -> owning Teacher -> positive authoritative tuition -> selected Teacher account -> dynamic VietQR Payment -> authenticated automatic evidence or authorized audited Teacher attestation -> capacity-safe Enrollment activation. This is design approval, not implementation. Manual attestation is not independent bank verification; Student screenshots, claims and client statuses never automatically activate access. Client identity, amount and destination are not authoritative. PENDING reserves at most 15 minutes, capped at first Session start; expiry requires explicit renewal, duplicates do not extend it, and own-PENDING cancellation is permitted. Protected content requires eligible ACTIVE Enrollment; unresolved lifecycle access remains denied. TASK-016 remains TODO and TASK-022 remains BLOCKED; no Enrollment, Payment or Student access implementation is claimed. Provider, eligibility, re-entry, refund/access/cutoff, expiry and manual-audit decisions remain OPEN under BR-ENR-001/BR-PAY-009. No platform custody or generic Admin confirmation authority is approved.
 
 ## 7. Retired Historical Tasks / Features
 

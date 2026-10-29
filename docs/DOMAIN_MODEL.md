@@ -218,8 +218,10 @@ Course includes name/description, tuition/currency, optional thumbnail Storage p
 discount window, planned start, timezone, capacity and Session count. Course content/Meet
 URL are protected. Enrollment is unique per Student/Course and uses PENDING, ACTIVE,
 COMPLETED or CANCELLED. A COMPLETED Enrollment is historical and cannot simply re-enroll
-into that Course instance. Free Courses activate participation without fake Payments. Paid
-participation may reserve a seat while PENDING. Capacity counts ACTIVE plus PENDING
+into that Course instance. All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation. Capacity counts ACTIVE plus PENDING
 Enrollments with unexpired reservations; min_students counts ACTIVE only. Expired
 reservations consume no capacity. No new Enrollment or Payment may begin after the first
 Session has started. Activation, reservation and late-payment handling must be
@@ -337,8 +339,11 @@ UC-ASN-INSPECT-01, UC-ASN-RESULT-01.
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe. Protected participation
@@ -372,6 +377,23 @@ BR-PAY-007, BR-AUTH-007, UC-PAY-RECEIVING-01, UC-PAY-COURSE-01.
 
 # 11. Course Payment / Transaction Context
 
+### Receiving-account and confirmation model reconciliation (2026-10-29)
+
+The Teacher may register a personal receiving account; platform custody is excluded.
+Account ownership assurance and automatic reconciliation connection status are
+separate domain facts, neither implied by an ACTIVE receiving-account row. Historical
+Payments keep their account and price snapshots. Dynamic QR data derives from those
+server-authoritative facts and a unique Payment reference; it is not payment evidence.
+
+Payment confirmation distinguishes automatic provider evidence from manual Teacher
+attestation. Preserve confirmer identity, time, method and audit evidence; manual
+attestation must never be represented as an independently verified bank transaction.
+V1 enrollment fields support the approved reservation lifecycle (BR-ENR-001), but V1
+does not yet provide dedicated confirmation-method/actor/evidence or separate account
+verification/connection lifecycle fields. Schema mapping and any migration need separate
+approval before these capabilities are implemented. No new table or enum is approved here.
+Refund eligibility, disputes and late-payment outcomes remain OPEN.
+
 ## DM-PAY-001 --- PaymentTransaction
 
 Students pay the owning Teacher directly using the VietQR integration direction; the
@@ -383,8 +405,9 @@ keep their historical account reference.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 Actual bank transactions and Payment attempts are separate records: unmatched transactions
@@ -533,8 +556,9 @@ and relevant transaction information. Teacher A cannot manage Teacher B's resour
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 

@@ -314,8 +314,11 @@ A Teacher shall be able to configure owned-Course learning schedules and permitt
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
@@ -452,28 +455,51 @@ The system shall support whole-Course participation through Enrollment, distinct
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+All Courses require positive tuition and payment; no free activation or fake Payment is permitted.
+New Enrollment starts PENDING with seat_reserved_until = min(serverNow + 15 minutes,
+firstSessionStart). Renewal is explicit and revalidates eligibility, capacity and cutoff;
+duplicate requests never extend a valid reservation.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
 
 
+### TASK-016 approved contract supplement (2026-10-29)
+
+FR-ENR-006/008 shall follow the lifecycle table in BR-ENR-001. The system shall
+support explicit expired-reservation renewal and Student cancellation of own PENDING
+Enrollment, preserving uniqueness and history. Expiration grants no access or seat;
+no new Enrollment status is introduced. Duplicate valid reservations shall not extend
+expiry. Eligible Students require authorized ACTIVE Enrollment for protected content;
+verified-email eligibility and other lifecycle access remain OPEN.
+
+FR-PAY-007/008/010/012 shall support Teacher-owned personal receiving accounts with
+ownership assurance separate from reconciliation connection status. Entered account
+data alone proves neither ownership nor automatic verification capability. Each Payment
+shall use dynamically generated VietQR information containing the server-selected
+Teacher account, server-calculated amount and unique reference. No static QR upload
+is required. Automatic confirmation requires authenticated evidence and a verified
+supported account connection; manual confirmation requires the authorized owning
+Teacher to check the bank and record auditable attestation. Student claims/screenshots
+shall never automatically confirm. See BR-PAY-009 for authorization and open gates.
+
 ## FR-ENR-007 — Authoritative Enrollment Access
 
-The backend shall require valid authoritative Enrollment for protected Course
-participation where applicable, including protected Session content, Assignments
-and Meet access. It shall reject access when the required Enrollment condition
+The backend shall require an eligible Student and authorized ACTIVE Enrollment for
+protected Course participation, including Session content, Assignments and Meet access.
+PENDING grants no access; other lifecycle access decisions remain OPEN. It shall reject access when the required Enrollment condition
 is not met; client claims shall not establish eligibility. Exact lifecycle and
 validity rules remain under the Enrollment gate.
 
 ## FR-ENR-008 — Payment-Dependent Enrollment Effects
 
-The system shall validate trustworthy payment confirmation and applicable Enrollment rules before payment-dependent activation.
+The system shall validate approved automatic evidence or authorized audited manual
+Teacher confirmation under BR-PAY-009 and applicable Enrollment rules before activation.
 
-Payment and Enrollment remain distinct. A free Course requires no fake Payment; a paid
-Enrollment may be PENDING during payment. One Enrollment may have multiple historical
-Payment attempts but only one PENDING attempt. Trustworthy confirmation and concurrency-safe
+Payment and Enrollment remain distinct. All Courses are paid; new
+Enrollment starts PENDING during payment. Fake Payments are not permitted. One Enrollment may have multiple historical
+Payment attempts but only one PENDING attempt. Approved confirmation and concurrency-safe
 capacity checks govern approved activation effects; late transactions cannot overbook.
 
 ---
@@ -520,8 +546,9 @@ The system shall require trustworthy provider/bank evidence before treating paym
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Authorized Teacher manual confirmation
+is audited attestation under BR-PAY-009, not independent bank evidence. Automatic
+confirmation requires authenticated provider/bank evidence matching the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 

@@ -139,10 +139,14 @@ percentage-discount windows are supported; Payments retain their price snapshots
 Capacity uses min_students/max_students; min counts ACTIVE only. Preserve tuition,
 currency and applicable discount snapshots on each Payment. Meet URL is protected.
 meet_url is nullable in DRAFT; Spring Boot requires a valid URL before publication.
-Tuition is finite nonnegative NUMERIC(15,2); zero means free. VND is the only currency.
+Approved business policy requires finite tuition greater than zero, in VND. The
+current V1 NUMERIC(15,2) SQL constraint still permits zero (tuition >= 0); this is an
+implementation gap, not permission for free activation. Any constraint strengthening
+requires compatibility review and a separately approved new migration; historical SQL
+and migrations below remain unchanged.
 min_students > 0 and max_students >= min_students; session_count is the fixed positive
 planned count. Discount fields are either all absent or all present with
-0 < discount_percent < 100 and start < end; 100% is not the free-Course representation.
+0 < discount_percent < 100 and start < end; 100% discounts remain prohibited.
 
 References: DM-COURSE-001, DM-CAT-001, BR-COURSE-001, BR-COURSE-004.
 
@@ -201,8 +205,22 @@ References: DM-ASN-001, DM-ASN-002, DM-ASN-003, BR-ASN-002, BR-ASN-003.
 
 Enrollment is unique per Student/Course and uses PENDING, ACTIVE, COMPLETED or CANCELLED. A
 COMPLETED Enrollment is historical and cannot simply re-enroll into that Course instance.
-Free Courses activate participation without fake Payments. Paid participation may reserve a
-seat while PENDING. Capacity counts ACTIVE plus PENDING Enrollments with unexpired
+TASK-016 approval reconciliation (2026-10-29): protected learning content requires
+an eligible Student and authorized ACTIVE Enrollment, enforced by Spring Boot.
+PENDING grants no access; unresolved lifecycle cases remain denied until approved.
+Public descriptions remain accessible. Approved confirmation is required for activation.
+OPEN: provider selection/multi-Teacher reconciliation support; Student verified-email
+requirement; cancelled re-entry; refund eligibility/workflow; COMPLETED/archived access;
+first-Session rescheduling cutoff; late-payment reconciliation; bank ownership verification;
+manual audit/oversight; Payment expiry versus reservation expiry; final Enrollment DTO/error
+contracts. Existing full-refund representation does not settle those policy decisions.
+
+All Courses require positive tuition and payment; no free activation or fake Payment.
+New Enrollment starts PENDING. The reservation deadline is
+min(serverNow + 15 minutes, firstSessionStart). Expiration introduces no new status;
+explicit renewal revalidates eligibility, capacity and cutoff. Duplicate requests do
+not extend a valid deadline. Students may cancel their own PENDING Enrollment.
+Capacity counts ACTIVE plus PENDING Enrollments with unexpired
 reservations; min_students counts ACTIVE only. Expired reservations consume no capacity. No
 new Enrollment or Payment may begin after the first Session has started. Activation,
 reservation and late-payment handling must be concurrency-safe.
@@ -234,9 +252,19 @@ CANCELLED. An Enrollment may have historical attempts but at most one PENDING Pa
 Teacher bank-account history is retained with at most one ACTIVE account; existing Payments
 keep their historical account reference.
 
+Teachers may register personal receiving accounts; account ownership, ownership
+verification and reconciliation connectivity are distinct. Entered details alone do
+not prove bank ownership or enable automatic reconciliation. Payment-specific dynamic
+VietQR uses the selected Teacher account and backend-generated amount and unique
+reference; Students cannot choose authoritative amounts or destinations. Static QR
+image uploads are not required. Platform custody remains excluded.
+
 The partial unique index enforces at most one ACTIVE bank account per Teacher.
-Application logic validates Teacher authority, account ownership and historical
-immutability. V1 omits provider_account_ref; a later verified integration may justify
+Application authorization must validate Teacher authority, ownership of the account
+record and historical immutability; this does not establish real bank-account ownership.
+V1 has no dedicated account-verification/reconciliation lifecycle or manual-confirmation
+actor/method/audit representation. Schema mapping requires separate design approval.
+V1 omits provider_account_ref; a later verified integration may justify
 a separately approved migration. It is not a confirmed VietQR field.
 
 References: DM-PAY-002, BR-PAY-006, BR-PAY-007.
@@ -253,8 +281,12 @@ keep their historical account reference.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
-reconciliation concern. Browser, Student and Teacher claims are not confirmation evidence.
-Confirmation requires trustworthy provider/bank evidence matching the intended receiver,
+reconciliation concern. Student/browser claims never confirm Payment. Automatic confirmation requires a
+verified supported reconciliation connection and authenticated provider/bank evidence.
+Authorized owning-Teacher manual confirmation is audited attestation after checking
+the receiving bank account, not independent bank verification. Preserve actor, time,
+method and audit evidence; detailed audit/oversight remains OPEN. Automatic evidence must match
+the intended receiver,
 code, amount and currency; wrong/missing codes or amounts do not auto-confirm, partial
 transfers are not summed automatically, and late transactions cannot cause overbooking.
 
@@ -1747,7 +1779,7 @@ The concrete locking/provider retry protocols remain design work, not presumed d
 | Enrollment cutoff | Reject new Enrollment/Payment after first Session starts; schedule-change boundary semantics must be clarified, not guessed. |
 | Capacity concurrency | Count ACTIVE plus unexpired PENDING reservations for occupancy, ACTIVE only for minimum. Serialize capacity checks/reservation/activation; expired reservations do not consume seats. |
 | Payment retry/idempotency | Unique Enrollment and one-PENDING Payment do not alone define durable request identity. Handle expiry/retry atomically; never duplicate confirmation or activation on replay. Use verified adapter source/account context to serialize duplicate detection and confirmation; no provider-wide ID guarantee. |
-| Payment confirmation | Validate trustworthy provider/bank evidence against receiver, Payment code, exact amount and currency. Neither client nor Teacher claims nor amount-only matching confirm; no automatic partial aggregation. |
+| Payment confirmation | Automatic confirmation requires authenticated evidence and verified supported connectivity; match receiver, Payment code, exact amount/currency and transaction uniqueness. Manual confirmation requires authorized audited owning-Teacher attestation, never labeled independent bank verification. Student claims/screenshots and amount-only matching never auto-confirm; no automatic partial aggregation. |
 | Unmatched/late transactions | Keep independent nullable Payment/receiver links. Reconcile unknown receiver without fabrication; verify matching-account consistency. Late evidence cannot bypass capacity/cutoff rules. |
 | Bank-account history | At most one ACTIVE account; changing destination retains old Payment references and cannot rewrite historical receiving details. |
 | Session generation/rescheduling/cancellation | Generate the fixed numbered set from ISO weekly rules and IANA timezone; reject overlaps transactionally. Regenerate only in the approved inactive draft workflow. Reschedule same row with history; cancel same row without changing number/count or creating make-up Sessions, and synchronize its Calendar event. |
