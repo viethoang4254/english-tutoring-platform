@@ -542,7 +542,17 @@ transfer to the Student with Admin completion verification.
 
 ## FR-PAY-010 — Trustworthy Payment Confirmation
 
-The system shall require trustworthy provider/bank evidence before treating payment as confirmed.
+The system shall confirm Payment through either approved mechanism under BR-PAY-009:
+
+- Automatic confirmation based on authenticated, trustworthy bank/provider transaction
+  evidence through a verified, supported reconciliation connection.
+- When automatic reconciliation is unavailable, authorized, audited manual confirmation
+  by the owning Course Teacher receiving the tuition, after checking the actual receiving
+  bank account, following BR-PAY-009 authorization and audit requirements.
+
+Manual confirmation is Teacher attestation, not independent bank verification.
+Student screenshots or client-submitted claims cannot automatically confirm Payment.
+Neither mechanism may bypass Enrollment capacity or lifecycle restrictions.
 
 Actual provider/bank transactions may be unmatched. They retain receiving-account context
 when resolvable, independently of Payment matching; an unresolved receiver remains a
