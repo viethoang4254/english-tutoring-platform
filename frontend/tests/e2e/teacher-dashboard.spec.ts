@@ -106,7 +106,7 @@ test("direct owned Course URL loads the requested string ID", async ({ page }) =
   await expect(page.getByRole("button", { name: "Quản lý lịch & buổi học" })).toBeVisible();
 });
 
-for (const status of [401, 403]) test(`current account ${status} denies stale Teacher session`, async ({ page }) => {
+for (const status of [401, 403] as const) test(`current account ${status} denies stale Teacher session`, async ({ page }) => {
   const calls = await login(page, "TEACHER", "APPROVED", status);
   expect(calls.filter(path => path.endsWith("/users/me"))).toHaveLength(2);
   if (status === 401) {
