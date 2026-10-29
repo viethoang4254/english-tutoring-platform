@@ -115,7 +115,7 @@ for (const status of [401, 403] as const) test(`current account ${status} denies
     await expect(page.locator(".header-account-menu summary")).toHaveCount(0);
     await expect(page.locator("#dashboard-navigation")).toHaveCount(0);
   } else {
-    await expect(page.getByRole("alert")).toHaveText("Tài khoản hiện tại không được phép thực hiện thao tác này.");
+    await expect(page.getByRole("main").getByRole("alert")).toHaveText("Tài khoản hiện tại không được phép thực hiện thao tác này.");
     await page.evaluate(() => (window as unknown as { next: { router: { push: (p: string) => void } } }).next.router.push("/teacher/courses/42"));
     await expect(page).toHaveURL(/\/teacher\/courses\/42$/);
     await expect(page.getByRole("heading", { name: "Chưa thể mở không gian gia sư", exact: true })).toBeVisible();
