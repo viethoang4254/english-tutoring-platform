@@ -32,7 +32,7 @@ test('catalog search, category filters, details and responsive preview are safe'
  await expect(page.getByRole('heading',{name:/Không tìm thấy/})).toBeVisible();
 });
 
-test('Student dashboard discovers courses from sidebar and empty enrollments without changing calendar',async({page},info)=>{
+test('Student dashboard discovers courses from sidebar and empty enrollments without changing calendar',async({page})=>{
  await page.route('**/api/v1/**',route=>{
   const path=new URL(route.request().url()).pathname;
   if(path.endsWith('/csrf'))return route.fulfill({json:{token:'test-csrf'}});
@@ -43,7 +43,9 @@ test('Student dashboard discovers courses from sidebar and empty enrollments wit
  });
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page).toHaveURL(/\/student\/dashboard$/);
- if(info.project.name==='narrow')await page.getByRole('button',{name:'Điều hướng học tập'}).click();
+ const toggle=page.locator('button[aria-controls="student-navigation"]');
+ await expect(toggle).toBeAttached();
+ if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
  await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Khám phá khóa học',exact:true}).click();
  await expect(page).toHaveURL(/\/courses$/);
  await page.locator('.header-account-menu summary').click();await page.getByRole('link',{name:'Bảng học tập',exact:true}).click();

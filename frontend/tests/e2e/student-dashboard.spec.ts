@@ -60,7 +60,9 @@ test('calendar selection, navigation and preview states are responsive', async (
   await page.getByLabel('Chế độ xem trước').selectOption('empty');
   await expect(page.getByText('Chưa có buổi học sắp tới.')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Chưa có khóa học trong bản xem trước'})).toBeVisible();
-  if (info.project.name === 'narrow') await page.getByRole('button',{name:'Điều hướng học tập'}).click();
+  const toggle = page.locator('button[aria-controls="student-navigation"]');
+  await expect(toggle).toBeAttached();
+  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Bài tập',exact:true}).click();
   await expect(page.locator('#bai-tap')).toBeInViewport();
   await page.getByRole('link',{name:'Hồ sơ của tôi'}).click();
@@ -72,8 +74,11 @@ test('calendar selection, navigation and preview states are responsive', async (
 
 for (const role of ['TEACHER','ADMIN']) test(`${role} preserves its existing account workspace rather than entering the Student dashboard`, async ({page}) => {
   await signIn(page,role);
-  await expect(page).toHaveURL(/\/login\?next=/);
+  await expect(page).toHaveURL(role === 'TEACHER' ? /\/teacher$/ : /\/admin\/dashboard$/);
   await expect(page.getByRole('heading',{name:/Xin chào,/})).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (path: string) => void } } }).next.router.push('/student/dashboard'));
+  await expect(page.getByRole('heading',{name:'Không gian dành cho học viên',exact:true})).toBeVisible();
+  await expect(page.locator('#lich-hoc')).toHaveCount(0);
 });
 for (const status of [401,403,503]) test(`profile ${status} fails safely without automatic retry`,async ({page})=>{
   const calls = await signIn(page,'STUDENT',status);
