@@ -60,9 +60,9 @@ test("logout clears session and anonymous Teacher routes remain protected",async
   await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
 });
 
-test("Student sees only shared account navigation",async({page})=>{
+test("Student sees only shared account and Enrollment navigation",async({page})=>{
  await signIn(page,"STUDENT");
- await expect(page.locator("#dashboard-navigation a")).toHaveText(["Tổng quan","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"]);
+ await expect(page.locator("#dashboard-navigation a")).toHaveText(["Tổng quan","Đăng ký của tôi","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"]);
  await navigate(page,"Cài đặt tài khoản");
  await expect(page.locator("#change-password summary")).toBeVisible();
 });
