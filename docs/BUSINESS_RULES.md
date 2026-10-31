@@ -472,7 +472,7 @@ Public descriptions remain public. COMPLETED/CANCELLED/refunded/archived access 
 OPEN and must not be inferred from historical payment.
 
 **OPEN decisions:** provider selection and support for independent Teacher accounts;
-Student verified-email eligibility; cancelled re-entry; refund eligibility/policy;
+cancelled re-entry; refund eligibility/policy;
 COMPLETED access; Course rescheduling after first start and its cutoff consequences;
 late-payment refund/reconciliation; receiving-account verification method. Existing
 full-refund-only representation does not settle refund eligibility. Detailed manual
@@ -927,3 +927,7 @@ phone; explicit null is not supported. Username/email/security flags cannot be e
 User-row serialized updates preserve all unrelated fields and account policies. No session
 or password changes occur. Teacher editing, avatar/address/birth date and identity changes
 remain outside this bounded approval.
+
+TASK-016 eligibility decision (2026-10-29): authenticated, unlocked STUDENT accounts
+may enroll whether email is verified or unverified. Email verification remains intact
+for other workflows; Teacher eligibility is unchanged.

@@ -32,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 class ApiBoundaryTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.category.repository.CategoryRepository categoryRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.course.repository.CourseRepository courseRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.enrollment.repository.EnrollmentRepository enrollmentRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;

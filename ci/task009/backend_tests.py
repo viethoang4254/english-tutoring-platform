@@ -10,13 +10,13 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]
 
 
-GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence"}
+GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence"}
 STAGES = {"group", "memory-preflight", "port-availability", "postgres-create",
           "postgres-readiness", "database-create", "empty-database-verification",
           "test-environment", "report-preparation", "maven-execution", "test-report-collection",
@@ -174,6 +174,9 @@ def main():
     with stage("course-persistence", "group"):
         database_group("course-persistence", 55437, "task010_test", ["task010_courses"],
                        ["CoursePersistenceTests"], ["-DcoursePersistence=true"], "COURSE")
+    with stage("enrollment-persistence", "group"):
+        database_group("enrollment-persistence", 55440, "task016_test", ["task016_enrollments"],
+                       ["EnrollmentPersistenceTests"], ["-DenrollmentPersistence=true"], "ENROLLMENT")
 
 
 if __name__ == "__main__":

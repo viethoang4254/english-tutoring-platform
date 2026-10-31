@@ -114,3 +114,14 @@ job limits are 20/45/60 minutes. Use GitHub-hosted Ubuntu with at least 7 GB RAM
 database groups require at least 3 GiB available before startup, 512 MiB PostgreSQL
 and a single 512 MiB Maven test JVM. Browser workers remain one, retries zero.
 No results are claimed until the expanded workflow runs on its published commit.
+
+### TASK-016 Enrollment acceptance
+
+The existing backend-feature-acceptance job now includes EnrollmentServiceTests and
+EnrollmentHttpTests. After Course persistence, enrollment-persistence runs sequentially
+in a separately owned PostgreSQL 18 container: loopback port 55440, database
+task016_enrollments, role task016_test, generated CI-only password. It requires an empty
+database and applies existing V1-V6, without Supabase access. EnrollmentPersistenceTests
+cover reservation persistence, cancellation, expiry, ownership, paging, rollback and
+concurrent last-seat/duplicate requests. Missing/skipped/failing suites fail the existing
+report gate. No workflow duplication, provider calls or local execution are required.

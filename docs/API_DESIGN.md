@@ -1038,10 +1038,40 @@ FR-TCR-010, FR-ADM-008, FR-PAY-012; BR-ENR-001, BR-ENR-006, BR-ENR-007,
 BR-ENR-008, BR-COURSE-007, BR-TEA-003; DM-ENR-001, INV-013, INV-014; AR-018.
 
 
-### TASK-016 / TASK-022 proposed operations — not yet approved or implemented
+### TASK-016 backend contract (source implemented; CI verification pending)
 
-Business decisions BR-01..06 are approved on 2026-10-29; the following transport and
-DTO choices remain proposals requiring API review. BR-ENR-001 governs state transitions.
+The six Enrollment routes below use Bearer authentication, string IDs and no-store
+responses. POST operations accept no body or query parameters. List/roster accept
+only page (default 0), size (default 20, 1..100), and optional exact lifecycle status;
+unknown/duplicate parameters are rejected. Ordering is Enrollment ID descending.
+Lists return {items, page, size, hasNext}. A new reservation returns 201 with Location;
+existing valid PENDING or ACTIVE returns 200 without extension. Other successes are 200.
+
+Student DTO: id, courseId, courseTitle, status, nullable enrolledAt,
+nullable seatReservedUntil, reservationExpired, nullable cancelledAt,
+nullable cancellationReason, createdAt, updatedAt. Roster DTO: enrollmentId,
+studentId, studentDisplayName, status, nullable enrolledAt. Neither DTO exposes
+protected content, bank details, emails or an access-grant flag.
+
+Creation/renewal locks User then Course then Enrollment. Capacity counts ACTIVE
+and unexpired PENDING. The deadline is min(now + 15 minutes, earliest stored Session
+start), including cancelled Sessions. Historical cutoff changes under rescheduling
+remain OPEN. Valid duplicate/renew requests are no-ops. Expired reservations require
+explicit renewal. CANCELLED cancellation is a no-op; re-entry and ACTIVE cancellation
+are denied. Existing PENDING Payment blocks renewal/cancel until TASK-022 supplies
+atomic coordination; this slice never creates or changes Payments or activates access.
+
+Errors use the shared ApiError shape: 400 INVALID_REQUEST; 403 ACCESS_DENIED;
+404 ENROLLMENT_NOT_FOUND or COURSE_NOT_FOUND; 409 COURSE_NOT_ENROLLABLE, COURSE_FULL,
+ENROLLMENT_RENEWAL_REQUIRED, ENROLLMENT_STATE_CONFLICT or PAYMENT_COORDINATION_REQUIRED;
+503 ENROLLMENT_UNAVAILABLE. Missing/invalid authentication retains shared 401 handling.
+
+### TASK-016 routes and TASK-022 proposals
+
+
+Business decisions BR-01..06 and the six Enrollment endpoints are approved; the
+implementation notes above define this bounded slice. Payment transport/audit DTOs
+remain proposals requiring review. BR-ENR-001 governs state transitions.
 
 | Proposed endpoint | Request | Result |
 | --- | --- | --- |
@@ -1060,15 +1090,11 @@ or Teacher status-setting endpoint; route/authentication/replay envelope remains
 Receiving-account management reuses the owned-account boundary in Section 14; exact
 ownership-verification and connection-management operations await provider selection.
 
-Proposed Enrollment DTO: id, courseId, courseTitle, status, enrolledAt,
-seatReservedUntil, reservationExpired, cancelledAt, cancellationReason, createdAt,
-updatedAt, canAccessContent. IDs are decimal strings; timestamps ISO-8601 UTC;
-enrolledAt/reservation/cancellation fields may be null. Proposed enrolledAt means
-activation time. Derived flags are not persisted and never substitute for resource
-endpoint authorization. No Meet URL, protected content, bank evidence or unrelated
-Student information in this DTO. Lists use {items, page, size, hasNext}, ordered by
-Enrollment ID descending. Proposed roster fields: enrollmentId, studentId,
-studentDisplayName, status, enrolledAt; email and historical visibility remain OPEN.
+The older Enrollment DTO/roster proposal is superseded by the TASK-016 backend
+contract above. In particular, canAccessContent is not an implemented response field.
+The implemented DTO and error mappings above are the current Enrollment contract;
+resource authorization remains server-side. Payment DTOs and error contracts remain
+unresolved and are not approved by this Enrollment implementation.
 
 Use existing Bearer authentication, safe ApiError {code,message,fieldErrors?}, strict
 field/query validation and Cache-Control: no-store. Proposed mappings: 400 malformed
@@ -1078,11 +1104,11 @@ conflict; 503 unavailable dependency. Never bind Student identity, receiver, amo
 confirmation status or audit actor from untrusted input. Clients must explicitly
 reload after uncertain mutations, not automatically retry or extend reservations.
 
-OPEN: Student verified-email eligibility; cancelled re-entry; completed/cancelled/
+OPEN: cancelled re-entry; completed/cancelled/
 refunded/archived access; post-first-start rescheduling; late-payment/refund policy;
 provider selection and multi-account support; account verification; manual audit,
 dispute and Admin oversight details; Payment expiry versus reservation expiry; final
-Enrollment DTO and error contracts. Unresolved lifecycle access remains denied until
+Payment DTO and error contracts. Unresolved lifecycle access remains denied until
 approved. Do not implement dependent operations from these proposed routes alone.
 
 ## 13. Course Progress
@@ -1768,3 +1794,7 @@ refresh/recovery lock order. The UI under `/account` never retries a mutation au
 - `/teacher/calendar` reuses the persistent Dashboard and authenticated API client.
   Month/week date buckets use explicitly labelled Asia/Ho_Chi_Minh time; each card
   displays its own Course timezone. Pagination is visible and never silently truncated.
+
+TASK-016 eligibility decision (2026-10-29): authenticated, unlocked STUDENT accounts
+may enroll whether email is verified or unverified. Email verification remains intact
+for other workflows; Teacher eligibility is unchanged.

@@ -472,7 +472,7 @@ support explicit expired-reservation renewal and Student cancellation of own PEN
 Enrollment, preserving uniqueness and history. Expiration grants no access or seat;
 no new Enrollment status is introduced. Duplicate valid reservations shall not extend
 expiry. Eligible Students require authorized ACTIVE Enrollment for protected content;
-verified-email eligibility and other lifecycle access remain OPEN.
+both verified and unverified email Students may enroll; other lifecycle access remains OPEN.
 
 FR-PAY-007/008/010/012 shall support Teacher-owned personal receiving accounts with
 ownership assurance separate from reconciliation connection status. Entered account
@@ -1205,3 +1205,7 @@ Student registration creates no verification credential, sends no email, returns
 verificationRequired=false and navigates to /login. Email-only login, username/phone
 validation and safe generic email/username conflict handling remain unchanged.
 V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.
+
+TASK-016 eligibility decision (2026-10-29): authenticated, unlocked STUDENT accounts
+may enroll whether email is verified or unverified. Email verification remains intact
+for other workflows; Teacher eligibility is unchanged.

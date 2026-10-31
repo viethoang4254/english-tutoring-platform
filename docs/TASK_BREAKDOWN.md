@@ -363,7 +363,7 @@ manual audit/account assurance/connection facts need a separate schema mapping r
 | Persistence/UI | Disposable PostgreSQL transaction tests; pagination/privacy; uncertain mutation reload; frontend access states; no production provider calls. |
 
 CI-first validation uses existing GitHub Actions infrastructure and disposable data.
-OPEN: provider/multi-account support; verified-email eligibility; cancelled re-entry;
+OPEN: provider/multi-account support; cancelled re-entry;
 refund policy; COMPLETED access; post-first-start rescheduling; late-payment handling;
 account-verification method; manual evidence/dispute/Admin oversight details. Do not
 mark implementation DONE or treat documentation as acceptance evidence.
@@ -1076,3 +1076,9 @@ FEATURE_STATUS.md remains the sole live status/evidence ledger. Its historical f
 README.md needs later scope/setup reconciliation through TASK-031; it is unchanged by this rewrite. Keep existing Java packages, Maven artifacts, directories and database names unless a concrete technical reason is separately approved.
 
 Future task changes must preserve retired IDs, relevant source references, acyclic dependencies and explicit gates. Resolve a decision in the authoritative design stage before changing dependent acceptance criteria; do not turn an implementation convenience into a business rule.
+
+TASK-016 implementation evidence belongs in FEATURE_STATUS.md. The current backend
+slice implements reserve/list/detail/renew/cancel/owned roster without Payment or access
+activation. Student verified-email eligibility is resolved: verified and unverified
+unlocked authenticated Students are eligible. CI execution is pending; Payment audit,
+expiry coordination, late-payment and cutoff-under-rescheduling decisions remain OPEN.

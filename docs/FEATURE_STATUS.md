@@ -52,7 +52,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-009 | Current account and own personal profile | IN_PROGRESS | TODO | Current-account read and bounded Student profile view/edit implemented; Teacher own-profile scope remains. See Student profile evidence below. |
 | TASK-010 | Teacher-owned Course management | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-011 | Public Teacher and Course discovery | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-016 | Whole-Course Enrollment and participation authorization | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-016 | Whole-Course Enrollment and participation authorization | IN_PROGRESS | TODO | Reservation/read/renew/cancel/owned-roster backend source and CI tests prepared; verification pending. No payment activation or protected Student content APIs. See TASK-016 evidence below. |
 | TASK-018 | CourseProgress and own learning-progress visibility | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-022 | Whole-Course payment and trustworthy transaction effects | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-023 | Admin account oversight and permitted account management | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -109,7 +109,7 @@ Compatible existing feature IDs retain their current meaning below. Their scope 
 | FEAT-005 | Current account and own personal profile | IN_PROGRESS | TASK-009 |
 | FEAT-006 | Public Teacher/Course discovery | TODO | TASK-011 |
 | FEAT-007 | Teacher-owned Course management | TODO | TASK-010 |
-| FEAT-011 | Whole-Course Enrollment and participation access | TODO | TASK-016 |
+| FEAT-011 | Whole-Course Enrollment and participation access | IN_PROGRESS | TASK-016; backend implemented awaiting CI; frontend and payment-backed access remain incomplete |
 | FEAT-013 | CourseProgress | BLOCKED | TASK-018 |
 | FEAT-016 | Course payment and trustworthy effects | BLOCKED | TASK-022 |
 | FEAT-017 | Limited Admin account oversight | TODO | TASK-023 |
@@ -169,7 +169,7 @@ The table distinguishes implemented responsibilities from remaining gated work. 
 | Tutoring E2E | Foundation tests do not prove integrated tutoring journeys. Playwright browser checks remain separate from Spring Boot/JUnit/backend integration tests. | TASK-028 |
 | Deployment / CI | Production hosting is unresolved; no deployment or CI implementation. Safe build/test CI is separate from later release automation. Development Supabase connectivity is not deployment. | TASK-029, TASK-030 |
 
-The approved payment path is Course -> owning Teacher -> positive authoritative tuition -> selected Teacher account -> dynamic VietQR Payment -> authenticated automatic evidence or authorized audited Teacher attestation -> capacity-safe Enrollment activation. This is design approval, not implementation. Manual attestation is not independent bank verification; Student screenshots, claims and client statuses never automatically activate access. Client identity, amount and destination are not authoritative. PENDING reserves at most 15 minutes, capped at first Session start; expiry requires explicit renewal, duplicates do not extend it, and own-PENDING cancellation is permitted. Protected content requires eligible ACTIVE Enrollment; unresolved lifecycle access remains denied. TASK-016 remains TODO and TASK-022 remains BLOCKED; no Enrollment, Payment or Student access implementation is claimed. Provider, eligibility, re-entry, refund/access/cutoff, expiry and manual-audit decisions remain OPEN under BR-ENR-001/BR-PAY-009. No platform custody or generic Admin confirmation authority is approved.
+The approved payment path is Course -> owning Teacher -> positive authoritative tuition -> selected Teacher account -> dynamic VietQR Payment -> authenticated automatic evidence or authorized audited Teacher attestation -> capacity-safe Enrollment activation. This is design approval, not implementation. Manual attestation is not independent bank verification; Student screenshots, claims and client statuses never automatically activate access. Client identity, amount and destination are not authoritative. PENDING reserves at most 15 minutes, capped at first Session start; expiry requires explicit renewal, duplicates do not extend it, and own-PENDING cancellation is permitted. Protected content requires eligible ACTIVE Enrollment; unresolved lifecycle access remains denied. TASK-016 remains IN_PROGRESS: Enrollment Backend is implemented but awaiting CI validation; Enrollment frontend and payment-backed Student access remain incomplete. TASK-022 remains BLOCKED; Payment and VietQR are not implemented. Student email-verification eligibility is resolved. Provider, re-entry, refund/access/cutoff, expiry and manual-audit decisions remain OPEN under BR-ENR-001/BR-PAY-009. No platform custody or generic Admin confirmation authority is approved.
 
 ## 7. Retired Historical Tasks / Features
 
@@ -1207,3 +1207,24 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Expansion is prepared only: no local tests/builds, commit, push or CI dispatch.
   Broader feature acceptance remains pending a successful expanded workflow.
   TASK-035/TASK-037 remain IN_PROGRESS; Google Calendar is not implemented.
+
+### TASK-016 — Enrollment backend slice (2026-10-29, not yet CI-verified)
+
+- Source: features/enrollment/{controller,dto,repository,service}; existing security
+  chain explicitly permits only approved Student operations and eligible Teacher roster.
+- Authenticated unlocked STUDENT is eligible regardless of email verification; other
+  authentication and Teacher eligibility rules remain unchanged.
+- PUBLISHED/positive-tuition/generated-Session/future-cutoff checks; 15-minute capped
+  reservation; natural-key duplicate preservation; explicit renewal and pending cancel.
+  User -> Course -> Enrollment locking serializes capacity; expired seats are excluded.
+- Safe own-only DTOs and minimal owned-Course roster; paging/status filters and no-store.
+  No activation, Payment mutation, VietQR, publication or protected-content API added.
+  Pending Payment blocks renewal/cancel pending TASK-022 coordination.
+- Added EnrollmentServiceTests, EnrollmentHttpTests, EnrollmentPersistenceTests; existing
+  datasource-free test contexts mock EnrollmentRepository. Existing TASK-009 CI runner
+  adds these suites and isolated PostgreSQL 18 port 55440; helper checks cover group order.
+- Validation: source/diff review only. Tests/builds not run locally by explicit CI-first
+  policy; no passing test counts or deployment claimed. No migrations required or changed.
+- Remaining: GitHub Actions verification; future trusted Payment activation; lifecycle,
+  rescheduling cutoff and payment coordination decisions. TASK-016 remains IN_PROGRESS;
+  TASK-022 remains BLOCKED. Unrelated historical/local status evidence is preserved.

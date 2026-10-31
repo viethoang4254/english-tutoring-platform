@@ -163,8 +163,7 @@ TASK-016 approval reconciliation (2026-10-29): protected learning content requir
 an eligible Student and authorized ACTIVE Enrollment, enforced by Spring Boot.
 PENDING grants no access; unresolved lifecycle cases remain denied until approved.
 Public descriptions remain accessible. Approved confirmation is required for activation.
-OPEN: provider selection/multi-Teacher reconciliation support; Student verified-email
-requirement; cancelled re-entry; refund eligibility/workflow; COMPLETED/archived access;
+OPEN: provider selection/multi-Teacher reconciliation support; cancelled re-entry; refund eligibility/workflow; COMPLETED/archived access;
 first-Session rescheduling cutoff; late-payment reconciliation; bank ownership verification;
 manual audit/oversight; Payment expiry versus reservation expiry; final Enrollment DTO/error
 contracts. Existing full-refund representation does not settle those policy decisions.

@@ -13,6 +13,7 @@ class EnglishLearningApplicationTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.category.repository.CategoryRepository categoryRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.course.repository.CourseRepository courseRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.enrollment.repository.EnrollmentRepository enrollmentRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean

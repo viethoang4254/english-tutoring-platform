@@ -142,6 +142,10 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
+                                "/api/v1/student/enrollments/{enrollmentId}/renew", "/api/v1/student/enrollments/{enrollmentId}/cancel").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/enrollments", "/api/v1/student/enrollments/{enrollmentId}").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/enrollments").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::verifiedTeacher)
