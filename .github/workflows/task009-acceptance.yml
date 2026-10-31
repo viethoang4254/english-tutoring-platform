@@ -112,6 +112,12 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '64'
       - run: python ci/task009/run.py resources
+      - name: Enrollment management browser acceptance (30 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/student-enrollments.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '30'
+      - run: python ci/task009/run.py resources
       - name: Live populated Calendar acceptance (2 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/live/calendar.spec.ts
         working-directory: frontend

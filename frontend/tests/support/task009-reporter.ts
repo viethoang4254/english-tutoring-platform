@@ -11,7 +11,7 @@ const stages = new Set(['registration', 'onboarding-review', 'snapshot-before', 
   'calendar-http-500', 'calendar-http-503', 'calendar-http-other']);
 function safeLocation(location: TestCase['location'] | undefined): string {
   if (!location || !Number.isSafeInteger(location.line) || location.line < 1) return 'unavailable';
-  for (const file of ['tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',
+  for (const file of ['tests/e2e/student-enrollments.spec.ts', 'tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',
     'tests/live/calendar.spec.ts', 'tests/support/live-fixtures.ts', 'tests/e2e/teacher-calendar.spec.ts',
     'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
     'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts',

@@ -1,0 +1,11 @@
+.workspace { min-width: 0; display: grid; gap: 1rem; }
+.toolbar, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.cards { display: grid; gap: 1rem; }
+.card { padding: 1.25rem; border: 1px solid #dfe1ec; border-radius: 1rem; background: white; overflow-wrap: anywhere; }
+.card h2 { margin-top: 0; }
+.card p { line-height: 1.6; }
+.note { color: #475569; }
+.dialog { max-width: min(30rem, calc(100vw - 2rem)); border: 1px solid #dfe1ec; border-radius: 1rem; padding: 1.5rem; }
+.dialog::backdrop { background: #17203688; }
+.workspace button, .workspace a { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .card { padding: 1rem; } .actions > * { flex: 1 1 auto; } }

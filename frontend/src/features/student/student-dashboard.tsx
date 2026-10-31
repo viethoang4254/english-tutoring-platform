@@ -69,6 +69,7 @@ function DashboardView({ profile }: { profile: Profile }) {
       <nav id="student-navigation" className={mobileOpen ? styles.navigationOpen : styles.navigation} aria-label="Điều hướng học viên">
         <a className={styles.activeNav} href="#lich-hoc" onClick={() => setMobileOpen(false)}><Icon kind="check" />Lịch học của tôi</a>
         <Link href="/courses"><Icon kind="book" />Khám phá khóa học</Link>
+        <Link href="/student/enrollments"><Icon kind="book" />Đăng ký của tôi</Link>
         <a href="#khoa-hoc-da-dang-ky" onClick={() => setMobileOpen(false)}><Icon kind="book" />Khóa học đã đăng ký</a>
         <a href="#bai-tap" onClick={() => setMobileOpen(false)}><Icon kind="check" />Bài tập</a>
         <a href="#thanh-toan" onClick={() => setMobileOpen(false)}><Icon kind="book" />Thanh toán</a>

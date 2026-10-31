@@ -6,7 +6,7 @@ if (process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_ENVIRONMENT !== 
 }
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['e2e/student-profile.spec.ts', 'live/profile.spec.ts', 'live/calendar.spec.ts',
+  testMatch: ['e2e/student-enrollments.spec.ts', 'e2e/student-profile.spec.ts', 'live/profile.spec.ts', 'live/calendar.spec.ts',
     'e2e/teacher-calendar.spec.ts', 'e2e/unified-dashboard.spec.ts', 'e2e/teacher-login.spec.ts',
     'e2e/teacher-courses.spec.ts', 'e2e/teacher-sessions.spec.ts',
     'e2e/admin-categories.spec.ts', 'e2e/admin-dashboard.spec.ts', 'e2e/course-discovery.spec.ts',

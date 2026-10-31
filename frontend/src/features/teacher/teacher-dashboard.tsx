@@ -7,6 +7,7 @@ import { useSession } from "../auth/session-provider";
 import { authMutation, authorized, safeMessage, type Account, type Onboarding } from "../auth/browser-api";
 import { ApiRequestError } from "../../lib/api";
 import { AccountWorkspace } from "../auth/account-workspace";
+import { StudentEnrollments } from "../enrollment/student-enrollments";
 import { TeacherCalendar } from "./teacher-calendar";
 import { TeacherCourses } from "./teacher-courses";
 import styles from "../admin/admin-dashboard.module.css";
@@ -27,7 +28,7 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
   const courseId = /^\/teacher\/courses\/([1-9][0-9]*)$/.exec(path)?.[1];
   if (courseId && courseId !== selectedCourse) setSelectedCourse(courseId);
   const checked = !!session && checkedToken === session.accessToken;
-  useEffect(() => { if(!session && path.startsWith("/teacher")&&!message&&!hadSession)router.replace(`/login?next=${encodeURIComponent(path)}`); }, [session,path,router,message,hadSession]);
+  useEffect(() => { if(!session && (path.startsWith("/teacher")||path.startsWith("/student/enrollments"))&&!message&&!hadSession)router.replace(`/login?next=${encodeURIComponent(path)}`); }, [session,path,router,message,hadSession]);
   useEffect(() => {
     if (!session) return;
     let active = true;
@@ -50,8 +51,10 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
   if(!session) return <main className={styles.gate}>{(message||hadSession)&&<p role="status">{message || "Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại."}</p>}{path==="/account" || message || hadSession ? <AccountWorkspace /> : <p role="status">Đang chuyển đến trang đăng nhập…</p>}</main>;
   const section=search.get("section");
   const coursePath=selectedCourse?`/teacher/courses/${selectedCourse}`:"/teacher/courses";
+  const enrollmentPage = path === "/student/enrollments";
   const items = [
     {href:"/teacher",label:"Tổng quan",key:"overview"},
+    ...(session.account.role==="STUDENT" ? [{href:"/student/enrollments",label:"Đăng ký của tôi",key:"enrollments"}] : []),
     ...(eligible && checked ? [
       {href:"/teacher/courses",label:"Khóa học của tôi",key:"courses"},
       {href:"/teacher/calendar",label:"Lịch dạy",key:"calendar"},
@@ -61,7 +64,7 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
     {href:"/account",label:"Tài khoản & hồ sơ đăng ký",key:"account"},
     {href:"/teacher/settings",label:"Cài đặt tài khoản",key:"settings"},
   ];
-  const active = path==="/teacher/calendar" ? "calendar" : path==="/account" ? "account" : path==="/teacher/settings" ? "settings" : path==="/teacher/profile" ? "teacher" : path.startsWith("/teacher/courses") ? section==="schedule"?"schedule":section==="sessions"?"sessions":"courses" : "overview";
+  const active = enrollmentPage ? "enrollments" : path==="/teacher/calendar" ? "calendar" : path==="/account" ? "account" : path==="/teacher/settings" ? "settings" : path==="/teacher/profile" ? "teacher" : path.startsWith("/teacher/courses") ? section==="schedule"?"schedule":section==="sessions"?"sessions":"courses" : "overview";
   const teachingPage=["courses","schedule","sessions","calendar"].includes(active);
   const title=items.find(i=>i.key===active)?.label ?? "Không gian tài khoản";
   async function logout() {
@@ -90,7 +93,8 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
           {teachingPage&&!courseId&&section&&<p>Chọn một khóa học để quản lý lịch dạy và các buổi học.</p>}
           <TeacherCourses session={session} courseId={courseId ?? (teachingPage&&active!=="calendar"?undefined:selectedCourse)} section={section === "schedule" || section === "sessions" ? section : undefined}/>
         </div>}
-        <div hidden={teachingPage}>
+        {enrollmentPage && (session.account.role === "STUDENT" ? <StudentEnrollments key={`${session.accessToken}:${search.get("id") ?? "list"}`} session={session} enrollmentId={search.get("id")} /> : <p role="alert">Trang đăng ký chỉ dành cho học viên.</p>)}
+        <div hidden={teachingPage || enrollmentPage}>
           <AccountWorkspace embeddedPanel="dashboard" dashboardPanel={active==="teacher"?"teacher":active==="settings"?"password":active==="account"?(session.account.role==="TEACHER"?"teacher":session.account.role==="ADMIN"?"reviews":"profile"):"overview"}/>
           {active==="account"&&session.account.role==="STUDENT"&&<p>Đăng ký gia sư sử dụng tài khoản riêng; tài khoản học viên không được chuyển vai trò.</p>}
         </div>
