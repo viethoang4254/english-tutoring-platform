@@ -1262,3 +1262,24 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - No frontend, Enrollment behavior, Payment, Calendar, migration or Supabase data
   changes. Real discovery UI/registration integration and broader public search/profile
   capabilities remain separate work. TASK-011A is not accepted until CI passes.
+
+
+### TASK-011B — Real Course Discovery frontend (2026-11-02)
+
+- **IN_PROGRESS — implemented, pending CI verification.** Existing `/courses` and
+  `/courses/[slug]` now read TASK-011A public list/detail APIs through `apiRequest`
+  with credentials omitted and no sample fallback. TASK-011 remains IN_PROGRESS.
+- Preserved responsive cards/detail layout; added API pagination, loading/empty/error
+  states and explicit retry. Search/category controls filter only the current page
+  and say so; server search/filtering is not invented. IDs remain strings; VND
+  formatting preserves decimal tuition without floating-point conversion.
+- Detail renders public Teacher/category information, planned date, Course timezone,
+  Session count and supplied weekly rules. No invented teaching profile/capacity,
+  Meet URL, protected content or enrollment state. Registration remains disabled;
+  TASK-011C owns the future registration entry point. No Enrollment/Payment mutation.
+- Updated `course-discovery.spec.ts`: 8 cases x 2 viewports = 16 expected executions.
+  Existing TASK-009 Additional feature group increases from 64 to 76 executions;
+  other SMTP/backend/Enrollment/browser gates remain unchanged. No workflow dispatch.
+- Removed the discovery-only sample dataset; Student Dashboard/Calendar preview data
+  remains unchanged. Backend, migrations, Supabase and authentication rules untouched.
+- Static diff review only; TypeScript, lint, build and browser results await CI.

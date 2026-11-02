@@ -62,3 +62,6 @@
 .muted { color:#64748b; font-size:.9rem; }
 @media(max-width:800px) { .hero { grid-template-columns:1fr; gap:16px; } .heroNote { display:none; } .detailGrid { grid-template-columns:1fr; } .filters { grid-template-columns:1fr; } }
 @media(max-width:600px) { .page { padding:24px 16px 48px; } .grid { grid-template-columns:1fr; } .hero { padding-top:0; } .cardBody,.panel,.enroll { padding:22px; } .notice { padding:18px; } .filters { padding:18px; } .cardBottom { align-items:center; } .results { font-size:.875rem; } }
+.page { overflow-wrap:anywhere; }
+.detailGrid > *, .cardBody { min-width:0; }
+.results { flex-wrap:wrap; }

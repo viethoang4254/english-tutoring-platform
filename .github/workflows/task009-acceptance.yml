@@ -106,11 +106,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '58'
       - run: python ci/task009/run.py resources
-      - name: Additional feature browser acceptance (64 cases)
+      - name: Additional feature browser acceptance (76 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '64'
+          TASK009_EXPECTED_TESTS: '76'
       - run: python ci/task009/run.py resources
       - name: Enrollment management browser acceptance (30 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/student-enrollments.spec.ts
