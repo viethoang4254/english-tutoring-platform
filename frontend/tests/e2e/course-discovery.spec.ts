@@ -27,10 +27,10 @@ test('catalog search, category filters, details and responsive public data are s
  await expect(page.getByText('1.800.000 ₫',{exact:true})).toBeVisible();
  await page.getByLabel('Tìm khóa học',{exact:true}).fill('hang ngay');
  await expect(page.getByRole('status')).toHaveText('1 khóa học trên trang 1');
- await page.getByLabel('Danh mục',{exact:true}).selectOption('12');
+ await page.getByRole('combobox',{name:'Danh mục',exact:true}).selectOption('12');
  await expect(page.getByRole('heading',{name:'Không tìm thấy khóa học phù hợp'})).toBeVisible();
  await page.getByRole('button',{name:'Đặt lại tìm kiếm'}).click();
- await page.getByLabel('Danh mục',{exact:true}).selectOption('12');
+ await page.getByRole('combobox',{name:'Danh mục',exact:true}).selectOption('12');
  await expect(page.getByRole('status')).toHaveText('1 khóa học trên trang 1');
  await page.getByRole('button',{name:'Xóa bộ lọc'}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
