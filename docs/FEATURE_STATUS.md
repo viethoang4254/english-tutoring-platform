@@ -1242,3 +1242,23 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Fifteen browser cases (30 desktop/mobile executions) added to existing TASK-009 CI.
   Tests/builds not run locally. TASK-016 remains IN_PROGRESS pending CI, live frontend
   acceptance and real Course registration entry. Payment/VietQR remain unimplemented.
+
+
+### TASK-011A — Public Course API backend (2026-11-02)
+
+- **IN_PROGRESS — implemented, pending GitHub Actions verification.** TASK-011 remains
+  IN_PROGRESS; this backend slice does not complete real frontend discovery.
+- Added anonymous `GET /api/v1/public/courses` and
+  `GET /api/v1/public/courses/{courseId}` with PUBLISHED-only PostgreSQL queries,
+  bounded ID-ordered pagination, explicit public DTOs and safe errors. Detail includes
+  weekly schedule rules; private Session content/Meet/bank/account data remain excluded.
+- Implementation: `PublicCourseController`, `PublicCourseService`, `PublicCourseDto`,
+  existing `CourseRepository`, Course error handling and exact GET security allowlist.
+- CI preparation: 7 new `PublicCourseHttpTests` methods in `feature-unit-http` and
+  2 new `CoursePersistenceTests` methods in the existing isolated PostgreSQL 18
+  `course-persistence` group. Existing manual `task009-acceptance.yml` is reused;
+  SMTP, Enrollment and browser gates are unchanged. No tests/builds run locally and
+  no workflow dispatched; compilation and database behavior await CI.
+- No frontend, Enrollment behavior, Payment, Calendar, migration or Supabase data
+  changes. Real discovery UI/registration integration and broader public search/profile
+  capabilities remain separate work. TASK-011A is not accepted until CI passes.

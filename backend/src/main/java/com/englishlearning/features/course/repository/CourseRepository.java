@@ -2,6 +2,7 @@ package com.englishlearning.features.course.repository;
 
 import com.englishlearning.common.api.*;
 import com.englishlearning.features.course.dto.CourseDto;
+import com.englishlearning.features.course.dto.PublicCourseDto;
 import com.englishlearning.features.course.dto.SessionDto;
 import com.englishlearning.features.course.dto.ScheduleChangeDto;
 import com.englishlearning.features.course.service.RescheduleInput;
@@ -29,6 +30,30 @@ public class CourseRepository {
         return ((List<Object[]>)rows).stream().map(r -> new com.englishlearning.features.course.dto.CalendarSessionDto(
             new ApiId(((Number)r[0]).longValue()),new ApiId(((Number)r[1]).longValue()),(String)r[2],
             ((Number)r[3]).intValue(),(String)r[4],instant(r[5]),instant(r[6]),(String)r[7],(String)r[8])).toList();
+    }
+    private static final String PUBLIC_SELECT = """
+        SELECT c.id,c.name,c.description,c.tuition,c.currency,k.id,k.name,u.id,u.full_name,
+               c.planned_start_date,c.timezone,c.session_count
+        FROM public.courses c JOIN public.course_categories k ON k.id=c.category_id
+        JOIN public.users u ON u.id=c.teacher_id
+        WHERE c.status='PUBLISHED'
+        """;
+    public List<PublicCourseDto> publicList(int page,int size) {
+        return ((List<?>)em.createNativeQuery(PUBLIC_SELECT+" ORDER BY c.id")
+                .setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList())
+                .stream().map(this::publicDto).toList();
+    }
+    public Optional<PublicCourseDto> publicFind(long id) {
+        var rows=em.createNativeQuery(PUBLIC_SELECT+" AND c.id=:id").setParameter("id",id).getResultList();
+        return rows.isEmpty()?Optional.empty():Optional.of(publicDto(rows.get(0)));
+    }
+    private PublicCourseDto publicDto(Object value) {
+        Object[] r=(Object[])value;
+        return new PublicCourseDto(new ApiId(((Number)r[0]).longValue()),
+                (String)r[1],(String)r[2],ApiMoney.from(((BigDecimal)r[3]).setScale(2),(String)r[4]),
+                new PublicCourseDto.Category(new ApiId(((Number)r[5]).longValue()),(String)r[6]),
+                new PublicCourseDto.Teacher(new ApiId(((Number)r[7]).longValue()),(String)r[8]),
+                r[9] instanceof LocalDate d?d:((java.sql.Date)r[9]).toLocalDate(),(String)r[10],((Number)r[11]).intValue());
     }
     public boolean hasCalendarEvents(long session) {
         return (Boolean)em.createNativeQuery("SELECT EXISTS(SELECT 1 FROM public.session_calendar_events WHERE session_id=:id)").setParameter("id",session).getSingleResult();

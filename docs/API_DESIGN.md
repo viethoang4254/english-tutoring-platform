@@ -596,6 +596,37 @@ Do not serialize a protected management projection and rely on UI hiding.
 discoverability/publication conditions. Discovery performs no purchase or
 Enrollment mutation and grants no protected participation.
 
+### TASK-011A — Public Course backend (implemented; CI pending)
+
+This approved slice supersedes the deferred route/visibility statement above for
+Course list/detail only. Public Teacher search, Course search/filtering and frontend
+integration remain deferred.
+
+- `GET /api/v1/public/courses`: anonymous access; `page=0`, `size=20` defaults,
+  `page >= 0`, `1 <= size <= 100`, integer offset at most `2147483647`.
+  Unknown/duplicate query parameters, malformed numbers and GET bodies are rejected.
+  Only `PUBLISHED` Courses; deterministic Course ID ascending order.
+  Response: `{items: [PublicCourse], page, size, hasNext}` (one-row lookahead).
+- `GET /api/v1/public/courses/{courseId}`: anonymous access; positive decimal ID;
+  response `{course: PublicCourse, rules: [{id, dayOfWeek, startTime, endTime}]}`.
+  Weekly rules use ISO weekdays and Course-local `HH:mm` times, sorted by weekday,
+  start time and rule ID. They describe the weekly plan, not a promise that individual
+  rescheduled Sessions still match it. No Session content or participation details.
+- `PublicCourse`: `id`, `name`, `description`, `tuition: {amount, currency}`,
+  `category: {id, name}`, `teacher: {id, fullName}`, `plannedStartDate`, `timezone`,
+  `sessionCount`. IDs and tuition amounts are decimal strings; currency is VND.
+  Tuition is the stored base tuition, not a payment quote or calculated discount.
+  Teacher public information is limited to ID/name in this slice.
+- Missing and all non-PUBLISHED Courses return identical `404 COURSE_NOT_FOUND`.
+  Invalid requests return `400 INVALID_REQUEST`; persistence failures return safe
+  `503 COURSE_UNAVAILABLE`. Successful and error responses use `Cache-Control: no-store`.
+- Public access is permitted only for these GET routes. Existing Bearer validation,
+  management authorization and Enrollment rules are unchanged. No emails, account
+  security fields, bank details, raw Storage paths, Meet links, capacity/roster data,
+  Payment records, Session content or application snapshots are projected.
+- No schema changes, publication workflow, Enrollment mutation or Payment behavior.
+  PostgreSQL is read through the existing Spring repository, never frontend Supabase access.
+
 References: FR-DIS-003, FR-DIS-004, FR-DIS-005, FR-DIS-006, FR-AUTH-012;
 BR-AUTH-007, BR-ENR-007; INV-023.
 

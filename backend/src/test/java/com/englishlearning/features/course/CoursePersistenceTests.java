@@ -53,6 +53,39 @@ class CoursePersistenceTests {
         category=categories.create(admin,Map.of("name","Category")).id().value();
     }
     Map<String,Object> fields() { var f=CourseInputTests.fields(); f.put("categoryId",Long.toString(category));return f; }
+    @Test void publicDiscoveryUsesPublishedRowsAcrossOwnersAndStablePagination() throws Exception {
+        var first=courses.create(teacher,fields());var second=courses.create(other,fields());
+        var hidden=courses.create(teacher,fields());
+        sql("UPDATE courses SET status='PUBLISHED',meet_url='https://meet.google.com/private' WHERE id IN ("+first.id().value()+","+second.id().value()+")");
+        var discovery=context.getBean(PublicCourseService.class);
+        var page=discovery.list(0,1);
+        assertEquals(List.of(first.id()),page.items().stream().map(c->c.id()).toList());assertTrue(page.hasNext());
+        var next=discovery.list(1,1);assertEquals(second.id(),next.items().get(0).id());assertFalse(next.hasNext());
+        assertEquals(teacher,page.items().get(0).teacher().id().value());
+        assertEquals("Fixture",page.items().get(0).teacher().fullName());
+        assertEquals(first.tuition(),page.items().get(0).tuition());
+        assertTrue(discovery.list(2,1).items().isEmpty());
+        assertEquals(CourseFailure.Reason.MISSING,assertThrows(CourseFailure.class,()->discovery.get(hidden.id().value())).reason());
+        assertEquals(CourseFailure.Reason.MISSING,assertThrows(CourseFailure.class,()->discovery.get(Long.MAX_VALUE)).reason());
+    }
+    @Test void publicDetailExcludesEveryNonPublicStateAndPreservesSchedule() throws Exception {
+        var row=courses.create(teacher,fields());long id=row.id().value();
+        sql("INSERT INTO course_schedule_rules(course_id,day_of_week,start_time,end_time,created_at,updated_at) VALUES ("+id+",2,'09:00','10:00',now(),now())");
+        var discovery=context.getBean(PublicCourseService.class);
+        for(String state:List.of("DRAFT","COMPLETED","CANCELLED","ARCHIVED")) {
+            sql("UPDATE courses SET status='"+state+"' WHERE id="+id);
+            assertTrue(discovery.list(0,20).items().isEmpty());
+            assertEquals(CourseFailure.Reason.MISSING,assertThrows(CourseFailure.class,()->discovery.get(id)).reason());
+        }
+        sql("UPDATE courses SET status='PUBLISHED' WHERE id="+id);
+        var detail=discovery.get(id);
+        assertEquals(row.name(),detail.course().name());assertEquals(row.description(),detail.course().description());
+        assertEquals(row.plannedStartDate(),detail.course().plannedStartDate());assertEquals(row.timezone(),detail.course().timezone());
+        assertEquals(row.sessionCount(),detail.course().sessionCount());assertEquals(category,detail.course().category().id().value());
+        assertEquals(1,detail.rules().size());assertEquals(2,detail.rules().get(0).dayOfWeek());
+        assertEquals("09:00",detail.rules().get(0).startTime());assertEquals("10:00",detail.rules().get(0).endTime());
+        assertEquals(0,count("SELECT count(*) FROM sessions"));
+    }
     @Test void roundTripPaginationOwnershipAndNoSideEffects() throws Exception {
         var f=fields();f.put("discount",Map.of("percent","12.34","startAt","2026-01-01T00:00:00.123456Z","endAt","2027-01-01T00:00:00Z"));
         var row=courses.create(teacher,f);courses.create(teacher,fields());courses.create(other,fields());

@@ -9,7 +9,7 @@ import org.springframework.http.*;
 import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes={CourseController.class,TeacherCalendarController.class})
+@RestControllerAdvice(assignableTypes={CourseController.class,TeacherCalendarController.class,PublicCourseController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CourseExceptionHandler {
     @ExceptionHandler(CourseFailure.class)
