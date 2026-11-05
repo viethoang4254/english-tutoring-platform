@@ -45,7 +45,7 @@ test('catalog search, category filters, details and responsive public data are s
  await expect(page.getByText('Chủ nhật · 14:00–15:00',{exact:true})).toBeVisible();
  await expect(page.getByText('12 buổi học · Múi giờ: Europe/Paris',{exact:true})).toBeVisible();
  await expect(page.getByText('Dự kiến bắt đầu: 08/01/2030',{exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'Đăng ký khóa học — chưa khả dụng'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Đăng nhập để đăng ký',exact:true})).toBeVisible();
  await expect(page.locator('a[href*="meet.google"]')).toHaveCount(0);
  await expect(page.getByText(/Dữ liệu mẫu|Dữ liệu minh họa/)).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -121,7 +121,7 @@ test('unknown and non-public Course IDs show the same safe missing state',async(
   await page.goto(`/courses/${id}`);
   await expect(page.getByRole('heading',{name:'Không tìm thấy khóa học',exact:true})).toBeVisible();
   await expect(page.getByRole('main').getByRole('alert')).toHaveText('Khóa học không tồn tại hoặc chưa được công khai.');
-  await expect(page.getByRole('button',{name:'Đăng ký khóa học — chưa khả dụng'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Đăng nhập để đăng ký'})).toHaveCount(0);
  }
 });
 test('detail retries transient failures and handles missing weekly rules',async({page})=>{

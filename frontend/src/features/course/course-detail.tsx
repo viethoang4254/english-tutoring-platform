@@ -5,6 +5,7 @@ import { Icon } from '../../components/site-shell';
 import { apiRequest, ApiRequestError } from '../../lib/api';
 import { type PublicCourseDetail, courseDate, tuitionLabel } from './public-courses';
 import styles from './discovery.module.css';
+import { CourseRegistration } from './course-registration';
 
 export function CourseDetail({courseId}: {courseId: string}) {
   const [attempt, setAttempt] = useState(0);
@@ -26,6 +27,6 @@ export function CourseDetail({courseId}: {courseId: string}) {
       <section className={styles.panel}><h2>Về khóa học</h2><p>{course.description}</p></section>
       <section className={styles.panel}><h2>Gia sư phụ trách</h2><div className={styles.teacherHeading}><span className={styles.avatar}><Icon kind="person" /></span><h3>{course.teacher.fullName}</h3></div></section>
       <section className={styles.panel}><h2>Lịch học dự kiến</h2><p>Dự kiến bắt đầu: {courseDate(course.plannedStartDate)}</p><p>{course.sessionCount} buổi học · Múi giờ: {course.timezone}</p>{rules.length ? <ul>{rules.map(rule => <li key={rule.id}>{rule.dayOfWeek === 7 ? 'Chủ nhật' : `Thứ ${rule.dayOfWeek + 1}`} · {rule.startTime}–{rule.endTime}</li>)}</ul> : <p>Chưa có lịch học hằng tuần.</p>}<p className={styles.muted}>Đây là lịch hằng tuần dự kiến. Lịch từng buổi có thể thay đổi; thông tin tham gia và nội dung học được bảo vệ.</p></section>
-    </div><aside className={styles.enroll}><span className={styles.eyebrow}>HỌC PHÍ GỐC</span><strong className={styles.price}>{tuitionLabel(course.tuition.amount)}</strong><p>Cho toàn bộ khóa học; chưa phải báo giá thanh toán.</p><hr /><dl><div><dt>Số buổi</dt><dd>{course.sessionCount}</dd></div><div><dt>Trạng thái đăng ký</dt><dd>Chưa kết nối</dd></div></dl><button className="ui-button ui-button-primary" disabled>Đăng ký khóa học — chưa khả dụng</button><p>Đăng ký và thanh toán chưa được tích hợp. Xem thông tin khóa học không cấp quyền truy cập nội dung học.</p><Link href="/courses">← Khám phá khóa học khác</Link></aside></div>
+    </div><aside className={styles.enroll}><span className={styles.eyebrow}>HỌC PHÍ GỐC</span><strong className={styles.price}>{tuitionLabel(course.tuition.amount)}</strong><p>Cho toàn bộ khóa học; chưa phải báo giá thanh toán.</p><hr /><dl><div><dt>Số buổi</dt><dd>{course.sessionCount}</dd></div></dl><CourseRegistration courseId={course.id} /><Link href="/courses">← Khám phá khóa học khác</Link></aside></div>
   </>;
 }

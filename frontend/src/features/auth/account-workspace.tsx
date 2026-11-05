@@ -24,8 +24,8 @@ function ApplicationFields() {
   return applicationFields.map(name => <label key={name}>{labels[name]}<textarea name={name} required rows={3} /></label>);
 }
 
-export function AccountWorkspace({ initialView = "login", modal = false, dedicatedLogin = false, initialMessage = "", embeddedPanel, dashboardPanel, onAuthenticated }: {
-  dashboardPanel?: Panel; embeddedPanel?: "teacher" | "settings" | "dashboard"; initialView?: View; modal?: boolean; dedicatedLogin?: boolean; initialMessage?: string; onAuthenticated?: () => void;
+export function AccountWorkspace({ initialView = "login", modal = false, dedicatedLogin = false, initialMessage = "", embeddedPanel, dashboardPanel, onAuthenticated, stayOnPage = false }: {
+  dashboardPanel?: Panel; embeddedPanel?: "teacher" | "settings" | "dashboard"; initialView?: View; modal?: boolean; dedicatedLogin?: boolean; initialMessage?: string; onAuthenticated?: () => void; stayOnPage?: boolean;
 }) {
   const { session, setSession, clearSession: clearSharedSession } = useSession();
   const router = useRouter();
@@ -62,6 +62,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     const current = await signIn(body);
     setSession(current);
     onAuthenticated?.();
+    if (stayOnPage) return;
     if (current.account.role === "STUDENT") router.replace("/student/dashboard");
     else if (current.account.role === "ADMIN") router.replace("/admin/dashboard");
   }

@@ -1283,3 +1283,26 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Removed the discovery-only sample dataset; Student Dashboard/Calendar preview data
   remains unchanged. Backend, migrations, Supabase and authentication rules untouched.
 - Static diff review only; TypeScript, lint, build and browser results await CI.
+
+### TASK-011C — Real Course registration entry (2026-11-02)
+
+- **IN_PROGRESS — implemented, pending CI acceptance.** Public Course Detail now
+  submits its actual string Course ID to the existing bodyless Enrollment POST.
+  Uses the shared bearer-only authorized client (cookies omitted); login retains
+  the existing CSRF flow. The reused login form opts into remaining on the Course
+  page for this entry only. Other login destinations remain unchanged.
+- Students, including unverified-email Students, can request a reservation; the
+  backend decides account eligibility, capacity and cutoff. In-flight requests
+  are guarded. 201/200 PENDING responses link to My Enrollments without changing
+  deadlines; existing ACTIVE responses are described as existing relationships.
+- Expired/conflicting reservations link to My Enrollments for explicit action.
+  Network/5xx outcomes remain uncertain, with explicit retry and no automatic
+  replay. 401 clears the browser session; 403 blocks further submission.
+- No Payment, VietQR, activation, Meet access or protected content is introduced.
+  Backend, migrations and existing Enrollment management behavior are unchanged.
+- Added 16 registration browser cases x 2 configured viewports = 32 executions.
+  Existing 8 discovery cases remain (16 executions), with anonymous registration
+  expectations updated. TASK-009 Additional feature group: 76 + 32 = 108.
+  Existing backend, SMTP, Enrollment and other browser gates remain enabled.
+- Static inspection only. No local tests/lint/builds or workflow dispatch. Compilation,
+  desktop/mobile behavior and acceptance require GitHub Actions before completion.
