@@ -1306,3 +1306,11 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
   Existing backend, SMTP, Enrollment and other browser gates remain enabled.
 - Static inspection only. No local tests/lint/builds or workflow dispatch. Compilation,
   desktop/mobile behavior and acceptance require GitHub Actions before completion.
+
+
+### TASK-022B.1 - Teacher receiving-account foundation (2026-11-05)
+
+- IN_PROGRESS: Backend foundation implemented; static review and GitHub Actions acceptance pending.
+- Includes versioned bank directory, private QR evidence, Teacher submission/list/detail, authorized image reads, idempotency and compatible V7 migration. Legacy accounts remain UNREVIEWED; Payment references are preserved.
+- Focused image, storage, HTTP and PostgreSQL tests are wired into TASK-009; no local tests or live Supabase writes performed.
+- Admin approval, Payment creation/confirmation, Enrollment activation and Frontend remain unimplemented in this batch. See TASK-022B-1.md for contracts, configuration and evidence-retention limits.

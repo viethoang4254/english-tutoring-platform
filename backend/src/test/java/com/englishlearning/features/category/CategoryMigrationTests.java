@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CategoryMigrationTests {
  String user=System.getenv("CATEGORY_TEST_USER"),password=System.getenv("CATEGORY_TEST_PASSWORD");
  String target(String db)throws Exception{assertEquals("task034_test",user);assertEquals("jdbc:postgresql://127.0.0.1:55436/task034_categories",System.getenv("CATEGORY_TEST_URL"));String url="jdbc:postgresql://127.0.0.1:55436/"+db;try(var c=DriverManager.getConnection(url,user,password);var s=c.createStatement();var r=s.executeQuery("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')")){r.next();assertEquals(0,r.getInt(1));}return url;}
- @Test void freshSchemaAppliesAllSixMigrations()throws Exception{String url=target("task034_migration_clean");var f=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(6,f.migrate().migrationsExecuted);f.validate();}
+ @Test void freshSchemaAppliesAllSevenMigrations()throws Exception{String url=target("task034_migration_clean");var f=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(7,f.migrate().migrationsExecuted);f.validate();}
  @Test void conflictingLegacyNamesFailWithoutDataChanges()throws Exception{
   String url=target("task034_migration_conflict");Flyway.configure().dataSource(url,user,password).target("5").cleanDisabled(true).load().migrate();
   try(var c=DriverManager.getConnection(url,user,password);var s=c.createStatement()){s.execute("INSERT INTO course_categories(name,active,created_at,updated_at) VALUES ('Test',true,now(),now()),(' test ',false,now(),now())");}

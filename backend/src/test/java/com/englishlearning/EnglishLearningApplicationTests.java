@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(properties = "spring.autoconfigure.exclude="
         + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration")
 class EnglishLearningApplicationTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.paymentaccount.repository.ReceivingAccountRepository receivingRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;

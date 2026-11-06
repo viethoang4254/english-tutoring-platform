@@ -6,7 +6,7 @@ GitHub-hosted Ubuntu, never on a developer machine or self-hosted runner.
 The SMTP job executes one `LocalResetSmtpTests` test, including decoded capture
 assertions. Only after it passes, the browser job builds the frontend, creates its
 own labelled PostgreSQL 18 container, checks the exact empty database target,
-and starts the backend to apply unchanged Flyway V1–V6 (target pinned to 6). It then runs 24 existing
+and starts the backend to apply Flyway V1–V7 (target pinned to 7). It then runs 24 existing
 mocked cases and 8 live cases (Student and pending/rejected/approved Teachers,
 each on mobile and desktop). Missing services, skipped cases and wrong test
 counts fail acceptance. These expected counts are not execution evidence.
@@ -88,7 +88,7 @@ profile-browser-acceptance. No parallel database groups or browser workers.
 and CategoryMigrationTests, CategoryLiveHttpTests, and CoursePersistenceTests.
 The latter groups create fresh labelled PostgreSQL 18 containers bound only to
 127.0.0.1:55436 (Category Persistence/Migration), :55438 (Category Live HTTP), or :55437 (Course Persistence), with generated CI passwords and the exact test identities.
-Migration tests own V1-V6 application; the legacy-conflict test intentionally
+Migration tests own V1-V7 application; the legacy-conflict test intentionally
 expects V6 rejection and verifies preservation of V1-V5 and conflicting rows.
 Each container is removed in finally; runner disposal covers interrupted jobs.
 No Supabase configuration or shared database is used.
@@ -121,7 +121,12 @@ The existing backend-feature-acceptance job now includes EnrollmentServiceTests 
 EnrollmentHttpTests. After Course persistence, enrollment-persistence runs sequentially
 in a separately owned PostgreSQL 18 container: loopback port 55440, database
 task016_enrollments, role task016_test, generated CI-only password. It requires an empty
-database and applies existing V1-V6, without Supabase access. EnrollmentPersistenceTests
+database and applies existing V1-V7, without Supabase access. EnrollmentPersistenceTests
 cover reservation persistence, cancellation, expiry, ownership, paging, rollback and
 concurrent last-seat/duplicate requests. Missing/skipped/failing suites fail the existing
 report gate. No workflow duplication, provider calls or local execution are required.
+
+
+### TASK-022B.1 receiving-account acceptance
+
+ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs last, sequentially, using PostgreSQL 18 at 127.0.0.1:55441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7; existing migration gates now expect seven migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.

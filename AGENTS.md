@@ -172,8 +172,8 @@ Teachers may register personal receiving accounts; account ownership, ownership
 verification and reconciliation connectivity are distinct. Entered details alone do
 not prove bank ownership or enable automatic reconciliation. Payment-specific dynamic
 VietQR uses the selected Teacher account and backend-generated amount and unique
-reference; Students cannot choose authoritative amounts or destinations. Static QR
-image uploads are not required. Platform custody remains excluded.
+reference; Students cannot choose authoritative amounts or destinations. Teachers submit a private PNG/JPEG bank QR image for platform review; it never
+replaces payment-specific dynamic VietQR or proves ownership/payment. Platform custody remains excluded.
 
 V1 supports full refunds only, with at most one Refund per Payment. The amount equals the
 applicable full Payment amount under the approved workflow. Teacher performs the bank

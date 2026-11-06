@@ -10,13 +10,13 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]
 
 
-GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence"}
+GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence", "receiving-persistence"}
 STAGES = {"group", "memory-preflight", "port-availability", "postgres-create",
           "postgres-readiness", "database-create", "empty-database-verification",
           "test-environment", "report-preparation", "maven-execution", "test-report-collection",
@@ -177,6 +177,10 @@ def main():
     with stage("enrollment-persistence", "group"):
         database_group("enrollment-persistence", 55440, "task016_test", ["task016_enrollments"],
                        ["EnrollmentPersistenceTests"], ["-DenrollmentPersistence=true"], "ENROLLMENT")
+
+    with stage("receiving-persistence", "group"):
+        database_group("receiving-persistence", 55441, "task022_test", ["task022_receiving"],
+                       ["ReceivingAccountPersistenceTests"], ["-DreceivingPersistence=true"], "RECEIVING")
 
 
 if __name__ == "__main__":

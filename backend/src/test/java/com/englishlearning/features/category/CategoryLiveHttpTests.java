@@ -41,8 +41,8 @@ class CategoryLiveHttpTests {
         assertEquals("task034_test",user);
         assertEquals(0,scalar("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();
-        assertEquals(6,flyway.migrate().migrationsExecuted); flyway.validate();
-        assertEquals(6,scalar("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(7,flyway.migrate().migrationsExecuted); flyway.validate();
+        assertEquals(7,scalar("SELECT count(*) FROM flyway_schema_history WHERE success"));
         keyDirectory=Files.createTempDirectory("task034-jwt-");
         var generator=KeyPairGenerator.getInstance("RSA");generator.initialize(2048);var pair=generator.generateKeyPair();
         Files.writeString(keyDirectory.resolve("private.pem"),pem("PRIVATE KEY",pair.getPrivate().getEncoded()));
