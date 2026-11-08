@@ -4,11 +4,11 @@ import com.englishlearning.features.paymentaccount.service.ReceivingFailure;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.core.annotation.Order;
-@RestControllerAdvice(assignableTypes=ReceivingAccountController.class)
+@RestControllerAdvice(assignableTypes={ReceivingAccountController.class,ReceivingAccountReviewController.class})
 @Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
 public class ReceivingAccountErrors {
     @ExceptionHandler(ReceivingFailure.class) ResponseEntity<ApiError> failure(ReceivingFailure e){return switch(e.reason()) {
-        case INVALID->error(400,"INVALID_REQUEST");case DENIED->error(403,"ACCESS_DENIED");case MISSING->error(404,"RECEIVING_ACCOUNT_NOT_FOUND");
+        case ALREADY_REVIEWED->error(409,"RECEIVING_ACCOUNT_ALREADY_REVIEWED");case INVALID->error(400,"INVALID_REQUEST");case DENIED->error(403,"ACCESS_DENIED");case MISSING->error(404,"RECEIVING_ACCOUNT_NOT_FOUND");
         case CONFLICT->error(409,"PENDING_SUBMISSION_EXISTS");case IDEMPOTENCY_CONFLICT->error(409,"IDEMPOTENCY_CONFLICT");case UNAVAILABLE->error(503,"RECEIVING_ACCOUNT_UNAVAILABLE");};}
     @ExceptionHandler({org.springframework.dao.DataAccessException.class,org.springframework.transaction.TransactionException.class,java.io.IOException.class})
     ResponseEntity<ApiError> unavailable(Exception e){return error(503,"RECEIVING_ACCOUNT_UNAVAILABLE");}

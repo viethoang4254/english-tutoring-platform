@@ -23,4 +23,26 @@ public class ReceivingAccountRepository {
         return ((Number)em.createNativeQuery("INSERT INTO public.teacher_payment_accounts(teacher_id,bank_bin,bank_code,bank_name,account_holder_name,account_number,provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at) VALUES (:actor,:bin,:code,:name,:holder,:number,'VIETQR','INACTIVE','PENDING',:object,:hash,:bytes,:key,:fingerprint,:now,:now) RETURNING id")
             .setParameter("actor",actor).setParameter("bin",bin).setParameter("code",code).setParameter("name",bankName).setParameter("holder",holder).setParameter("number",number).setParameter("object",object).setParameter("hash",imageHash).setParameter("bytes",bytes).setParameter("key",key).setParameter("fingerprint",fingerprint).setParameter("now",now).getSingleResult()).longValue();
     }
+    public Optional<Stored> lock(long id) {
+        return ((List<?>)em.createNativeQuery(SELECT+" WHERE id=:id FOR UPDATE").setParameter("id",id).getResultList()).stream().map(this::row).findFirst();
+    }
+    public List<Stored> pendingPage(int page,int size) {
+        return ((List<?>)em.createNativeQuery(SELECT+" WHERE review_status='PENDING' ORDER BY created_at,id")
+            .setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(this::row).toList();
+    }
+    public record Audit(ApiId reviewer,Instant at,String reason) {}
+    public Audit audit(long id) {
+        Object[] r=(Object[])em.createNativeQuery("SELECT reviewed_by,reviewed_at,rejection_reason FROM public.teacher_payment_accounts WHERE id=:id").setParameter("id",id).getSingleResult();
+        Instant at=r[1]==null?null:r[1] instanceof Instant t?t:r[1] instanceof java.time.OffsetDateTime o?o.toInstant():((java.sql.Timestamp)r[1]).toInstant();
+        return new Audit(r[0]==null?null:new ApiId(((Number)r[0]).longValue()),at,(String)r[2]);
+    }
+    public void deactivateSelected(long teacher,Instant now) {
+        em.createNativeQuery("UPDATE public.teacher_payment_accounts SET status='INACTIVE',updated_at=:now WHERE teacher_id=:teacher AND status='ACTIVE'")
+            .setParameter("teacher",teacher).setParameter("now",now).executeUpdate();
+    }
+    public int decide(long id,long reviewer,boolean approve,String reason,Instant now) {
+        return em.createNativeQuery("UPDATE public.teacher_payment_accounts SET review_status=:review,status=:selection,reviewed_by=:reviewer,reviewed_at=:now,rejection_reason=:reason,updated_at=:now WHERE id=:id AND review_status='PENDING'")
+            .setParameter("review",approve?"APPROVED":"REJECTED").setParameter("selection",approve?"ACTIVE":"INACTIVE")
+            .setParameter("reviewer",reviewer).setParameter("now",now).setParameter("reason",reason).setParameter("id",id).executeUpdate();
+    }
 }

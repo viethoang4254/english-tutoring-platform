@@ -1314,3 +1314,12 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Includes versioned bank directory, private QR evidence, Teacher submission/list/detail, authorized image reads, idempotency and compatible V7 migration. Legacy accounts remain UNREVIEWED; Payment references are preserved.
 - Focused image, storage, HTTP and PostgreSQL tests are wired into TASK-009; no local tests or live Supabase writes performed.
 - Admin approval, Payment creation/confirmation, Enrollment activation and Frontend remain unimplemented in this batch. See TASK-022B-1.md for contracts, configuration and evidence-retention limits.
+
+
+### TASK-022B.2 — Admin receiving-account review
+
+- IN_PROGRESS: Backend approval/rejection, pending queue, private details and immutable decision metadata implemented; static review and GitHub Actions validation pending.
+- Approved selection policy: approval atomically replaces the Teacher's ACTIVE account; rejection leaves the selection unchanged. New submission is required to restore an inactive account.
+- V8 adds reviewer/time/reason metadata and terminal-decision guards without changing V1–V7 or historical Payment references. Existing authorized QR viewing is reused.
+- Focused HTTP and real PostgreSQL tests cover authorization, replacement, rejection, audit, duplicate/concurrent reviews and rollback. Existing TASK-009 gates are retained and migration expectations advance to V8.
+- No Payment confirmation, Enrollment activation, Frontend, live Supabase writes or local test execution. TASK-022 remains IN_PROGRESS.

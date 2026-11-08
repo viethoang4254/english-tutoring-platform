@@ -179,6 +179,8 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/payment-accounts").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/payment-accounts", "/api/v1/teacher/payment-accounts/{id}", "/api/v1/teacher/payment-accounts/{id}/qr-image").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/payment-accounts/{id}/qr-image").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/payment-accounts/pending", "/api/v1/admin/payment-accounts/{id}").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/payment-accounts/{id}/approve", "/api/v1/admin/payment-accounts/{id}/reject").access(SecurityConfiguration::verifiedAdmin)
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
                 .oauth2ResourceServer(resource -> resource.bearerTokenResolver(new DefaultBearerTokenResolver())

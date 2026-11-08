@@ -6,7 +6,7 @@ GitHub-hosted Ubuntu, never on a developer machine or self-hosted runner.
 The SMTP job executes one `LocalResetSmtpTests` test, including decoded capture
 assertions. Only after it passes, the browser job builds the frontend, creates its
 own labelled PostgreSQL 18 container, checks the exact empty database target,
-and starts the backend to apply Flyway V1–V7 (target pinned to 7). It then runs 24 existing
+and starts the backend to apply Flyway V1-V8 (target pinned to 8; expected migration count: 8). It then runs 24 existing
 mocked cases and 8 live cases (Student and pending/rejected/approved Teachers,
 each on mobile and desktop). Missing services, skipped cases and wrong test
 counts fail acceptance. These expected counts are not execution evidence.
@@ -88,7 +88,7 @@ profile-browser-acceptance. No parallel database groups or browser workers.
 and CategoryMigrationTests, CategoryLiveHttpTests, and CoursePersistenceTests.
 The latter groups create fresh labelled PostgreSQL 18 containers bound only to
 127.0.0.1:55436 (Category Persistence/Migration), :55438 (Category Live HTTP), or :55437 (Course Persistence), with generated CI passwords and the exact test identities.
-Migration tests own V1-V7 application; the legacy-conflict test intentionally
+Migration tests own V1-V8 application; the legacy-conflict test intentionally
 expects V6 rejection and verifies preservation of V1-V5 and conflicting rows.
 Each container is removed in finally; runner disposal covers interrupted jobs.
 No Supabase configuration or shared database is used.
@@ -121,7 +121,7 @@ The existing backend-feature-acceptance job now includes EnrollmentServiceTests 
 EnrollmentHttpTests. After Course persistence, enrollment-persistence runs sequentially
 in a separately owned PostgreSQL 18 container: loopback port 55440, database
 task016_enrollments, role task016_test, generated CI-only password. It requires an empty
-database and applies existing V1-V7, without Supabase access. EnrollmentPersistenceTests
+database and applies existing V1-V8, without Supabase access. EnrollmentPersistenceTests
 cover reservation persistence, cancellation, expiry, ownership, paging, rollback and
 concurrent last-seat/duplicate requests. Missing/skipped/failing suites fail the existing
 report gate. No workflow duplication, provider calls or local execution are required.
@@ -129,4 +129,10 @@ report gate. No workflow duplication, provider calls or local execution are requ
 
 ### TASK-022B.1 receiving-account acceptance
 
-ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs last, sequentially, using PostgreSQL 18 at 127.0.0.1:55441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7; existing migration gates now expect seven migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
+ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs last, sequentially, using PostgreSQL 18 at 127.0.0.1:55441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7 and V8; existing migration gates now expect eight migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
+
+### TASK-022B.2 Admin receiving-account review
+
+ReceivingAccountReviewHttpTests joins the existing feature-unit-http group. Ten new cases in ReceivingAccountPersistenceTests exercise real PostgreSQL approval/replacement, rejection, immutable audit, authorization, duplicate/concurrent reviews, rollback and historical Payment preservation. The existing receiving-persistence group and all regression gates remain enabled. V8 adds review columns and an immutable-decision trigger; the application table count stays 23. No live Supabase or Storage access is required.
+
+ReceivingAccountMigrationTests adds three upgrade cases in separate empty databases (`task022_upgrade_pending`, `task022_upgrade_approved`, `task022_upgrade_rejected`) within the same owned receiving-persistence container. V7 PENDING upgrades to V8 unchanged; unaudited V7 APPROVED and REJECTED rows must fail V8 with constraint `ck_receiving_audit`, preserving account/Payment data and V7 history. No audit metadata is invented. The persistence suite also races approval against approval and submission against review with latches and bounded waits, without sleeps.

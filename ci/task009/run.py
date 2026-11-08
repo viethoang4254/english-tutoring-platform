@@ -88,7 +88,7 @@ def prepare():
             "APP_SECURITY_JWT_PUBLICKEY": (directory / "jwt-public.pem").as_uri(),
             "APP_SECURITY_BROWSER_LOCALHTTP": "true", "APP_SECURITY_BROWSER_ALLOWEDORIGINS": "http://127.0.0.1:3000",
             "SERVER_ADDRESS": "127.0.0.1", "SERVER_PORT": "8081",
-            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "7",
+            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "8",
             "SPRING_JPA_HIBERNATE_DDLAUTO": "validate", "SPRING_SQL_INIT_MODE": "never",
             "NEXT_PUBLIC_API_ORIGIN": "http://127.0.0.1:8081",
             "MAVEN_OPTS": "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=192m"})
@@ -211,10 +211,10 @@ def start_backend():
         with urllib.request.urlopen("http://127.0.0.1:8081/api/v1/auth/csrf", timeout=3) as response:
             require(response.status == 200 and bool(json.load(response).get("token")), "Backend not ready")
     wait_for(ready)
-    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7", "Unexpected migration history")
-    require(sql("SELECT count(*) FROM flyway_schema_history") == "7", "Unexpected migration entry")
+    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7,8", "Unexpected migration history")
+    require(sql("SELECT count(*) FROM flyway_schema_history") == "8", "Unexpected migration entry")
     require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "23", "Unexpected table count")
-    print("Isolated backend ready; V1-V7 and 23 application tables verified")
+    print("Isolated backend ready; V1-V8 and 23 application tables verified")
 
 
 def fixture():
