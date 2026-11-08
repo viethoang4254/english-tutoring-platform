@@ -8,6 +8,7 @@ import { authMutation, authorized, safeMessage, type Account, type Onboarding } 
 import { ApiRequestError } from "../../lib/api";
 import { AccountWorkspace } from "../auth/account-workspace";
 import { StudentEnrollments } from "../enrollment/student-enrollments";
+import { TeacherAccounts } from "../receiving/teacher-accounts";
 import { TeacherCalendar } from "./teacher-calendar";
 import { TeacherCourses } from "./teacher-courses";
 import styles from "../admin/admin-dashboard.module.css";
@@ -59,13 +60,14 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
       {href:"/teacher/courses",label:"Khóa học của tôi",key:"courses"},
       {href:"/teacher/calendar",label:"Lịch dạy",key:"calendar"},
       {href:`${coursePath}?section=sessions`,label:"Buổi học",key:"sessions"},
+      {href:"/teacher/payment-accounts",label:"Tài khoản nhận tiền",key:"receiving"},
     ] : []),
     ...(session.account.role==="TEACHER" ? [{href:"/teacher/profile",label:"Hồ sơ gia sư",key:"teacher"}] : []),
     {href:"/account",label:"Tài khoản & hồ sơ đăng ký",key:"account"},
     {href:"/teacher/settings",label:"Cài đặt tài khoản",key:"settings"},
   ];
-  const active = enrollmentPage ? "enrollments" : path==="/teacher/calendar" ? "calendar" : path==="/account" ? "account" : path==="/teacher/settings" ? "settings" : path==="/teacher/profile" ? "teacher" : path.startsWith("/teacher/courses") ? section==="schedule"?"schedule":section==="sessions"?"sessions":"courses" : "overview";
-  const teachingPage=["courses","schedule","sessions","calendar"].includes(active);
+  const active = path==="/teacher/payment-accounts" ? "receiving" : enrollmentPage ? "enrollments" : path==="/teacher/calendar" ? "calendar" : path==="/account" ? "account" : path==="/teacher/settings" ? "settings" : path==="/teacher/profile" ? "teacher" : path.startsWith("/teacher/courses") ? section==="schedule"?"schedule":section==="sessions"?"sessions":"courses" : "overview";
+  const teachingPage=["courses","schedule","sessions","calendar","receiving"].includes(active);
   const title=items.find(i=>i.key===active)?.label ?? "Không gian tài khoản";
   async function logout() {
     if(logoutFlight.current)return;logoutFlight.current=true;setBusy(true);
@@ -89,7 +91,8 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
         {teachingPage&&!checked&&<p role="status">Đang kiểm tra quyền giảng dạy…</p>}
         {teachingPage&&checked&&!eligible&&<section><h2>Chưa thể mở không gian gia sư</h2><p>Quyền giảng dạy yêu cầu hồ sơ được phê duyệt và tài khoản đủ điều kiện.</p><button onClick={()=>setAttempt(attempt+1)}>Kiểm tra lại</button><Link href="/account">Xem hồ sơ đăng ký và tài khoản</Link></section>}
         {eligible&&checked&&active==="calendar"&&<TeacherCalendar session={session}/>}
-        {eligible&&checked&&<div hidden={!teachingPage||active==="calendar"}>
+        {eligible&&checked&&active==="receiving"&&<TeacherAccounts key={session.accessToken} session={session}/>}
+        {eligible&&checked&&<div hidden={!teachingPage||active==="calendar"||active==="receiving"}>
           {teachingPage&&!courseId&&section&&<p>Chọn một khóa học để quản lý lịch dạy và các buổi học.</p>}
           <TeacherCourses session={session} courseId={courseId ?? (teachingPage&&active!=="calendar"?undefined:selectedCourse)} section={section === "schedule" || section === "sessions" ? section : undefined}/>
         </div>}

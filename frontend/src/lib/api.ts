@@ -46,16 +46,20 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function apiRequest<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T | undefined> {
+export function apiRequest(path: string, init: RequestInit, format: "image/png"): Promise<Blob>;
+export function apiRequest<T>(path: string, init?: RequestInit): Promise<T | undefined>;
+export async function apiRequest<T>(path: string, init: RequestInit = {}, format?: "image/png"): Promise<T | Blob | undefined> {
   const url = apiUrl(path);
   const headers = new Headers(init.headers);
-  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (!headers.has("Accept")) headers.set("Accept", format ?? "application/json");
 
   // One fetch call. No retries, credential setup, refresh, redirects or logging.
   const response = await fetch(url, { ...init, headers, redirect: "error" });
+  if (response.ok && format) {
+    if (response.headers.get("content-type")?.split(";")[0].trim() !== format)
+      throw new ApiRequestError(response.status, "INVALID_RESPONSE", "Invalid image response.");
+    return response.blob();
+  }
   if (response.status === 204) return undefined;
 
   const isJson = response.headers.get("content-type")?.split(";")[0].trim() ===

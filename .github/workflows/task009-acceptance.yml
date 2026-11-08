@@ -80,7 +80,7 @@ jobs:
         working-directory: frontend
       - run: npm run lint
         working-directory: frontend
-      - run: node --test --test-concurrency=1 tests/api.spec.ts tests/browser-api.spec.ts tests/vi.spec.ts tests/session-input.spec.ts
+      - run: node --test --test-concurrency=1 tests/api.spec.ts tests/browser-api.spec.ts tests/vi.spec.ts tests/session-input.spec.ts tests/receiving.spec.ts
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
@@ -111,6 +111,12 @@ jobs:
         working-directory: frontend
         env:
           TASK009_EXPECTED_TESTS: '108'
+      - run: python ci/task009/run.py resources
+      - name: Receiving account submission and review (30 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/receiving-accounts.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '30'
       - run: python ci/task009/run.py resources
       - name: Enrollment management browser acceptance (30 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/student-enrollments.spec.ts

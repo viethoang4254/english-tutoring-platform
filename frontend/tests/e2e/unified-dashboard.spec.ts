@@ -30,10 +30,10 @@ async function navigate(page:Page,label:string) {
 test("one persistent vertical sidebar and header across Account and Teacher routes",async({page},info)=>{
   const reads=await signIn(page);
   const nav=page.locator("#dashboard-navigation");
-  await expect(nav.locator("a,button")).toHaveText(["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản","Đăng xuất"]);
+  await expect(nav.locator("a,button")).toHaveText(["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản","Đăng xuất"]);
   await page.evaluate(()=>{document.querySelector("#dashboard-navigation")?.setAttribute("data-persistent","yes");document.querySelector("header")?.setAttribute("data-persistent","yes");});
   const initialReads=reads();
-  for(const label of ["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"])await navigate(page,label);
+  for(const label of ["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"])await navigate(page,label);
   await expect(nav).toHaveAttribute("data-persistent","yes");
   await expect(page.locator("header").first()).toHaveAttribute("data-persistent","yes");
   expect(reads()).toBe(initialReads);

@@ -1323,3 +1323,11 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - V8 adds reviewer/time/reason metadata and terminal-decision guards without changing V1–V7 or historical Payment references. Existing authorized QR viewing is reused.
 - Focused HTTP and real PostgreSQL tests cover authorization, replacement, rejection, audit, duplicate/concurrent reviews and rollback. Existing TASK-009 gates are retained and migration expectations advance to V8.
 - No Payment confirmation, Enrollment activation, Frontend, live Supabase writes or local test execution. TASK-022 remains IN_PROGRESS.
+
+
+### TASK-022B.3 — Teacher and Admin receiving accounts
+
+- IN_PROGRESS: The approved Teacher dashboard links to `/teacher/payment-accounts` for private submission, selected account and paginated history. The bank selector is projected from the bundled transfer-supported directory and checked against it in CI.
+- Verified Admin dashboard navigation opens `/admin/dashboard?section=receiving`. Queue links add the account ID for private detail, QR viewing and explicit approval or rejection. The UI reloads the server decision after a mutation or conflict.
+- Teacher responses expose statuses; the rejection reason is available only in authorized Admin detail. Evidence is fetched through Spring Boot using a bearer token and no-store requests. Temporary preview URLs are revoked.
+- TASK-009 includes receiving-account unit tests and 15 browser cases on desktop and mobile (30 expected executions), including keyboard confirmation, pagination, owned private QR cleanup and authenticated wrong-role denial. Frontend implementation awaits independent static review and GitHub Actions acceptance.

@@ -1,0 +1,7 @@
+.panel { display:grid; gap:1rem; min-width:0; overflow-wrap:anywhere; }
+.panel form,.panel article,.panel fieldset { display:grid; gap:.75rem; min-width:0; padding:1rem; border:1px solid #d5deea; border-radius:.75rem; background:white; }
+.panel label { display:grid; gap:.3rem; font-weight:600; }
+.panel input,.panel select,.panel textarea { box-sizing:border-box; width:100%; min-width:0; max-width:100%; padding:.6rem; border:1px solid #aab8ca; border-radius:.4rem; font:inherit; }
+.actions { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+.panel button,.panel a { justify-self:start; }
+.qr { display:block; max-width:100%; width:auto; height:auto; max-height:24rem; object-fit:contain; }

@@ -7,28 +7,34 @@ import { useSession } from "../auth/session-provider";
 import { authMutation, safeMessage } from "../auth/browser-api";
 import { ApiRequestError } from "../../lib/api";
 import { AdminApplications } from "../teacher/admin-applications";
+import { AdminReviews } from "../receiving/admin-reviews";
 import { AdminCategories } from "./admin-categories";
 import styles from "./admin-dashboard.module.css";
 
 const navigation = [
   ["overview", "Tổng quan"], ["users", "Quản lý người dùng"],
   ["reviews", "Xét duyệt gia sư"], ["categories", "Quản lý danh mục"],
-  ["courses", "Tổng quan khóa học"], ["statistics", "Doanh thu / Thống kê"],
+  ["receiving", "Xét duyệt tài khoản nhận tiền"], ["courses", "Tổng quan khóa học"], ["statistics", "Doanh thu / Thống kê"],
 ] as const;
 type Section = typeof navigation[number][0];
 
-export function AdminDashboard() {
+export function AdminDashboard({sectionName,reviewId}:{sectionName?:string;reviewId?:string}) {
   const { session } = useSession();
   const router = useRouter();
   useEffect(() => { if (!session) router.replace("/login?next=/admin/dashboard"); }, [session, router]);
   if (!session) return <main className={styles.gate} role="status">Đang chuyển đến trang đăng nhập…</main>;
   if (session.account.role !== "ADMIN" || !session.account.emailVerified) return <main className={styles.gate}><h1>Không có quyền truy cập</h1><p>Trang này dành cho quản trị viên đủ điều kiện.</p><Link href="/account">Về tài khoản</Link></main>;
-  return <AdminView key={session.accessToken} />;
+  return <AdminView key={`${session.accessToken}:${sectionName ?? ""}:${reviewId ?? ""}`} initialSection={navigation.find(([key])=>key===sectionName)?.[0] ?? "overview"} reviewId={reviewId} />;
 }
 
-function AdminView() {
+function AdminView({initialSection,reviewId}:{initialSection:Section;reviewId?:string}) {
   const { session, clearSession } = useSession();
-  const [section, setSection] = useState<Section>("overview");
+  const router=useRouter();
+  const [section,setLocalSection]=useState<Section>(initialSection);
+  function setSection(next:Section) {
+    if(next==="receiving" || initialSection!=="overview")router.push(next==="overview"?"/admin/dashboard":`/admin/dashboard?section=${next}`);
+    else setLocalSection(next);
+  }
   const [mobileOpen, setMobileOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -66,7 +72,8 @@ function AdminView() {
       </>}
       {section === "reviews" && <div className={`${styles.card} account-workspace`}><AdminApplications session={session} busy={busy} run={run} /></div>}
       {section === "categories" && <AdminCategories session={session} busy={busy} run={run} />}
-      {section !== "overview" && section !== "reviews" && section !== "categories" && <section className={styles.card}>
+      {section === "receiving" && <div className={styles.card}><AdminReviews key={reviewId ?? "queue"} session={session} id={reviewId}/></div>}
+      {section !== "overview" && section !== "reviews" && section !== "categories" && section !== "receiving" && <section className={styles.card}>
         <span className={styles.badge}>Chưa khả dụng</span><h2>Chức năng đang được chuẩn bị</h2>
         <p>{section === "users" ? "Chưa kết nối API quản lý người dùng." : section === "courses" ? "Chưa kết nối API tổng quan khóa học. Gia sư sở hữu và tạo khóa học; quản trị viên không tạo khóa học." : "Chưa kết nối API thống kê giao dịch. Học phí được thanh toán trực tiếp cho gia sư; nền tảng không giữ tiền hoặc thực hiện chi trả."}</p>
         <p>Không hiển thị dữ liệu giả hoặc mô phỏng thao tác thành công.</p>
