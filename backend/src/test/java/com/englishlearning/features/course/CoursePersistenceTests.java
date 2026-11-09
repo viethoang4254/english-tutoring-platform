@@ -28,7 +28,7 @@ class CoursePersistenceTests {
     long count(String sql) throws Exception { try(var c=connect();var s=c.createStatement();var r=s.executeQuery(sql)){r.next();return r.getLong(1);} }
     @BeforeAll void start() throws Exception {
         url=System.getenv("COURSE_TEST_URL"); user=System.getenv("COURSE_TEST_USER"); password=System.getenv("COURSE_TEST_PASSWORD");
-        assertEquals("jdbc:postgresql://127.0.0.1:55437/task010_courses",url); assertEquals("task010_test",user);
+        assertEquals("jdbc:postgresql://127.0.0.1:15437/task010_courses",url); assertEquals("task010_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();
         flyway.migrate(); flyway.validate(); assertEquals(9,count("SELECT count(*) FROM flyway_schema_history WHERE success"));

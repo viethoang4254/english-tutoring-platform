@@ -22,7 +22,7 @@ class CategoryPersistenceTests {
  long count(String sql)throws Exception{try(var c=connect();var st=c.createStatement();var r=st.executeQuery(sql)){r.next();return r.getLong(1);}}
  @BeforeAll void start()throws Exception{
   url=System.getenv("CATEGORY_TEST_URL");user=System.getenv("CATEGORY_TEST_USER");password=System.getenv("CATEGORY_TEST_PASSWORD");
-  assertEquals("jdbc:postgresql://127.0.0.1:55436/task034_categories",url);assertEquals("task034_test",user);
+  assertEquals("jdbc:postgresql://127.0.0.1:15436/task034_categories",url);assertEquals("task034_test",user);
   assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
   Flyway.configure().dataSource(url,user,password).target("5").cleanDisabled(true).load().migrate();
   sql("INSERT INTO course_categories(name,active,created_at,updated_at) VALUES ('Legacy',false,now(),now())");

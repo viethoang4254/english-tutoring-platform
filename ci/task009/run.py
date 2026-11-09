@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 
 REPO = Path(__file__).resolve().parents[2]
 DB = "task009_profile_browser_ci"
-URL = f"jdbc:postgresql://127.0.0.1:55434/{DB}"
+URL = f"jdbc:postgresql://127.0.0.1:15434/{DB}"
 
 
 def require(condition, message):
@@ -58,6 +58,70 @@ def resources(minimum=1536):
     memory = dict(re.findall(r"^(\w+):\s+(\d+)", Path("/proc/meminfo").read_text(), re.M))
     if int(memory["MemTotal"]) < 6_500_000 or int(memory["MemAvailable"]) // 1024 < minimum:
         raise ResourceFailure("Insufficient runner memory")
+
+
+def port_range():
+    values = Path('/proc/sys/net/ipv4/ip_local_port_range').read_text().split()
+    require(len(values) == 2 and all(v.isdecimal() for v in values), 'Invalid ephemeral range')
+    low, high = map(int, values)
+    require(0 < low <= high <= 65535, 'Invalid ephemeral range')
+    return low, high
+
+
+def require_non_ephemeral(port):
+    low, high = port_range()
+    require(not low <= port <= high, 'CI database port overlaps ephemeral range')
+
+
+def port_diagnostics(group, port):
+    # Best effort: never emit raw subprocess output, exceptions, arguments or environments.
+    try:
+        result = {'group': group if group in {'category-persistence', 'category-http', 'course-persistence',
+                  'enrollment-persistence', 'receiving-persistence', 'payment-persistence', 'profile-browser'} else 'unknown',
+                  'stage': 'port-availability', 'event': 'socket-diagnostics', 'port': port,
+                  'ephemeral_range': None, 'reserved_ports': None, 'sockets': [], 'containers': []}
+        try:
+            result['ephemeral_range'] = port_range()
+            reserved = Path('/proc/sys/net/ipv4/ip_local_reserved_ports').read_text().strip()
+            if re.fullmatch(r'[0-9,\-]*', reserved):
+                result['reserved_ports'] = reserved
+        except Exception:
+            pass
+        try:
+            raw = run(['ss', '-Htanp', 'sport = :' + str(port)], timeout=3)
+            states = {'LISTEN', 'ESTAB', 'TIME-WAIT', 'CLOSE-WAIT', 'FIN-WAIT-1', 'FIN-WAIT-2',
+                      'LAST-ACK', 'CLOSING', 'SYN-SENT', 'SYN-RECV', 'CLOSED', 'UNCONN'}
+            for line in raw.splitlines()[:64]:
+                state = line.split()[0] if line.split() else ''
+                if state not in states:
+                    continue
+                owners = []
+                for pid in re.findall(r'pid=(\d+)', line):
+                    executable = None
+                    try:
+                        name = Path(os.readlink('/proc/' + pid + '/exe')).name
+                        if re.fullmatch(r'[A-Za-z0-9_.+-]{1,80}', name):
+                            executable = name
+                    except OSError:
+                        pass
+                    owners.append({'pid': int(pid), 'executable': executable})
+                result['sockets'].append({'state': state, 'owners': owners})
+        except Exception:
+            pass
+        try:
+            raw = run(['docker', 'ps', '--format', '{{json .}}'], timeout=3)
+            for line in raw.splitlines()[:64]:
+                item = json.loads(line)
+                name = item.get('Names', '')
+                # Report only generated CI names; redact arbitrary container metadata.
+                name = name if re.fullmatch(r'task009-(?:feature-)?[a-f0-9]{12}', name) else 'other'
+                ports = [int(p) for p in re.findall(r':(\d+)->', item.get('Ports', ''))]
+                result['containers'].append({'name': name, 'host_ports': ports})
+        except Exception:
+            pass
+        print(json.dumps(result), flush=True)
+    except Exception:
+        pass
 
 
 def export(values):
@@ -175,18 +239,23 @@ def sql(statement):
     name = container()
     info = json.loads(run(["docker", "inspect", name]))[0]
     require(info["Config"]["Labels"].get("task009") == name, "Unowned container")
-    require(info["HostConfig"]["PortBindings"]["5432/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "55434"}], "Unsafe binding")
+    require(info["HostConfig"]["PortBindings"]["5432/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "15434"}], "Unsafe binding")
     return run(["docker", "exec", "-i", name, "psql", "-X", "-U", "task007_test", "-d", DB,
                 "-At", "-v", "ON_ERROR_STOP=1"], data=statement)
 
 
 def start_db():
     resources()
-    with socket.socket() as check:
-        check.bind(("127.0.0.1", 55434))
+    try:
+        require_non_ephemeral(15434)
+        with socket.socket() as check:
+            check.bind(("127.0.0.1", 15434))
+    except Exception:
+        port_diagnostics('profile-browser', 15434)
+        raise
     name = container()
     run(["docker", "run", "--detach", "--name", name, "--label", "task009=" + name,
-         "--memory", "512m", "--publish", "127.0.0.1:55434:5432", "--env", "POSTGRES_USER=task007_test",
+         "--memory", "512m", "--publish", "127.0.0.1:15434:5432", "--env", "POSTGRES_USER=task007_test",
          "--env", "POSTGRES_DB=" + DB, "--env", "POSTGRES_PASSWORD_FILE=/run/secrets/password",
          "--mount", "type=bind,src=" + str(root() / "pg-password") + ",dst=/run/secrets/password,readonly",
          "postgres:18", "-c", "shared_buffers=128MB", "-c", "max_connections=30"], timeout=180)

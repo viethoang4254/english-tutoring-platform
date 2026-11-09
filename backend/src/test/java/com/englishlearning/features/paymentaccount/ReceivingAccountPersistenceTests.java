@@ -29,7 +29,7 @@ class ReceivingAccountPersistenceTests {
     String text(String sql)throws Exception{try(var c=connect();var s=c.createStatement();var r=s.executeQuery(sql)){r.next();return r.getString(1);}}
     @BeforeAll void start()throws Exception {
         url=System.getenv("RECEIVING_TEST_URL");user=System.getenv("RECEIVING_TEST_USER");password=System.getenv("RECEIVING_TEST_PASSWORD");
-        assertEquals("jdbc:postgresql://127.0.0.1:55441/task022_receiving",url);assertEquals("task022_test",user);
+        assertEquals("jdbc:postgresql://127.0.0.1:15441/task022_receiving",url);assertEquals("task022_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         Flyway.configure().dataSource(url,user,password).target("6").cleanDisabled(true).load().migrate();
         sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (1,'teacher@example.invalid','unused','Teacher','TEACHER',true,false,now(),now()),(2,'admin@example.invalid','unused','Admin','ADMIN',true,false,now(),now()),(3,'student@example.invalid','unused','Student','STUDENT',true,false,now(),now()),(4,'pending@example.invalid','unused','Pending','TEACHER',true,false,now(),now()),(5,'rejected@example.invalid','unused','Rejected','TEACHER',true,false,now(),now()),(6,'other@example.invalid','unused','Other','TEACHER',true,false,now(),now())");

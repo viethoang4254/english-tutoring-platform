@@ -44,7 +44,7 @@ class PaymentPersistenceTests {
     long count(String value)throws Exception{return Long.parseLong(text(value));}
     @BeforeAll void start()throws Exception {
         url=System.getenv("PAYMENT_TEST_URL");user=System.getenv("PAYMENT_TEST_USER");password=System.getenv("PAYMENT_TEST_PASSWORD");
-        assertEquals("jdbc:postgresql://127.0.0.1:55442/task022c_payments",url);assertEquals("task022c_test",user);
+        assertEquals("jdbc:postgresql://127.0.0.1:15442/task022c_payments",url);assertEquals("task022c_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         assertEquals(8,Flyway.configure().dataSource(url,user,password).target("8").cleanDisabled(true).load().migrate().migrationsExecuted);
         sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (1,'teacher@example.invalid','unused','Teacher','TEACHER',true,false,now(),now()),(2,'admin@example.invalid','unused','Admin','ADMIN',true,false,now(),now()),(3,'student@example.invalid','unused','Student','STUDENT',false,false,now(),now()),(4,'other@example.invalid','unused','Other','STUDENT',true,false,now(),now()),(5,'legacy@example.invalid','unused','Legacy','STUDENT',true,false,now(),now())");

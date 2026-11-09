@@ -50,7 +50,7 @@ The SMTP sink binds to loopback, requires authenticated STARTTLS, accepts only
 `example.invalid`, and has no relay. The PKCS12 trust store contains only its
 public certificate; its certificate entries are readable without passing a
 password to Java. TLS identity and certificate verification remain enabled.
-PostgreSQL binds only to `127.0.0.1:55434/task009_profile_browser_ci` using owner
+PostgreSQL binds only to `127.0.0.1:15434/task009_profile_browser_ci` using owner
 `task007_test`. Cleanup removes only the labelled CI container and owned services.
 
 No repository secrets or production credentials are required. Required generated
@@ -87,7 +87,7 @@ profile-browser-acceptance. No parallel database groups or browser workers.
 `backend_tests.py` runs 18 explicit unit/HTTP suites, then CategoryPersistenceTests
 and CategoryMigrationTests, CategoryLiveHttpTests, and CoursePersistenceTests.
 The latter groups create fresh labelled PostgreSQL 18 containers bound only to
-127.0.0.1:55436 (Category Persistence/Migration), :55438 (Category Live HTTP), or :55437 (Course Persistence), with generated CI passwords and the exact test identities.
+127.0.0.1:15436 (Category Persistence/Migration), :15438 (Category Live HTTP), or :15437 (Course Persistence), with generated CI passwords and the exact test identities.
 Migration tests own V1-V8 application; the legacy-conflict test intentionally
 expects V6 rejection and verifies preservation of V1-V5 and conflicting rows.
 Each container is removed in finally; runner disposal covers interrupted jobs.
@@ -119,7 +119,7 @@ No results are claimed until the expanded workflow runs on its published commit.
 
 The existing backend-feature-acceptance job now includes EnrollmentServiceTests and
 EnrollmentHttpTests. After Course persistence, enrollment-persistence runs sequentially
-in a separately owned PostgreSQL 18 container: loopback port 55440, database
+in a separately owned PostgreSQL 18 container: loopback port 15440, database
 task016_enrollments, role task016_test, generated CI-only password. It requires an empty
 database and applies existing V1-V8, without Supabase access. EnrollmentPersistenceTests
 cover reservation persistence, cancellation, expiry, ownership, paging, rollback and
@@ -129,7 +129,7 @@ report gate. No workflow duplication, provider calls or local execution are requ
 
 ### TASK-022B.1 receiving-account acceptance
 
-ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs sequentially before payment persistence, using PostgreSQL 18 at 127.0.0.1:55441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7 and V8; current migration gates expect nine migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
+ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs sequentially before payment persistence, using PostgreSQL 18 at 127.0.0.1:15441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7 and V8; current migration gates expect nine migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
 
 ### TASK-022B.2 Admin receiving-account review
 
@@ -139,9 +139,20 @@ ReceivingAccountMigrationTests adds three upgrade cases in separate empty databa
 
 ### TASK-022C payment requests
 
+CI database host ports now use 15434 (browser), 15436 (Category), 15438
+(Category HTTP), 15437 (Course), 15440 (Enrollment), 15441 (receiving accounts)
+and 15442 (Payment). Before binding, the runner reads its effective Linux
+ip_local_port_range and rejects overlap; it does not change kernel settings.
+Existing bind checks, five-attempt backend retry policy and Docker ownership
+protections remain intact. Terminal bind failures emit best-effort numeric port
+ranges, reserved ports, TCP states (including TIME_WAIT), available PIDs/executable
+basenames and Docker published ports. Only generated TASK-009 container names are
+shown; other names are redacted. No raw command output, arguments or environments
+are logged. Diagnostic commands have three-second timeouts and cannot mask failure.
+
 PaymentMoneyTests, VietQrTests and PaymentHttpTests join feature-unit-http.
 PaymentPersistenceTests runs after receiving-persistence in its own PostgreSQL 18
-container on 127.0.0.1:55442, database task022c_payments, role task022c_test.
+container on 127.0.0.1:15442, database task022c_payments, role task022c_test.
 It seeds historical V8 Payments, applies V9 and checks monetary constraints,
 immutable destinations, duplicate/concurrent requests, expiration/renewal, ownership
 and rollback. Existing V7-to-V8 upgrade tests remain pinned to V8; receiving

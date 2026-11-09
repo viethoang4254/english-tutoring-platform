@@ -102,6 +102,7 @@ def check_port(label, port):
             diagnostic(label, "port-availability", "failure", failure,
                        attempt=attempt, retry_exhausted=exhausted)
             if failure.errno != errno.EADDRINUSE or exhausted:
+                support.port_diagnostics(label, port)
                 raise
             time.sleep(PORT_RETRY_DELAY)
 
@@ -130,6 +131,11 @@ def database_group(label, port, user, databases, suites, flags, prefix):
     with stage(label, "memory-preflight"):
         support.resources(3072)
     with stage(label, "port-availability"):
+        try:
+            support.require_non_ephemeral(port)
+        except Exception:
+            support.port_diagnostics(label, port)
+            raise
         check_port(label, port)
     name = "task009-feature-" + secrets.token_hex(6)
     with container_cleanup(label, name):
@@ -165,26 +171,26 @@ def main():
     with stage("feature-unit-http", "group"):
         tests("feature-unit-http", UNIT)
     with stage("category-persistence", "group"):
-        database_group("category-persistence", 55436, "task034_test",
+        database_group("category-persistence", 15436, "task034_test",
                        ["task034_categories", "task034_migration_clean", "task034_migration_conflict"],
                        ["CategoryPersistenceTests", "CategoryMigrationTests"], ["-DcategoryPersistence=true"], "CATEGORY")
     with stage("category-http", "group"):
-        database_group("category-http", 55438, "task034_test", ["task034_live"],
+        database_group("category-http", 15438, "task034_test", ["task034_live"],
                        ["CategoryLiveHttpTests"], ["-DcategoryLive=true"], "CATEGORY")
     with stage("course-persistence", "group"):
-        database_group("course-persistence", 55437, "task010_test", ["task010_courses"],
+        database_group("course-persistence", 15437, "task010_test", ["task010_courses"],
                        ["CoursePersistenceTests"], ["-DcoursePersistence=true"], "COURSE")
     with stage("enrollment-persistence", "group"):
-        database_group("enrollment-persistence", 55440, "task016_test", ["task016_enrollments"],
+        database_group("enrollment-persistence", 15440, "task016_test", ["task016_enrollments"],
                        ["EnrollmentPersistenceTests"], ["-DenrollmentPersistence=true"], "ENROLLMENT")
 
     with stage("receiving-persistence", "group"):
-        database_group("receiving-persistence", 55441, "task022_test",
+        database_group("receiving-persistence", 15441, "task022_test",
                        ["task022_receiving", "task022_upgrade_pending", "task022_upgrade_approved", "task022_upgrade_rejected"],
                        ["ReceivingAccountPersistenceTests", "ReceivingAccountMigrationTests"], ["-DreceivingPersistence=true"], "RECEIVING")
 
     with stage("payment-persistence", "group"):
-        database_group("payment-persistence", 55442, "task022c_test", ["task022c_payments"],
+        database_group("payment-persistence", 15442, "task022c_test", ["task022c_payments"],
                        ["PaymentPersistenceTests"], ["-DpaymentPersistence=true"], "PAYMENT")
 
 

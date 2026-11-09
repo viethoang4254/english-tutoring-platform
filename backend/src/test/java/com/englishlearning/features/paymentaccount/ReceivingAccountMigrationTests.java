@@ -13,10 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class ReceivingAccountMigrationTests {
     final String user=System.getenv("RECEIVING_TEST_USER"),password=System.getenv("RECEIVING_TEST_PASSWORD");
     String target(String database)throws Exception {
-        assertEquals("jdbc:postgresql://127.0.0.1:55441/task022_receiving",System.getenv("RECEIVING_TEST_URL"));
+        assertEquals("jdbc:postgresql://127.0.0.1:15441/task022_receiving",System.getenv("RECEIVING_TEST_URL"));
         assertEquals("task022_test",user);
         assertTrue(Set.of("task022_upgrade_pending","task022_upgrade_approved","task022_upgrade_rejected").contains(database));
-        String url="jdbc:postgresql://127.0.0.1:55441/"+database;
+        String url="jdbc:postgresql://127.0.0.1:15441/"+database;
         assertEquals("0",text(url,"SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         return url;
     }

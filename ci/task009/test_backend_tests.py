@@ -45,12 +45,12 @@ class FeatureReportChecks(unittest.TestCase):
             feature.main()
         self.assertEqual(executed, [
             ("feature-unit-http", None),
-            ("category-persistence", 55436),
-            ("category-http", 55438),
-            ("course-persistence", 55437),
-            ("enrollment-persistence", 55440),
-            ("receiving-persistence", 55441),
-            ("payment-persistence", 55442),
+            ("category-persistence", 15436),
+            ("category-http", 15438),
+            ("course-persistence", 15437),
+            ("enrollment-persistence", 15440),
+            ("receiving-persistence", 15441),
+            ("payment-persistence", 15442),
         ])
         self.assertEqual(len({port for _, port in executed[1:]}), 6)
 
@@ -97,18 +97,48 @@ class DiagnosticChecks(unittest.TestCase):
 
 
 class PortChecks(unittest.TestCase):
+    def test_effective_ephemeral_range_fails_closed(self):
+        with patch.object(feature.support, 'port_range', return_value=(32768, 60999)):
+            feature.support.require_non_ephemeral(15440)
+            with self.assertRaises(RuntimeError):
+                feature.support.require_non_ephemeral(55440)
+        with patch.object(feature.support, 'port_range', return_value=(10000, 20000)):
+            with self.assertRaises(RuntimeError):
+                feature.support.require_non_ephemeral(15440)
+
+    def test_socket_diagnostics_are_sanitized(self):
+        output = io.StringIO()
+        socket_rows = 'TIME-WAIT 0 0 127.0.0.1:15440 127.0.0.1:15437\nLISTEN 0 128 127.0.0.1:15440 *:* users:(("SECRET",pid=42,fd=1))'
+        docker_rows = json.dumps({'Names': 'SECRET', 'Ports': '127.0.0.1:15440->5432/tcp', 'Command': 'SECRET'})
+        with patch.object(feature.support, 'port_range', return_value=(32768, 60999)), \
+             patch.object(feature.support.Path, 'read_text', return_value='15434,15436-15442'), \
+             patch.object(feature.support, 'run', side_effect=[socket_rows, docker_rows]), \
+             patch.object(feature.support.os, 'readlink', return_value='/usr/bin/java'), patch('sys.stdout', output):
+            feature.support.port_diagnostics('enrollment-persistence', 15440)
+        self.assertNotIn('SECRET', output.getvalue())
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['sockets'][0]['state'], 'TIME-WAIT')
+        self.assertEqual(result['sockets'][1]['owners'], [{'pid': 42, 'executable': 'java'}])
+        self.assertEqual(result['containers'], [{'name': 'other', 'host_ports': [15440]}])
+
+    def test_unavailable_diagnostics_do_not_raise(self):
+        with patch.object(feature.support, 'port_range', side_effect=OSError('SECRET')), \
+             patch.object(feature.support, 'run', side_effect=OSError('SECRET')), patch('sys.stdout', io.StringIO()) as output:
+            feature.support.port_diagnostics('enrollment-persistence', 15440)
+        self.assertNotIn('SECRET', output.getvalue())
+
     def probe(self, failures, expected=None):
         output = io.StringIO()
-        with patch.object(feature.socket, "socket") as sockets, patch.object(feature.time, "sleep") as sleep, patch("sys.stdout", output):
+        with patch.object(feature.socket, "socket") as sockets, patch.object(feature.time, "sleep") as sleep, patch("sys.stdout", output), patch.object(feature.support, "port_diagnostics"):
             bind = sockets.return_value.__enter__.return_value.bind
             bind.side_effect = failures
             if expected is None:
-                feature.check_port("category-http", 55436)
+                feature.check_port("category-http", 15436)
             else:
                 with self.assertRaises(OSError) as caught:
-                    feature.check_port("category-http", 55436)
+                    feature.check_port("category-http", 15436)
                 self.assertIs(caught.exception, expected)
-            self.assertEqual(bind.call_args_list, [call(("127.0.0.1", 55436))] * len(failures))
+            self.assertEqual(bind.call_args_list, [call(("127.0.0.1", 15436))] * len(failures))
             self.assertEqual(sockets.return_value.__exit__.call_count, len(failures))
         self.assertNotIn("SECRET", output.getvalue())
         return [json.loads(line) for line in output.getvalue().splitlines()], sleep.call_args_list
