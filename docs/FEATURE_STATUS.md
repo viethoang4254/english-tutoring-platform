@@ -1331,3 +1331,15 @@ staging remains empty. Teacher profile work is the remaining TASK-009 scope.
 - Verified Admin dashboard navigation opens `/admin/dashboard?section=receiving`. Queue links add the account ID for private detail, QR viewing and explicit approval or rejection. The UI reloads the server decision after a mutation or conflict.
 - Teacher responses expose statuses; the rejection reason is available only in authorized Admin detail. Evidence is fetched through Spring Boot using a bearer token and no-store requests. Temporary preview URLs are revoked.
 - TASK-009 includes receiving-account unit tests and 15 browser cases on desktop and mobile (30 expected executions), including keyboard confirmation, pagination, owned private QR cleanup and authenticated wrong-role denial. Frontend implementation awaits independent static review and GitHub Actions acceptance.
+
+
+## TASK-022C - Per-Course Payment requests (IN_PROGRESS)
+
+Backend implementation prepared; independent review and GitHub Actions acceptance pending.
+Student-owned creation/retrieval, immutable monetary and receiving-account snapshots,
+local VietQR payload/PNG, pending-request reuse, and reservation-expiry coordination
+are implemented. V9 preserves legacy financial values and adds exact discount,
+rounding adjustment and a versioned monetary policy. See TASK-022C.md for contracts
+and CI registration. No Payment confirmation, Enrollment activation, Student Payment
+UI, bank reconciliation or Calendar integration is implemented by this task.
+No local tests/builds or live services were used. No CI success is claimed.

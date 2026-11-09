@@ -50,8 +50,9 @@ class FeatureReportChecks(unittest.TestCase):
             ("course-persistence", 55437),
             ("enrollment-persistence", 55440),
             ("receiving-persistence", 55441),
+            ("payment-persistence", 55442),
         ])
-        self.assertEqual(len({port for _, port in executed[1:]}), 5)
+        self.assertEqual(len({port for _, port in executed[1:]}), 6)
 
     def test_main_requires_runner_guard_before_tests(self):
         with patch.object(feature.support, "root", side_effect=RuntimeError("Not CI")), patch.object(feature, "tests") as tests:

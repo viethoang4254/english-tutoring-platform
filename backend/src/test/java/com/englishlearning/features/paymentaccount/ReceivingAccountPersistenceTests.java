@@ -41,8 +41,9 @@ class ReceivingAccountPersistenceTests {
         sql("INSERT INTO payments(id,enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,final_amount,currency,status,expires_at,created_at,updated_at) VALUES (100,100,100,'LEGACY','VIETQR',100,0,100,'VND','PENDING',now()+interval '1 hour',now(),now())");
         var f=Flyway.configure().dataSource(url,user,password).target("7").cleanDisabled(true).load();assertEquals(1,f.migrate().migrationsExecuted);f.validate();
         assertEquals(7,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
-        var v8=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(1,v8.migrate().migrationsExecuted);v8.validate();
+        var v8=Flyway.configure().dataSource(url,user,password).target("8").cleanDisabled(true).load();assertEquals(1,v8.migrate().migrationsExecuted);v8.validate();
         assertEquals(8,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(1,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
         var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
         props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");
@@ -120,7 +121,7 @@ class ReceivingAccountPersistenceTests {
     }
     @Test void replacementPreservesPreviousDecisionAndHistoricalPaymentDestination()throws Exception {
         long first=pendingAccount();reviews.review(2,first,true,null);var audit=reviews.detail(2,first);
-        sql("INSERT INTO payments(id,enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,final_amount,currency,status,expires_at,created_at,updated_at) VALUES (101,100,"+first+",'REVIEW-HISTORY','VIETQR',100,0,100,'VND','EXPIRED',now()-interval '1 hour',now()-interval '2 hours',now())");
+        sql("INSERT INTO payments(id,enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,discount_percent,final_amount,currency,status,expires_at,created_at,updated_at,bank_bin,bank_name,account_number,account_holder_name,qr_payload) SELECT 101,100,id,'ELP0000000000000000000101','VIETQR',100,0,0,100,'VND','EXPIRED',now()-interval '1 hour',now()-interval '2 hours',now(),bank_bin,bank_name,account_number,account_holder_name,repeat('0',40) FROM teacher_payment_accounts WHERE id="+first);
         try {
             long second=service.submit(1,"970436","Replacement Holder","0098765432",UUID.randomUUID().toString(),ReceivingImageTests.png()).account().id().value();reviews.review(2,second,true,null);
             assertEquals("INACTIVE",reviews.detail(2,first).account().selectionStatus());assertEquals("APPROVED",reviews.detail(2,first).account().reviewStatus());

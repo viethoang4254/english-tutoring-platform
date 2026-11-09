@@ -55,6 +55,7 @@ public class EnrollmentService {
         long course=initial.courseId().value();
         var parent=rows.course(course,true).orElseThrow(()->fail(COURSE_NOT_FOUND));
         Instant now=clock.instant();var e=rows.forCourse(actor,course,now).orElseThrow(()->fail(ENROLLMENT_NOT_FOUND));
+        rows.expirePayments(id,now);
         pending(e);
         if(!e.reservationExpired())return e;
         noPendingPayment(id);
@@ -66,6 +67,7 @@ public class EnrollmentService {
         student(actor,true);var initial=own(actor,id,clock.instant());long course=initial.courseId().value();
         rows.course(course,true).orElseThrow(()->fail(COURSE_NOT_FOUND));
         Instant now=clock.instant();var e=rows.forCourse(actor,course,now).orElseThrow(()->fail(ENROLLMENT_NOT_FOUND));
+        rows.expirePayments(id,now);
         if(e.status().equals("CANCELLED"))return e;
         pending(e);noPendingPayment(id);rows.cancel(actor,id,now);return own(actor,id,now);
     }

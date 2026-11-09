@@ -291,7 +291,9 @@ Meet URL. Tuition must be finite and greater than zero; all Courses require paym
 min_students is positive and max_students >= min_students. session_count is the fixed
 positive planned count and cancellation does not change it. Discount fields are all
 absent or all present, with 0 < discount_percent < 100 and start < end. A 100% discount
-is not permitted; payment amount rounding remains an implementation decision.
+is not permitted. TASK-022C approval: calculate the exact percentage discount, then
+round the final payable amount once with HALF_UP to whole VND; preserve a separate
+rounding adjustment and reject nonpositive payable amounts. See TASK-022C.md.
 
 Every Course has one non-transferable owning Teacher and exactly one Category. Used
 Categories are retained and deactivated. Course statuses are DRAFT, PUBLISHED, COMPLETED,

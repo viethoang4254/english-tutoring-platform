@@ -64,6 +64,10 @@ public class EnrollmentRepository {
                 .setParameter("actor",actor).setParameter("id",id).setParameter("now",now).executeUpdate();
         if(count!=1) throw new IllegalStateException("Locked enrollment cancellation failed.");
     }
+    public void expirePayments(long enrollment,Instant now) {
+        em.createNativeQuery("UPDATE public.payments SET status='EXPIRED',updated_at=:now WHERE enrollment_id=:id AND status='PENDING' AND expires_at<=:now")
+            .setParameter("id",enrollment).setParameter("now",now).executeUpdate();
+    }
     public boolean pendingPayment(long enrollment) {
         return (Boolean)em.createNativeQuery("SELECT EXISTS(SELECT 1 FROM public.payments WHERE enrollment_id=:id AND status='PENDING')").setParameter("id",enrollment).getSingleResult();
     }

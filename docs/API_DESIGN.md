@@ -1112,8 +1112,9 @@ remain proposals requiring review. BR-ENR-001 governs state transitions.
 | POST /api/v1/student/enrollments/{enrollmentId}/renew | No body/query | Revalidate and reuse expired PENDING; no implicit renewal. |
 | POST /api/v1/student/enrollments/{enrollmentId}/cancel | No body/query | Own PENDING cancellation; repeated cancellation returns existing result without overwriting history. |
 | GET /api/v1/teacher/courses/{courseId}/enrollments | page, size, optional status | Eligible owning Teacher roster; exact personal-data fields require privacy review. |
-| POST /api/v1/student/enrollments/{enrollmentId}/payments | No client amount/account/status | Server creates or returns the one pending Payment and dynamic VietQR information. Exact retry, pricing/rounding and expiry contract remains OPEN. |
+| POST /api/v1/student/enrollments/{enrollmentId}/payments | No body/query or client amount/account/status | TASK-022C: 201 new or 200 existing valid pending Payment; immutable exact-discount/HALF_UP snapshot, deadline equals reservation. See TASK-022C.md; implementation pending CI. |
 | GET /api/v1/student/payments/{paymentId} | No query | Own Payment status and required transfer instructions, not provider secrets. |
+| GET /api/v1/student/payments/{paymentId}/qr-image | No body/query | TASK-022C: own unexpired pending Payment PNG from its stored payload; no-store. |
 | POST /api/v1/teacher/courses/{courseId}/payments/{paymentId}/confirm-manually | Audit evidence request schema OPEN | Owning eligible Teacher attestation; receiver-bank check required; actor/time/method server-set. Not enabled before audit/dispute contract and schema review. |
 
 Automatic evidence ingress is a separate authenticated provider adapter, not a Student

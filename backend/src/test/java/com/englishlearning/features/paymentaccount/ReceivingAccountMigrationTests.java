@@ -43,7 +43,7 @@ class ReceivingAccountMigrationTests {
     String payment(String url)throws Exception {return text(url,"SELECT to_jsonb(p)::text FROM payments p WHERE id=100");}
     @Test void pendingV7SubmissionUpgradesWithoutChangingBankEvidenceOrPaymentHistory()throws Exception {
         String url=target("task022_upgrade_pending");seedV7(url,"PENDING");String account=account(url),payment=payment(url);
-        var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();
+        var flyway=Flyway.configure().dataSource(url,user,password).target("8").cleanDisabled(true).load();
         assertEquals(1,flyway.migrate().migrationsExecuted);flyway.validate();
         assertEquals("8",text(url,"SELECT count(*) FROM flyway_schema_history WHERE success"));
         assertEquals(account,account(url));assertEquals(payment,payment(url));
@@ -54,7 +54,7 @@ class ReceivingAccountMigrationTests {
     @Test void rejectedV7RowWithoutAuditFailsClosedAndPreservesHistory()throws Exception { incompatible("task022_upgrade_rejected","REJECTED"); }
     void incompatible(String database,String state)throws Exception {
         String url=target(database);seedV7(url,state);String account=account(url),payment=payment(url);
-        var failure=assertThrows(FlywayException.class,()->Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate());
+        var failure=assertThrows(FlywayException.class,()->Flyway.configure().dataSource(url,user,password).target("8").cleanDisabled(true).load().migrate());
         PSQLException postgres=null;
         for(Throwable cause=failure;cause!=null;cause=cause.getCause())if(cause instanceof PSQLException p){postgres=p;break;}
         assertNotNull(postgres);assertEquals("23514",postgres.getSQLState());assertEquals("ck_receiving_audit",postgres.getServerErrorMessage().getConstraint());

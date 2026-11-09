@@ -143,6 +143,8 @@ public class SecurityConfiguration {
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/public/courses", "/api/v1/public/courses/{courseId}").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/enrollments/{enrollmentId}/payments").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/payments/{paymentId}", "/api/v1/student/payments/{paymentId}/qr-image").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
                                 "/api/v1/student/enrollments/{enrollmentId}/renew", "/api/v1/student/enrollments/{enrollmentId}/cancel").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/enrollments", "/api/v1/student/enrollments/{enrollmentId}").hasRole("STUDENT")

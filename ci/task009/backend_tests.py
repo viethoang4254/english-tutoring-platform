@@ -10,13 +10,13 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]
 
 
-GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence", "receiving-persistence"}
+GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence", "receiving-persistence", "payment-persistence"}
 STAGES = {"group", "memory-preflight", "port-availability", "postgres-create",
           "postgres-readiness", "database-create", "empty-database-verification",
           "test-environment", "report-preparation", "maven-execution", "test-report-collection",
@@ -182,6 +182,10 @@ def main():
         database_group("receiving-persistence", 55441, "task022_test",
                        ["task022_receiving", "task022_upgrade_pending", "task022_upgrade_approved", "task022_upgrade_rejected"],
                        ["ReceivingAccountPersistenceTests", "ReceivingAccountMigrationTests"], ["-DreceivingPersistence=true"], "RECEIVING")
+
+    with stage("payment-persistence", "group"):
+        database_group("payment-persistence", 55442, "task022c_test", ["task022c_payments"],
+                       ["PaymentPersistenceTests"], ["-DpaymentPersistence=true"], "PAYMENT")
 
 
 if __name__ == "__main__":

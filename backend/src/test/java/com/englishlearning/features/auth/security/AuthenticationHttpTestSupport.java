@@ -27,6 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
         "spring.flyway.enabled=false"})
 abstract class AuthenticationHttpTestSupport {
+    @MockitoBean com.englishlearning.features.payment.repository.PaymentRepository paymentRepository;
     @MockitoBean com.englishlearning.features.paymentaccount.repository.ReceivingAccountRepository receivingRepository;
     @MockitoBean com.englishlearning.features.paymentaccount.storage.PrivateQrStorage qrStorage;
     @MockitoBean com.englishlearning.features.course.repository.CourseRepository courseRepository;
