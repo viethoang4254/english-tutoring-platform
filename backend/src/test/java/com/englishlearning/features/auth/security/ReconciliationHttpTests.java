@@ -59,8 +59,8 @@ class ReconciliationHttpTests extends AuthenticationHttpTestSupport {
         for(Role role:List.of(Role.STUDENT,Role.ADMIN)) {
             actor(role,true,false);mvc.perform(post(PATH+"/confirm-manually").header("Authorization","Bearer access").contentType("application/json").content(body(true,"101"))).andExpect(status().isForbidden());
         }
-        actor(Role.TEACHER,false,false);mvc.perform(get(PATH)).andExpect(status().isForbidden());
-        actor(Role.TEACHER,true,true);mvc.perform(get(PATH)).andExpect(status().isUnauthorized());verifyNoInteractions(paymentRepository);
+        actor(Role.TEACHER,false,false);mvc.perform(get(PATH).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        actor(Role.TEACHER,true,true);mvc.perform(get(PATH).header("Authorization","Bearer access")).andExpect(status().isUnauthorized());verifyNoInteractions(paymentRepository);
     }
     @Test void wrongTeacherCannotSeeOrReconcilePayment()throws Exception {
         actor(Role.TEACHER,true,false);
