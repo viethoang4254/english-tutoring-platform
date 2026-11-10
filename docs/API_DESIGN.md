@@ -1830,3 +1830,11 @@ refresh/recovery lock order. The UI under `/account` never retries a mutation au
 TASK-016 eligibility decision (2026-10-29): authenticated, unlocked STUDENT accounts
 may enroll whether email is verified or unverified. Email verification remains intact
 for other workflows; Teacher eligibility is unchanged.
+
+## TASK-022D implementation contract
+
+The approved Teacher manual reconciliation endpoints and evidence DTO are specified in
+[TASK-022D.md](TASK-022D.md). This replaces the earlier open manual-confirmation DTO
+proposal for this bounded workflow. Only eligible owning Teachers may decide; Admin
+monitoring is not Payment-confirmation authority. Business conflicts return HTTP 409
+with a committed immutable FAILED attempt. Implementation remains pending CI acceptance.

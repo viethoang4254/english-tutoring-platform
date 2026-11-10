@@ -6,7 +6,7 @@ GitHub-hosted Ubuntu, never on a developer machine or self-hosted runner.
 The SMTP job executes one `LocalResetSmtpTests` test, including decoded capture
 assertions. Only after it passes, the browser job builds the frontend, creates its
 own labelled PostgreSQL 18 container, checks the exact empty database target,
-and starts the backend to apply Flyway V1-V9 (target pinned to 9; expected migration count: 9). It then runs 24 existing
+and starts the backend to apply Flyway V1-V10 (target pinned to 10; expected migration count: 10). It then runs 24 existing
 mocked cases and 8 live cases (Student and pending/rejected/approved Teachers,
 each on mobile and desktop). Missing services, skipped cases and wrong test
 counts fail acceptance. These expected counts are not execution evidence.
@@ -129,7 +129,7 @@ report gate. No workflow duplication, provider calls or local execution are requ
 
 ### TASK-022B.1 receiving-account acceptance
 
-ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs sequentially before payment persistence, using PostgreSQL 18 at 127.0.0.1:15441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7 and V8; current migration gates expect nine migrations and still 23 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
+ReceivingSubmissionTests, ReceivingImageTests, ReceivingStorageTests and ReceivingAccountHttpTests join the feature group. ReceivingAccountPersistenceTests runs sequentially before payment persistence, using PostgreSQL 18 at 127.0.0.1:15441, database task022_receiving and role task022_test. Credentials are generated for CI only. The suite migrates V1–V6, seeds legacy account/payment history and applies V7 and V8; current migration gates expect ten migrations and 24 tables. Storage is mocked; no Supabase database or Storage is contacted. All existing groups remain enabled.
 
 ### TASK-022B.2 Admin receiving-account review
 
@@ -153,9 +153,18 @@ are logged. Diagnostic commands have three-second timeouts and cannot mask failu
 PaymentMoneyTests, VietQrTests and PaymentHttpTests join feature-unit-http.
 PaymentPersistenceTests runs after receiving-persistence in its own PostgreSQL 18
 container on 127.0.0.1:15442, database task022c_payments, role task022c_test.
-It seeds historical V8 Payments, applies V9 and checks monetary constraints,
+It seeds historical V8 Payments, applies V9/V10 and checks monetary constraints,
 immutable destinations, duplicate/concurrent requests, expiration/renewal, ownership
 and rollback. Existing V7-to-V8 upgrade tests remain pinned to V8; receiving
-persistence subsequently applies V9. The full application expects V1-V9 (9 migrations),
-with 23 application tables. No live database, Storage or bank service is used.
+persistence subsequently applies V9/V10. The full application expects V1-V10 (10 migrations),
+with 24 application tables. No live database, Storage or bank service is used.
 All prior SMTP/backend/browser gates remain enabled; browser counts are unchanged.
+
+## TASK-022D manual reconciliation
+
+ReconciliationHttpTests runs in feature-unit-http. ReconciliationPersistenceTests runs
+alongside PaymentPersistenceTests in payment-persistence, with a separate empty database
+(task022d_reconciliation) on the existing isolated port 15442. The original 35 TASK-022C
+tests and every regression group remain enabled. V10 adds an append-only audit table;
+full startup verifies 10 migrations and 24 application tables. No bank or live Supabase
+service is used. These prepared tests require GitHub Actions execution before acceptance.

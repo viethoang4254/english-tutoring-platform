@@ -28,7 +28,7 @@ class CategoryPersistenceTests {
   sql("INSERT INTO course_categories(name,active,created_at,updated_at) VALUES ('Legacy',false,now(),now())");
   Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate();
   assertEquals(1,count("SELECT count(*) FROM course_categories WHERE name='Legacy' AND NOT active"));
-  assertEquals(9,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+  assertEquals(10,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
   var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");props.put("spring.jpa.open-in-view",false);
   byte[] key=new byte[32];new java.security.SecureRandom().nextBytes(key);props.put("app.security.password-reset.hmac-secret",Base64.getEncoder().encodeToString(key));
   context=new SpringApplicationBuilder(EnglishLearningApplication.class).web(WebApplicationType.NONE).initializers(c->c.getEnvironment().getPropertySources().addFirst(new MapPropertySource("isolated-category-test",props))).run();

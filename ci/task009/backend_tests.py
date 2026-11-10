@@ -10,7 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]
@@ -190,8 +190,8 @@ def main():
                        ["ReceivingAccountPersistenceTests", "ReceivingAccountMigrationTests"], ["-DreceivingPersistence=true"], "RECEIVING")
 
     with stage("payment-persistence", "group"):
-        database_group("payment-persistence", 15442, "task022c_test", ["task022c_payments"],
-                       ["PaymentPersistenceTests"], ["-DpaymentPersistence=true"], "PAYMENT")
+        database_group("payment-persistence", 15442, "task022c_test", ["task022c_payments", "task022d_reconciliation"],
+                       ["PaymentPersistenceTests", "ReconciliationPersistenceTests"], ["-DpaymentPersistence=true"], "PAYMENT")
 
 
 if __name__ == "__main__":

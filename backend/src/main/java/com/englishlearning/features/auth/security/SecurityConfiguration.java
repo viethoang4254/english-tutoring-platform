@@ -148,6 +148,8 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
                                 "/api/v1/student/enrollments/{enrollmentId}/renew", "/api/v1/student/enrollments/{enrollmentId}/cancel").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/enrollments", "/api/v1/student/enrollments/{enrollmentId}").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/payments", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/attempts").access(SecurityConfiguration::verifiedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/confirm-manually", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/reconcile-late").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/enrollments").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::verifiedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses").access(SecurityConfiguration::verifiedTeacher)

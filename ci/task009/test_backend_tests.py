@@ -60,6 +60,17 @@ class FeatureReportChecks(unittest.TestCase):
                 feature.main()
             tests.assert_not_called()
 
+    def test_reconciliation_keeps_payment_regressions_and_uses_separate_database(self):
+        with patch.object(feature.support, "root"), patch("sys.stdout", io.StringIO()), \
+                patch.object(feature, "tests") as tests, patch.object(feature, "database_group") as groups:
+            feature.main()
+        self.assertIn("ReconciliationHttpTests", tests.call_args.args[1])
+        self.assertIn("PaymentHttpTests", tests.call_args.args[1])
+        payment = next(c for c in groups.call_args_list if c.args[0] == "payment-persistence")
+        self.assertEqual(payment.args[3], ["task022c_payments", "task022d_reconciliation"])
+        self.assertEqual(payment.args[4], ["PaymentPersistenceTests", "ReconciliationPersistenceTests"])
+        self.assertEqual(payment.args[5], ["-DpaymentPersistence=true"])
+
 
 class DiagnosticChecks(unittest.TestCase):
     def events(self, action):

@@ -1343,3 +1343,14 @@ rounding adjustment and a versioned monetary policy. See TASK-022C.md for contra
 and CI registration. No Payment confirmation, Enrollment activation, Student Payment
 UI, bank reconciliation or Calendar integration is implemented by this task.
 No local tests/builds or live services were used. No CI success is claimed.
+
+## TASK-022D - Teacher manual reconciliation (IN_PROGRESS)
+
+Backend implementation prepared, pending independent static review and CI. Teacher-owned
+queue/detail and append-only audit history, explicit on-time/late reconciliation, atomic
+Payment confirmation and Enrollment activation, failed-decision persistence and unique
+bank transaction allocation are implemented. V10 adds the audit table without changing
+V1-V9 or historical Payment snapshots. See TASK-022D.md for API and transaction contracts.
+Focused HTTP and isolated PostgreSQL acceptance suites are registered in TASK-009.
+No frontend, provider verification, refunds, disputes or Calendar changes are included.
+Production privacy, retention and dispute handling require separate explicit review.
