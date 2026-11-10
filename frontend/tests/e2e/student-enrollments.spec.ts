@@ -15,6 +15,7 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
     if (path.includes("/student/enrollments")) {
       expect(request.headers().authorization).toBe("Bearer fixture");
       if (options.failure) return route.fulfill({ status: options.failure, json: { code: "ACCESS_DENIED", message: "Denied" } });
+      if(path.endsWith("/payments/latest"))return route.fulfill({status:204});
       if (request.method() === "POST") {
         expect(request.postData()).toBeNull();
         if (options.mutation === "network") return route.abort();
@@ -41,6 +42,7 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
   await expect(page.locator(".header-account-menu summary")).toBeVisible();
   if (!options.role) {
     await expect(page).toHaveURL(/\/student\/dashboard$/);
+    await expect(page.getByRole("heading",{name:/Xin chào,/})).toBeVisible();
     await expect(page.locator("#student-navigation")).toBeAttached();
     const toggle = page.locator('button[aria-controls="student-navigation"]');
     if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
@@ -61,6 +63,33 @@ test("expired detail renews explicitly and preserves dashboard on desktop/mobile
   await expect(page.getByText("Đã cập nhật thời hạn giữ chỗ.", { exact: true })).toBeVisible();
   await expect(page.getByText("Còn 15 phút 0 giây", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Gia hạn giữ chỗ", exact: true })).toHaveCount(0);
+  let creates=0;
+  const payment={id:"7",enrollmentId:row.id,status:"PENDING",currency:"VND",finalAmount:"120000",transferReference:"ELPFIXTURE",bankName:"Bank",accountNumber:"00123456",accountHolderName:"Teacher",expiresAt:"2026-10-18T03:15:00Z"};
+  await page.route("**/student/enrollments/*/payments",route=>{
+    expect(route.request().method()).toBe("POST");expect(route.request().postData()).toBeNull();
+    expect(route.request().headers().authorization).toBe("Bearer fixture");creates++;
+    return route.fulfill({status:201,json:payment});
+  });
+  await page.getByRole("button",{name:"Tạo yêu cầu thanh toán"}).click();
+  await expect(page.getByText(/Nội dung chuyển khoản: ELPFIXTURE/)).toBeVisible();
+  expect(creates).toBe(1);
+  await page.route("**/student/payments/7/qr-image",route=>{
+    expect(route.request().headers().authorization).toBe("Bearer fixture");
+    return route.fulfill({contentType:"image/png",body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=","base64")});
+  });
+  await page.getByRole("button",{name:"VietQR thanh toán khóa học"}).click();
+  await expect(page.getByRole("img",{name:"VietQR thanh toán khóa học"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Mở khóa học"})).toHaveCount(0);
+  await page.route("**/payments/latest",route=>route.fulfill({json:{id:"7"}}));
+  await page.route("**/student/payments/7",route=>route.fulfill({json:{...payment,status:"CONFIRMED"}}));
+  await page.getByRole("button",{name:"Tải lại thanh toán"}).click();
+  await expect(page.getByText("Đã xác nhận",{exact:true})).toBeVisible();
+  await expect(page.getByRole("img",{name:"VietQR thanh toán khóa học"})).toHaveCount(0);
+  await page.route("**/student/enrollments/"+row.id,route=>route.fulfill({json:{...row,status:"ACTIVE"}}));
+  await page.route("**/course-access",route=>route.fulfill({json:{meetUrl:"https://meet.google.com/abc-defg-hij"}}));
+  await page.getByRole("button",{name:"Tải lại đăng ký"}).click();
+  await page.getByRole("button",{name:"Mở khóa học"}).click();
+  await expect(page.getByRole("link",{name:"Vào lớp qua Google Meet"})).toHaveAttribute("href","https://meet.google.com/abc-defg-hij");
   await expect(page.locator("#dashboard-navigation")).toBeAttached();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

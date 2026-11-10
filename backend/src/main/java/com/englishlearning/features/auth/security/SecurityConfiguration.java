@@ -144,7 +144,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/public/courses", "/api/v1/public/courses/{courseId}").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/enrollments/{enrollmentId}/payments").hasRole("STUDENT")
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/payments/{paymentId}", "/api/v1/student/payments/{paymentId}/qr-image").hasRole("STUDENT")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/payments/{paymentId}", "/api/v1/student/payments/{paymentId}/qr-image", "/api/v1/student/enrollments/{enrollmentId}/payments/latest", "/api/v1/student/enrollments/{enrollmentId}/course-access").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
                                 "/api/v1/student/enrollments/{enrollmentId}/renew", "/api/v1/student/enrollments/{enrollmentId}/cancel").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/enrollments", "/api/v1/student/enrollments/{enrollmentId}").hasRole("STUDENT")

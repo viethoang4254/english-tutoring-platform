@@ -45,6 +45,11 @@ public class EnrollmentService {
     @Transactional(readOnly=true)
     public EnrollmentDto get(long actor,long id) { student(actor,false);return own(actor,id,clock.instant()); }
     @Transactional(readOnly=true)
+    public String courseAccess(long actor,long enrollment) {
+        student(actor,false);
+        return rows.accessibleMeetUrl(actor,enrollment).orElseThrow(()->fail(ACCESS_DENIED));
+    }
+    @Transactional(readOnly=true)
     public Page<EnrollmentDto> list(long actor,int page,int size,String status) {
         student(actor,false);validatePage(page,size,status);
         return page(rows.list(actor,page,size,status,clock.instant()),page,size);

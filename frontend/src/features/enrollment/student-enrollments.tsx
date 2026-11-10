@@ -1,4 +1,5 @@
 "use client";
+import {EnrollmentPayment} from "./enrollment-payment";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { authorized, type Session } from "../auth/browser-api";
@@ -75,10 +76,11 @@ export function StudentEnrollments({ session, enrollmentId }: { session: Session
           <h2>{row.courseTitle}</h2><p>Mã khóa học: {row.courseId} · Mã đăng ký: {row.id}</p>
           <p>Trạng thái: <strong>{statusLabel[row.status]}</strong></p>
           {row.status === "PENDING" && <>
-            <p>Thanh toán chưa được tích hợp. Giữ chỗ không có nghĩa là đã thanh toán và không mở nội dung khóa học.</p>
+            <p>Giữ chỗ không có nghĩa là đã thanh toán và không mở nội dung khóa học.</p>
             <p>Hạn giữ chỗ: {row.seatReservedUntil ? <time dateTime={row.seatReservedUntil}>{time.format(new Date(row.seatReservedUntil))}</time> : "Không còn thời hạn hợp lệ"}</p>
             <p>{expired ? "Giữ chỗ đã hết hạn." : now > 0 ? `Còn ${Math.floor(seconds / 60)} phút ${seconds % 60} giây` : "Đang tính thời gian còn lại…"}</p>
           </>}
+          {enrollmentId && <EnrollmentPayment key={row.id} session={session} row={row} expired={expired} now={now} />}
           {row.cancelledAt && <p>Đã hủy lúc: <time dateTime={row.cancelledAt}>{time.format(new Date(row.cancelledAt))}</time></p>}
           {row.cancellationReason && <p>Lý do: {row.cancellationReason}</p>}
           <div className={styles.actions}>

@@ -84,7 +84,15 @@ class ReconciliationPersistenceTests {
     String state(PaymentDto p)throws Exception{return text("SELECT p.status||'/'||e.status FROM payments p JOIN enrollments e ON e.id=p.enrollment_id WHERE p.id="+p.id().value());}
     String snapshot(PaymentDto p)throws Exception{return text("SELECT to_jsonb(p)-'status'-'updated_at'-'confirmed_at' FROM payments p WHERE id="+p.id().value());}
     @Test void onTimeActivationSnapshotsHistoryAndNoProviderEvidence()throws Exception {
-        var p=create(3);String snapshot=snapshot(p);var a=decide(p,evidence(p),false);
+        var p=create(3);String snapshot=snapshot(p);
+        long enrollment=p.enrollmentId().value();
+        sql("UPDATE courses SET meet_url='https://meet.google.com/abc-defg-hij' WHERE id="+course);
+        assertEquals(p.id().value(),payments.latestId(3,enrollment).orElseThrow().longValue());
+        assertThrows(EnrollmentFailure.class,()->enrollments.courseAccess(3,enrollment));
+        var a=decide(p,evidence(p),false);
+        assertEquals("https://meet.google.com/abc-defg-hij",enrollments.courseAccess(3,enrollment));
+        assertThrows(EnrollmentFailure.class,()->enrollments.courseAccess(4,enrollment));
+        assertThrows(PaymentFailure.class,()->payments.latestId(4,enrollment));
         assertEquals("SUCCESS",a.outcome());assertTrue(a.allocated());assertEquals("CONFIRMED/ACTIVE",state(p));assertEquals(snapshot,snapshot(p));
         assertEquals(1,audits(p));assertEquals(1,service.history(1,course,p.id().value(),0,20).items().size());
         assertEquals(0,count("SELECT count(*) FROM payment_transactions"));

@@ -52,6 +52,9 @@ class EnrollmentHttpTests extends AuthenticationHttpTestSupport {
     @Test void pendingCannotReachProtectedRoutesOrSetActive() throws Exception {
         actor(Role.STUDENT,false,false);
         mvc.perform(get("/api/v1/teacher/courses/2/sessions").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/student/enrollments/3/course-access").header("Authorization","Bearer access")).andExpect(status().isForbidden()).andExpect(jsonPath("$.meetUrl").doesNotExist());
+        when(enrollmentRepository.accessibleMeetUrl(1,3)).thenReturn(Optional.of("https://meet.google.com/abc-defg-hij"));
+        mvc.perform(get("/api/v1/student/enrollments/3/course-access").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.meetUrl").exists());
         mvc.perform(get("/api/v1/student/courses/2/sessions").header("Authorization","Bearer access")).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/student/enrollments/3/activate").header("Authorization","Bearer access")).andExpect(status().isForbidden());
     }

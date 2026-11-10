@@ -42,12 +42,12 @@ export function useLoad<T>(load:(signal:AbortSignal)=>Promise<T>, handle:(error:
   },[load,handle,revision]);
   return result?.load===load && result.revision===revision ? result : undefined;
 }
-export function PrivateQr({token,path,handle}:{token:string;path:string;handle:(error:unknown)=>void}) {
+export function PrivateQr({token,path,handle,label}:{label?:string;token:string;path:string;handle:(error:unknown)=>void}) {
   const [visible,setVisible]=useState(false);
-  return <div><button type="button" aria-expanded={visible} onClick={()=>setVisible(!visible)}>{visible?"Ẩn ảnh QR":"Xem ảnh QR riêng tư"}</button>
-    {visible && <QrPreview token={token} path={path} handle={handle}/>}</div>;
+  return <div><button type="button" aria-expanded={visible} onClick={()=>setVisible(!visible)}>{visible?"Ẩn ảnh QR":label??"Xem ảnh QR riêng tư"}</button>
+    {visible && <QrPreview label={label} token={token} path={path} handle={handle}/>}</div>;
 }
-function QrPreview({token,path,handle}:{token:string;path:string;handle:(error:unknown)=>void}) {
+function QrPreview({token,path,handle,label}:{label?:string;token:string;path:string;handle:(error:unknown)=>void}) {
   const [src,setSrc]=useState(""), [error,setError]=useState("");
   useEffect(()=>{
     const controller=new AbortController(); let url="";
@@ -58,5 +58,5 @@ function QrPreview({token,path,handle}:{token:string;path:string;handle:(error:u
     return ()=>{controller.abort();if(url) URL.revokeObjectURL(url);};
   },[token,path,handle]);
   if(error) return <p role="alert">{error}</p>;
-  return src?<Image className={styles.qr} src={src} alt="Ảnh QR ngân hàng đã nộp" width={320} height={320} unoptimized/>:<p role="status">Đang tải ảnh QR…</p>;
+  return src?<Image className={styles.qr} src={src} alt={label??"Ảnh QR ngân hàng đã nộp"} width={320} height={320} unoptimized/>:<p role="status">Đang tải ảnh QR…</p>;
 }

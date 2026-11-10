@@ -29,6 +29,11 @@ public class EnrollmentController {
     public ResponseEntity<?> get(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String enrollmentId,HttpServletRequest request) throws IOException {
         request(request,Set.of());return ok(service.get(actor.id(),id(enrollmentId)));
     }
+    @GetMapping("/student/enrollments/{enrollmentId}/course-access")
+    public ResponseEntity<?> access(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String enrollmentId,HttpServletRequest request)throws IOException {
+        request(request,Set.of());
+        return ok(java.util.Map.of("meetUrl",service.courseAccess(actor.id(),id(enrollmentId))));
+    }
     @PostMapping("/student/enrollments/{enrollmentId}/renew")
     public ResponseEntity<?> renew(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String enrollmentId,HttpServletRequest request) throws IOException {
         request(request,Set.of());return ok(service.renew(actor.id(),id(enrollmentId)));

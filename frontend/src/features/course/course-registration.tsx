@@ -52,6 +52,6 @@ function Registration({ courseId }: { courseId: string }) {
         : <button className="ui-button ui-button-primary" disabled={busy || denied} onClick={() => void reserve()}>{busy ? "Đang gửi đăng ký…" : "Đăng ký giữ chỗ"}</button>}
       <Link href={result ? `/student/enrollments?id=${encodeURIComponent(result.id)}` : "/student/enrollments"}>Đăng ký của tôi</Link>
     </>}
-    <p>Thanh toán chưa được tích hợp. Giữ chỗ không có nghĩa là đã thanh toán và không mở nội dung khóa học.</p>
+    <p>Mở chi tiết đăng ký để thanh toán bằng VietQR. Giữ chỗ không có nghĩa là đã thanh toán và không mở nội dung khóa học.</p>
   </section>;
 }

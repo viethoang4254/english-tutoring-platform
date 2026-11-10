@@ -35,6 +35,15 @@ public class EnrollmentRepository {
         var rows=em.createNativeQuery(SELECT+" AND e.id=:id").setParameter("actor",actor).setParameter("id",id).getResultList();
         return rows.isEmpty()?Optional.empty():Optional.of(dto(rows.get(0),now));
     }
+    public Optional<String> accessibleMeetUrl(long student,long enrollment) {
+        List<?> rows=em.createNativeQuery("""
+            SELECT c.meet_url FROM public.enrollments e JOIN public.courses c ON c.id=e.course_id
+            WHERE e.student_id=:student AND e.id=:enrollment AND e.status='ACTIVE' AND c.status='PUBLISHED'
+              AND c.meet_url IS NOT NULL AND EXISTS (SELECT 1 FROM public.payments p
+                  WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
+            """).setParameter("student",student).setParameter("enrollment",enrollment).getResultList();
+        return rows.stream().findFirst().map(String.class::cast);
+    }
     public Optional<EnrollmentDto> forCourse(long actor,long course,Instant now) {
         var rows=em.createNativeQuery(SELECT+" AND e.course_id=:course FOR UPDATE OF e").setParameter("actor",actor).setParameter("course",course).getResultList();
         return rows.isEmpty()?Optional.empty():Optional.of(dto(rows.get(0),now));

@@ -46,6 +46,17 @@ class PaymentHttpTests extends AuthenticationHttpTestSupport {
             .andExpect(jsonPath("$.meetUrl").doesNotExist()).andExpect(jsonPath("$.qrObject").doesNotExist());
         verify(enrollmentRepository,never()).renew(anyLong(),anyLong(),any(),any());
     }
+    @Test void latestPaymentRecoversOnlyAnOwnedEnrollment()throws Exception {
+        actor(Role.STUDENT,false);
+        String path="/api/v1/student/enrollments/3/payments/latest";
+        mvc.perform(get(path).header("Authorization","Bearer access")).andExpect(status().isNotFound());
+        verify(paymentRepository,never()).latestId(anyLong(),anyLong());
+        when(enrollmentRepository.own(1,3,now)).thenReturn(Optional.of(new EnrollmentDto(new ApiId(3),new ApiId(2),"Course","PENDING",null,now.plusSeconds(900),false,null,null,now,now)));
+        mvc.perform(get(path).header("Authorization","Bearer access")).andExpect(status().isNoContent());
+        when(paymentRepository.latestId(1,3)).thenReturn(Optional.of(7L));
+        mvc.perform(get(path).header("Authorization","Bearer access")).andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control","no-store")).andExpect(content().json("{\"id\":\"7\"}"));
+    }
     @Test void duplicateReturnsExistingAndDoesNotInsert()throws Exception {
         eligible();when(paymentRepository.pending(1,3)).thenReturn(Optional.of(payment()));
         mvc.perform(post("/api/v1/student/enrollments/3/payments").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(jsonPath("$.id").value("7"));

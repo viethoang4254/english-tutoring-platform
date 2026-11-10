@@ -37,6 +37,13 @@ public class PaymentRepository {
     }
     private static final String SELECT="SELECT p.id,p.enrollment_id,p.status,p.currency,p.original_amount,p.discount_percent,p.discount_amount,p.rounding_adjustment,p.final_amount,p.payment_code,p.teacher_payment_account_id,p.bank_bin,p.bank_name,p.account_number,p.account_holder_name,p.qr_payload,p.expires_at,p.created_at FROM payments p JOIN enrollments e ON e.id=p.enrollment_id WHERE e.student_id=:student";
     public Optional<PaymentDto> own(long student,long id) { return one(SELECT+" AND p.id=:id",student,id); }
+    public Optional<Long> latestId(long student,long enrollment) {
+        List<?> ids=em.createNativeQuery("""
+            SELECT p.id FROM public.payments p JOIN public.enrollments e ON e.id=p.enrollment_id
+            WHERE e.student_id=:student AND e.id=:id ORDER BY p.created_at DESC,p.id DESC
+            """).setParameter("student",student).setParameter("id",enrollment).setMaxResults(1).getResultList();
+        return ids.stream().findFirst().map(id->((Number)id).longValue());
+    }
     public Optional<PaymentDto> pending(long student,long enrollment) { return one(SELECT+" AND p.enrollment_id=:id AND p.status='PENDING'",student,enrollment); }
     private Optional<PaymentDto> one(String query,long student,long id) {
         var rows=em.createNativeQuery(query).setParameter("student",student).setParameter("id",id).getResultList();

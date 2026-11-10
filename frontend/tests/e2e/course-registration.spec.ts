@@ -50,7 +50,7 @@ for (const responseStatus of [201, 200]) test(`Student reservation ${responseSta
   await expect(registration(page).getByRole("status")).toHaveText("Đã xác nhận đăng ký giữ chỗ: Chờ thanh toán.");
   await expect(registration(page).getByRole("link", { name: "Đăng ký của tôi" })).toHaveAttribute("href", `/student/enrollments?id=${row.id}`);
   await expect(reserve(page)).toHaveCount(0);
-  await expect(registration(page).getByText(/Thanh toán chưa được tích hợp/)).toBeVisible();
+  await expect(registration(page).getByText(/Giữ chỗ không có nghĩa là đã thanh toán/)).toBeVisible();
   await expect(page.locator('a[href*="meet.google"]')).toHaveCount(0);
   expect(calls).toEqual(["/api/v1/auth/login", `/api/v1/student/courses/${courseId}/enrollment`]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -112,7 +112,7 @@ test("existing ACTIVE relationship navigates without claiming a new reservation"
   await expect(page.locator('a[href*="meet.google"]')).toHaveCount(0);
 });
 test("anonymous direct entry and refresh never create a reservation; login dialog is keyboard accessible", async ({ page }) => {
-  const calls = await setup(page); await page.reload();
+  const calls = await setup(page); await page.reload({waitUntil:"domcontentloaded"});
   const trigger = page.getByRole("button", { name: "Đăng nhập để đăng ký", exact: true });
   await trigger.click(); await expect(page.getByRole("dialog", { name: "Đăng nhập" })).toBeVisible();
   await page.keyboard.press("Escape"); await expect(trigger).toBeFocused();

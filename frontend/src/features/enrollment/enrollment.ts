@@ -14,6 +14,12 @@ export function remainingSeconds(row: Enrollment, now: number) {
 export function enrollmentError(error: unknown) {
   if (!(error instanceof ApiRequestError)) return "Chưa xác nhận được kết quả. Hãy tải lại dữ liệu trước khi tiếp tục.";
   const messages: Record<string, string> = {
+    RECEIVING_ACCOUNT_UNAVAILABLE: "Gia sư chưa có tài khoản nhận tiền khả dụng.",
+    PAYMENT_LEGACY_UNAVAILABLE: "Yêu cầu cũ không có VietQR khả dụng.",
+    RESERVATION_EXPIRED: "Giữ chỗ đã hết hạn. Vui lòng tải lại đăng ký trước khi gia hạn.",
+    COURSE_NOT_PAYABLE: "Khóa học không còn nhận thanh toán.",
+    ENROLLMENT_NOT_PAYABLE: "Đăng ký hiện không cho phép thanh toán.",
+    PAYMENT_AMOUNT_INVALID: "Học phí không hợp lệ. Không thể tạo thanh toán.",
     COURSE_FULL: "Khóa học đã hết chỗ. Không thể gia hạn giữ chỗ.",
     COURSE_NOT_ENROLLABLE: "Khóa học không còn nhận đăng ký hoặc đã bắt đầu.",
     ENROLLMENT_RENEWAL_REQUIRED: "Giữ chỗ đã hết hạn. Bạn cần chủ động gia hạn.",

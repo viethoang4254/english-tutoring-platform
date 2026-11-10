@@ -70,6 +70,12 @@ public class PaymentService {
         long id=rows.insert(enrollment,destination,money,reference,payload,e.seatReservedUntil(),now);
         return new Created(rows.own(student,id).orElseThrow(),true);
     }
+    @Transactional(readOnly=true)
+    public Optional<Long> latestId(long student,long enrollment) {
+        student(accounts.findById(student).orElse(null));
+        enrollments.own(student,enrollment,clock.instant()).orElseThrow(()->fail(ENROLLMENT_NOT_FOUND));
+        return rows.latestId(student,enrollment);
+    }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public PaymentDto get(long student,long id) {
         student(users.lockAccountById(student).orElse(null));

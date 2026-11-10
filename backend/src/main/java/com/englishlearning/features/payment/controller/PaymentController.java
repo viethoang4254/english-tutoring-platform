@@ -20,6 +20,13 @@ public class PaymentController {
         return (result.created()?ResponseEntity.created(URI.create("/api/v1/student/payments/"+result.payment().id().decimal())):ResponseEntity.ok())
             .cacheControl(CacheControl.noStore()).body(result.payment());
     }
+    @GetMapping("/enrollments/{enrollmentId}/payments/latest")
+    public ResponseEntity<?> latest(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String enrollmentId,HttpServletRequest request) throws IOException {
+        request(request);
+        var latest=service.latestId(actor.id(),id(enrollmentId));
+        return latest.isPresent()?ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(java.util.Map.of("id",latest.get().toString())):ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
     @GetMapping("/payments/{paymentId}")
     public ResponseEntity<?> get(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String paymentId,HttpServletRequest request) throws IOException {
         request(request);return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.get(actor.id(),id(paymentId)));
