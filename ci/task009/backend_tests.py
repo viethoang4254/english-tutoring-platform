@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import errno
 import json
 import os
+import re
 import secrets
 import socket
 import sys
@@ -58,6 +59,60 @@ def stage(group, name):
         diagnostic(group, name, "complete")
 
 
+RECONCILIATION = "ReconciliationHttpTests"
+TEST_CLASS = "com.englishlearning.features.auth.security." + RECONCILIATION
+METHODS = {"teacherConfirmationUsesAuthenticatedIdentityAndNoStore", "studentAdminAnonymousAndUnverifiedTeacherDenied",
+           "wrongTeacherCannotSeeOrReconcilePayment", "businessFailureIsAuditedAndReturnedAsConflict",
+           "foreignReceiverCannotProbeAnAllocatedOrUnusedReference", "absentAndFalseAttestationCannotActivate",
+           "queueDetailHistoryPaginationAndPrivateFields", "infrastructureErrorsDoNotLeakEvidence"}
+EXCEPTIONS = {"java.lang.AssertionError", "org.opentest4j.AssertionFailedError",
+              "org.mockito.exceptions.verification.NeverWantedButInvoked",
+              "org.mockito.exceptions.verification.WantedButNotInvoked",
+              "org.mockito.exceptions.verification.TooManyActualInvocations",
+              "org.mockito.exceptions.verification.NoInteractionsWanted"}
+SAFE_VALUES = {"SUCCESS", "FAILED", "AMOUNT_MISMATCH", "RECEIVER_MISMATCH", "ATTESTATION_REQUIRED",
+               "PAYMENT_UNAVAILABLE", "no-store", "true", "false"}
+
+
+def reconciliation_report(files):
+    report = {"suite": RECONCILIATION, "status": "missing", "cases": []}
+    if len(files) != 1:
+        return report
+    try:
+        root = ET.parse(files[0]).getroot()
+    except (ET.ParseError, OSError):
+        report["status"] = "unreadable"
+        return report
+    report["status"] = "collected"
+    for case in root.findall("testcase"):
+        for node in case:
+            if node.tag not in {"failure", "error"} or len(report["cases"]) >= 8:
+                continue
+            method = case.get("name")
+            kind = node.get("type")
+            item = {"method": method if method in METHODS else "redacted", "classification": node.tag,
+                    "exception": kind if kind in EXCEPTIONS else "redacted", "assertion": "redacted"}
+            msg = node.get("message", "")
+            status = re.fullmatch(r"Status expected:<(\d{3})> but was:<(\d{3})>", msg, re.ASCII)
+            if status and all(100 <= int(v) <= 599 for v in status.groups()):
+                item.update(assertion="HTTP status mismatch", expected=status[1], actual=status[2])
+            elif kind in EXCEPTIONS and kind.startswith("org.mockito."):
+                item["assertion"] = "Mock interaction mismatch"
+            elif msg.startswith("JSON path ") or msg.startswith("No value at JSON path "):
+                item["assertion"] = "JSON response assertion"
+                values = re.search(r" expected:<(\w+)> but was:<(\w+)>$", msg)
+                if values and all(v in SAFE_VALUES for v in values.groups()):
+                    item.update(expected=values[1], actual=values[2])
+            elif msg.startswith("Response header "):
+                item["assertion"] = "Response header assertion"
+            frame = re.search(r"(?m)^\s*at " + re.escape(TEST_CLASS) +
+                              r"\.(\w+)\(ReconciliationHttpTests\.java:([1-9][0-9]{0,3})\)\s*$", node.text or "")
+            if frame and frame[1] in METHODS:
+                item["frame"] = RECONCILIATION + ".java:" + frame[2]
+            report["cases"].append(item)
+    return report
+
+
 def tests(label, suites, flags=()):
     reports = support.REPO / "backend/target/surefire-reports"
     with stage(label, "report-preparation"):
@@ -71,20 +126,37 @@ def tests(label, suites, flags=()):
                            "-Djunit.jupiter.execution.parallel.enabled=false",
                            "-DargLine=-Xms128m -Xmx512m -XX:MaxMetaspaceSize=256m", "test"])
     finally:
-        with stage(label, "test-report-collection"):
-            result = []
-            for suite in suites:
-                files = list(reports.glob("TEST-*." + suite + ".xml"))
-                counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
-                if len(files) == 1:
-                    counts = {key: int(ET.parse(files[0]).getroot().attrib[key]) for key in counts}
-                result.append({"suite": suite, **counts})
-            destination = support.root() / "reports"
-            destination.mkdir(exist_ok=True)
-            (destination / (label + ".json")).write_text(json.dumps(result, indent=2))
-            print(label + ": " + json.dumps(result))
-            support.require(all(r["tests"] > 0 and not (r["failures"] or r["errors"] or r["skipped"]) for r in result),
-                            "Required feature suite failed, missing or skipped")
+        primary = sys.exc_info()[1]
+        try:
+            with stage(label, "test-report-collection"):
+                if RECONCILIATION in suites:
+                    try:
+                        files = list(reports.glob("TEST-*." + RECONCILIATION + ".xml"))
+                        details = reconciliation_report(files)
+                        destination = support.root() / "reports"
+                        destination.mkdir(exist_ok=True)
+                        (destination / "reconciliation-diagnostics.json").write_text(json.dumps(details))
+                        print("Reconciliation diagnostics: " + json.dumps(details), flush=True)
+                    except Exception:
+                        print("Reconciliation diagnostics unavailable", flush=True)
+                result = []
+                for suite in suites:
+                    files = list(reports.glob("TEST-*." + suite + ".xml"))
+                    counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+                    if len(files) == 1:
+                        counts = {key: int(ET.parse(files[0]).getroot().attrib[key]) for key in counts}
+                    result.append({"suite": suite, **counts})
+                destination = support.root() / "reports"
+                destination.mkdir(exist_ok=True)
+                (destination / (label + ".json")).write_text(json.dumps(result, indent=2))
+                print(label + ": " + json.dumps(result))
+                support.require(all(r["tests"] > 0 and not (r["failures"] or r["errors"] or r["skipped"]) for r in result),
+                                "Required feature suite failed, missing or skipped")
+        except Exception:
+            if primary is None:
+                raise
+            # The original Maven exception resumes when this finally block exits.
+
 
 
 PORT_ATTEMPTS = 5

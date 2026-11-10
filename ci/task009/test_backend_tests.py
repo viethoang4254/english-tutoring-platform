@@ -72,6 +72,49 @@ class FeatureReportChecks(unittest.TestCase):
         self.assertEqual(payment.args[5], ["-DpaymentPersistence=true"])
 
 
+class ReconciliationDiagnosticChecks(unittest.TestCase):
+    method = "teacherConfirmationUsesAuthenticatedIdentityAndNoStore"
+
+    def test_failures_are_allowlisted_and_passing_cases_omitted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "report.xml"
+            root = feature.ET.Element("testsuite")
+            feature.ET.SubElement(root, "testcase", name="passing")
+            case = feature.ET.SubElement(root, "testcase", name=self.method)
+            failed = feature.ET.SubElement(case, "failure", type="java.lang.AssertionError",
+                                           message="Status expected:<200> but was:<403>")
+            failed.text = "private-data\n    at " + feature.TEST_CLASS + "." + self.method + "(ReconciliationHttpTests.java:54)"
+            case = feature.ET.SubElement(root, "testcase", name="private-data")
+            feature.ET.SubElement(case, "error", type="private-data",
+                                  message="JSON path private-data expected:<private-data> but was:<private-data>")
+            feature.ET.ElementTree(root).write(report)
+            details = feature.reconciliation_report([report])
+            safe, hidden = details["cases"]
+            self.assertEqual((safe["method"], safe["expected"], safe["actual"], safe["frame"]),
+                             (self.method, "200", "403", "ReconciliationHttpTests.java:54"))
+            self.assertEqual(hidden["classification"], "error")
+            self.assertNotIn("private-data", json.dumps(details))
+            self.assertNotIn("actual", hidden)
+
+    def test_missing_and_malformed_reports(self):
+        self.assertEqual(feature.reconciliation_report([])["status"], "missing")
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "invalid.xml"
+            report.write_text("<private-data")
+            self.assertEqual(feature.reconciliation_report([report])["status"], "unreadable")
+
+    def test_failed_maven_keeps_its_original_error_and_publishes_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            failure = feature.support.CommandFailure(1)
+            with patch.object(feature.support, "REPO", root), patch.object(feature.support, "root", return_value=root), \
+                    patch.object(feature.support, "maven", side_effect=failure), patch("sys.stdout", io.StringIO()):
+                with self.assertRaises(feature.support.CommandFailure) as caught:
+                    feature.tests("feature-unit-http", [feature.RECONCILIATION])
+            self.assertIs(caught.exception, failure)
+            self.assertEqual(json.loads((root / "reports/reconciliation-diagnostics.json").read_text())["status"], "missing")
+
+
 class DiagnosticChecks(unittest.TestCase):
     def events(self, action):
         output = io.StringIO()
