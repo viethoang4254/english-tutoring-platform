@@ -1,5 +1,6 @@
 import { Icon, SiteHeader, SiteFooter } from "../components/site-shell";
 import Link from "next/link";
+import { CourseCatalog } from "../features/course/course-catalog";
 import styles from "./landing.module.css";
 
 export default function Home() {
@@ -47,10 +48,11 @@ export default function Home() {
           <article><Icon kind="check" /><h3>03. Học qua bài tập và phản hồi</h3><p>Định hướng học tập gắn với bài tập theo buổi học và nhận xét của gia sư, giúp học viên hiểu phần cần cải thiện.</p></article>
         </div>
       </div></section>
-      <section className={styles.courses} id="khoa-hoc" aria-labelledby="courses-title"><div className={styles.container}><div className={styles.coursePanel}>
-        <div><p className={styles.kicker}>KHÓA HỌC TRÊN NỀN TẢNG</p><h2 id="courses-title">Chuẩn bị cho hành trình<br />học tiếng Anh của bạn.</h2><p>Khám phá giao diện danh sách khóa học với dữ liệu minh họa. Chức năng đăng ký khóa học và thanh toán chưa khả dụng.</p><Link className={styles.primary} href="/courses">Khám phá khóa học <span aria-hidden="true">→</span></Link></div>
-        <div className={styles.courseSymbol} aria-hidden="true"><Icon kind="book" /><span>Học có lịch trình.<br />Có gia sư đồng hành.</span></div>
-      </div></div></section>
+      <section className={styles.courses} id="khoa-hoc" aria-labelledby="courses-title"><div className={styles.container}>
+        <h2 id="courses-title">Khóa học trên nền tảng</h2>
+        <CourseCatalog />
+        <Link href="/courses">Khám phá khóa học →</Link>
+      </div></section>
     </main>
     <SiteFooter />
 

@@ -58,10 +58,49 @@
 .enroll dl div { display:flex; justify-content:space-between; gap:16px; margin:16px 0; font-size:.9rem; }
 .enroll dd { text-align:right; margin:0; max-width:180px; }
 .enroll dt { color:#64748b; }
-.enroll button { width:100%; margin:14px 0 0; cursor:not-allowed; }
+.enroll button { width:100%; margin:14px 0 0; cursor:pointer; }
 .muted { color:#64748b; font-size:.9rem; }
 @media(max-width:800px) { .hero { grid-template-columns:1fr; gap:16px; } .heroNote { display:none; } .detailGrid { grid-template-columns:1fr; } .filters { grid-template-columns:1fr; } }
 @media(max-width:600px) { .page { padding:24px 16px 48px; } .grid { grid-template-columns:1fr; } .hero { padding-top:0; } .cardBody,.panel,.enroll { padding:22px; } .notice { padding:18px; } .filters { padding:18px; } .cardBottom { align-items:center; } .results { font-size:.875rem; } }
 .page { overflow-wrap:anywhere; }
 .detailGrid > *, .cardBody { min-width:0; }
 .results { flex-wrap:wrap; }
+
+.detailNav { display:flex; flex-wrap:wrap; gap:.5rem 1.5rem; padding:1rem 0; margin-bottom:1.25rem; border-block:1px solid #dfe5ed; }
+.detailNav a { color:#334155; font-weight:600; }
+.panel p,.detailHeader p { white-space:pre-line; }
+.stage { border-top:1px solid #e2e8f0; padding:1rem 0; }
+.stage summary { cursor:pointer; font-weight:700; }
+.stage li { padding:.5rem 0; }
+.enroll button:disabled { cursor:not-allowed; }
+
+.courseSpread {display:grid;grid-template-columns:minmax(0,1.9fr) minmax(280px,1fr);gap:clamp(1rem,3vw,3rem);align-items:start;color:#112c47;}
+.courseBody {min-width:0;}
+.introBand {padding:clamp(1.4rem,3vw,3rem);border-radius:1.4rem;background:linear-gradient(125deg,#daf4ed,#e5edfc 70%,#f4e7fb);margin-bottom:1.4rem;}
+.introBand h1 {font-size:clamp(2.15rem,4vw,3.7rem);line-height:1.08;letter-spacing:-.045em;margin:1rem 0;}
+.introBand p,.goalGrid p {white-space:pre-line;line-height:1.65;}
+.byline {display:flex;align-items:center;gap:.5rem;font-weight:650;}
+.byline svg,.goalGrid svg {width:1.5rem;height:1.5rem;color:#087666;}
+.sectionTabs {display:grid;grid-template-columns:repeat(4,1fr);gap:.25rem;padding:.35rem;background:white;border:1px solid #dce5ed;border-radius:2rem;margin-bottom:1rem;}
+.sectionTabs a {display:grid;place-items:center;min-height:44px;text-align:center;border-radius:2rem;color:#17384e;font-weight:650;}
+.sectionTabs a[aria-current] {background:#153f55;color:white;}
+.goalGrid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:.75rem;}
+.goalGrid article {background:#f2f8f6;border:1px solid #dceae5;border-radius:.8rem;padding:1.1rem;}
+.goalGrid h3,.facts h3 {margin:.5rem 0;}
+.stage summary {padding:.75rem;background:#f3f6fa;border-radius:.5rem;}
+.stage ol {padding-inline-start:2.3rem;}
+.stage li {padding:.75rem;border-bottom:1px solid #e0e9ef;}
+.stage p {margin:.3rem 0;}
+.registrationCard {border:1px solid #aecbc8;border-top:4px solid #088477;border-radius:1rem;padding:1.15rem;background:white;box-shadow:0 10px 32px #14394712;min-width:0;}
+.courseCover {position:relative;isolation:isolate;overflow:hidden;min-height:155px;aspect-ratio:1.9;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:.3rem;padding:1.3rem;border-radius:.65rem;margin-bottom:1rem;background:linear-gradient(135deg,#123248,#126b69);color:white;}
+.courseCover::after {content:"";position:absolute;z-index:-1;right:-15%;top:-65%;width:85%;aspect-ratio:1;border-radius:50%;border:1.8rem solid #74d7bb33;box-shadow:0 0 0 2.5rem #89d3c119;}
+.courseCover svg {width:28px;height:28px;}
+.courseCover strong {font-size:clamp(1.2rem,2vw,1.65rem);line-height:1.15;}
+.registrationCard .price {margin:0;color:#143f54;}
+.registrationCard section>button {width:100%;background:#076d66;color:white;}
+.registrationCard section>p {color:#526578;font-size:.85rem;}
+.facts {border-top:1px solid #d8e4e5;margin-top:1rem;}
+.facts ul {padding-left:1.2rem;}
+.facts dl div {display:flex;justify-content:space-between;gap:.6rem;padding:.65rem 0;border-top:1px solid #e2eaeb;}
+.facts dd {margin:0;font-weight:650;}
+@media(max-width:800px){.courseSpread{grid-template-columns:1fr;}.sectionTabs a{font-size:.85rem;}.introBand{margin-bottom:1rem;}}

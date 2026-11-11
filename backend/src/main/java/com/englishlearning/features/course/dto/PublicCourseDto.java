@@ -10,5 +10,5 @@ public record PublicCourseDto(ApiId id, String name, String description, ApiMone
         Category category, Teacher teacher, LocalDate plannedStartDate, String timezone, int sessionCount) {
     public record Category(ApiId id, String name) {}
     public record Teacher(ApiId id, String fullName) {}
-    public record Detail(PublicCourseDto course, List<ScheduleDto.Rule> rules) {}
+    public record Detail(PublicCourseDto course, List<ScheduleDto.Rule> rules, CourseOutline outline) {}
 }

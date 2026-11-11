@@ -56,8 +56,8 @@ class PaymentPersistenceTests {
         sql("INSERT INTO teacher_payment_accounts(id,teacher_id,bank_code,account_number,account_holder_name,provider,status,created_at,updated_at) VALUES (100,1,'LEGACY','000123','Legacy Holder','VIETQR','INACTIVE',now(),now())");
         sql("INSERT INTO payments(id,enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,final_amount,currency,status,expires_at,created_at,updated_at) VALUES (100,100,100,'LEGACY','VIETQR',100.50,0.25,100.25,'VND','PENDING',now()-interval '1 hour',now()-interval '2 hours',now())");
         legacyBefore=legacy();
-        var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(2,flyway.migrate().migrationsExecuted);flyway.validate();
-        assertEquals(10,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(3,flyway.migrate().migrationsExecuted);flyway.validate();
+        assertEquals(11,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
         props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");

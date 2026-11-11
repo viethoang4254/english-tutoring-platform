@@ -35,6 +35,8 @@ class PublicCourseHttpTests extends AuthenticationHttpTestSupport {
     @Test void anonymousDetailExposesOnlyAllowlistedFieldsAndWeeklyRules() throws Exception {
         when(courseRepository.publicFind(1)).thenReturn(Optional.of(row()));
         when(courseRepository.rules(1)).thenReturn(List.of(new ScheduleDto.Rule(new ApiId(4),2,"09:00","10:00")));
+        var outline=new com.englishlearning.features.course.dto.CourseOutline("Introduction","Goals","","","",List.of());
+        when(courseRepository.outline(1)).thenReturn(outline);
         var response=mvc.perform(get("/api/v1/public/courses/1")).andExpect(status().isOk())
             .andExpect(jsonPath("$.rules[0].dayOfWeek").value(2))
             .andExpect(jsonPath("$.course.teacher.fullName").value("Teacher"))
@@ -43,7 +45,7 @@ class PublicCourseHttpTests extends AuthenticationHttpTestSupport {
         var json=mapper.readTree(response);
         var course=json.get("course");
         assertEquals(9,course.size());assertEquals(2,course.get("teacher").size());
-        assertEquals(2,course.get("category").size());assertEquals(2,json.size());
+        assertEquals(2,course.get("category").size());assertEquals(3,json.size());assertEquals("Goals",json.get("outline").get("objectives").asText());
         for(String field:List.of("meetUrl","password","passwordHash","email","bankAccount","content","enrollments","thumbnailPath")) {
             assertFalse(course.has(field));assertFalse(course.get("teacher").has(field));
         }

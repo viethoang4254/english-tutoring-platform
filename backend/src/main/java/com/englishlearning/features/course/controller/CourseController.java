@@ -1,6 +1,7 @@
 package com.englishlearning.features.course.controller;
 
 import com.englishlearning.features.auth.security.AccountPrincipal;
+import com.englishlearning.features.course.dto.CourseOutline;
 import com.englishlearning.features.course.dto.CourseDto;
 import com.englishlearning.features.course.dto.ScheduleDto;
 import com.englishlearning.features.course.dto.SessionDto;
@@ -92,6 +93,22 @@ public class CourseController {
         var dto = service.create(actor.id(), fields);
         return ResponseEntity.created(URI.create("/api/v1/teacher/courses/" + dto.id().decimal()))
                 .cacheControl(CacheControl.noStore()).body(dto);
+    }
+    @GetMapping("/{courseId}/outline")
+    public ResponseEntity<CourseOutline> outline(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String courseId) {
+        return ok(service.outline(actor.id(),CourseInput.id(courseId)));
+    }
+    @PutMapping("/{courseId}/outline")
+    public ResponseEntity<CourseOutline> replaceOutline(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String courseId,
+            @jakarta.validation.Valid @RequestBody CourseOutline outline) {
+        return ok(service.replaceOutline(actor.id(),CourseInput.id(courseId),outline));
+    }
+    @PostMapping("/{courseId}/publish")
+    public ResponseEntity<CourseDto> publish(@AuthenticationPrincipal AccountPrincipal actor,
+            @PathVariable String courseId, @RequestBody Map<String,Object> body, HttpServletRequest request) {
+        query(request, Set.of());
+        if (!body.keySet().equals(Set.of("meetUrl"))) throw invalid();
+        return ok(service.publish(actor.id(), CourseInput.id(courseId), body.get("meetUrl")));
     }
     @PatchMapping("/{courseId}")
     public ResponseEntity<CourseDto> update(@AuthenticationPrincipal AccountPrincipal actor,

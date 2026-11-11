@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class CalendarRangeTests {
  final CourseRepository repository=mock(CourseRepository.class);
- final CourseService service=new CourseService(repository,mock(CategoryRepository.class),mock(TeacherBusinessEligibility.class),mock(UserCredentialService.class),Clock.systemUTC());
+ final CourseService service=new CourseService(repository,mock(CategoryRepository.class),mock(TeacherBusinessEligibility.class),mock(UserCredentialService.class),mock(com.englishlearning.features.payment.repository.PaymentRepository.class),Clock.systemUTC());
  @Test void exactOperationalBoundaryAndMaximumPageSize(){
   service.calendar(2,"2030-01-01T00:00:00Z","2030-03-04T00:00:00Z",0,100);
   verify(repository).calendar(2,Instant.parse("2030-01-01T00:00:00Z"),Instant.parse("2030-03-04T00:00:00Z"),0,100);

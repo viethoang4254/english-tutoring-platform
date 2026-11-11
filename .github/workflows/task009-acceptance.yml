@@ -124,11 +124,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '30'
       - run: python ci/task009/run.py resources
-      - name: Live populated Calendar acceptance (2 cases)
-        run: npx playwright test --config=playwright.task009.config.ts tests/live/calendar.spec.ts
+      - name: Live Calendar and course publication acceptance (4 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/live/calendar.spec.ts tests/live/course-publication.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '2'
+          TASK009_EXPECTED_TESTS: '4'
       - if: always()
         run: python ci/task009/run.py cleanup
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

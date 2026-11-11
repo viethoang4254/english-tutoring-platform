@@ -1,4 +1,5 @@
 "use client";
+import { OutlineEditor } from "./outline-editor";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { authorized, safeMessage, type Session } from "../auth/browser-api";
@@ -59,7 +60,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
       if(mutation && (!known || error.status>=500)) {
         setBlocked(true);setMessage("Chưa xác nhận được kết quả. Hãy tải lại khóa học trước khi tiếp tục. Yêu cầu không được tự động gửi lại.");
       } else {
-        const messages: Record<string,string>={ CATEGORY_INACTIVE:"Danh mục đã ngừng hoạt động. Hãy tải lại danh mục và chọn mục khác.", CATEGORY_NOT_FOUND:"Không tìm thấy danh mục.", COURSE_NOT_DRAFT:"Khóa học không còn là bản nháp. Hãy tải lại để xem trạng thái mới.", COURSE_NOT_FOUND:"Không tìm thấy khóa học của bạn." };
+        const messages: Record<string,string>={ COURSE_MEET_URL_INVALID:"Nhập liên kết Google Meet dạng https://meet.google.com/abc-defg-hij.", COURSE_PUBLICATION_SESSIONS:"Lưu lịch tuần và tạo đủ số buổi học. Tất cả các buổi phải còn lịch và chưa bắt đầu.", COURSE_RECEIVING_ACCOUNT_REQUIRED:"Để xuất bản, bạn cần tài khoản nhận tiền có ảnh QR đã được quản trị viên phê duyệt và đang hoạt động. Kiểm tra mục Tài khoản nhận tiền.", COURSE_PUBLICATION_TUITION:"Học phí phải lớn hơn 0 để xuất bản.", CATEGORY_INACTIVE:"Danh mục đã ngừng hoạt động. Hãy tải lại danh mục và chọn mục khác.", CATEGORY_NOT_FOUND:"Không tìm thấy danh mục.", COURSE_NOT_DRAFT:"Khóa học không còn là bản nháp. Hãy tải lại để xem trạng thái mới.", COURSE_NOT_FOUND:"Không tìm thấy khóa học của bạn." };
         setMessage(known ? messages[error.code] ?? safeMessage(error) : safeMessage(error));
         if(known && [401,403].includes(error.status)) {setBlocked(true);setSelected(null);setPage(null);setEditing(false);if(error.status===401)clearSession();}
       }
@@ -128,6 +129,18 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
     {courseId && <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void run(async()=>{await detail(courseId);setBlocked(false);})}>Tải lại khóa học</button>}
     {courseId && selected?.id !== courseId && <p role="status">Chưa tải được chi tiết khóa học.</p>}
     {selected&&selected.id===courseId&&!editing&&<article><h3>{selected.name}</h3><dl>{Object.entries({"Trạng thái":states[selected.status],"Danh mục":selected.category.name+(selected.category.active?"":" (ngừng hoạt động)"),"Mô tả":selected.description,"Học phí":`${selected.tuition.amount} VND`,"Số học viên":`${selected.minStudents}–${selected.maxStudents}`,"Ngày bắt đầu dự kiến":selected.plannedStartDate,"Múi giờ":selected.timezone,"Số buổi dự kiến":selected.sessionCount,"Giảm giá":selected.discount?`${selected.discount.percent}% · ${selected.discount.startAt} → ${selected.discount.endAt}`:"Không"}).map(([label,text])=><div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
+      {selected.status==="DRAFT" && <details key={selected.id}><summary>Giới thiệu và lộ trình học</summary><OutlineEditor id={selected.id} session={session}/></details>}
+      {selected.status==="DRAFT" && <form onSubmit={event=>{
+        event.preventDefault();
+        const meetUrl=String(new FormData(event.currentTarget).get("meetUrl") ?? "").trim();
+        void run(async()=>{
+          const published=await authorized<Course>(session.accessToken,`${root}/${selected.id}/publish`,{meetUrl},"POST");
+          if(!valid(published)||published.id!==selected.id||published.status!=="PUBLISHED")throw new Error("Invalid publication response");
+          setSelected(published);setPage(null);setMessage("Đã xuất bản khóa học.");
+        },true);
+      }}><label>Liên kết Google Meet<input name="meetUrl" type="url" required placeholder="https://meet.google.com/abc-defg-hij" /></label>
+        <button className="ui-button ui-button-primary" disabled={busy||blocked}>Xuất bản khóa học</button>
+      </form>}
       {selected.status==="DRAFT"?<button className="ui-button ui-button-primary" disabled={busy||blocked} onClick={()=>void run(async()=>{await loadCategories();setEditing(true);})}>Chỉnh sửa bản nháp</button>:<p>Khóa học này chỉ được xem trong giao diện quản lý bản nháp.</p>}</article>}
     {editing&&(!courseId||selected?.id===courseId)&&<form key={selected?.id??"new"} onSubmit={submit}><h3>{selected?"Chỉnh sửa bản nháp":"Bản nháp mới"}</h3><fieldset disabled={busy||blocked}><legend>Thông tin bản nháp</legend>
 <section className={styles.formSection}><h4>1. Thông tin cơ bản</h4><div className={styles.grid}>

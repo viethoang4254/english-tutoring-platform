@@ -31,7 +31,7 @@ class CoursePersistenceTests {
         assertEquals("jdbc:postgresql://127.0.0.1:15437/task010_courses",url); assertEquals("task010_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();
-        flyway.migrate(); flyway.validate(); assertEquals(10,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        flyway.migrate(); flyway.validate(); assertEquals(11,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var props=new HashMap<String,Object>();
         props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
@@ -184,6 +184,39 @@ class CoursePersistenceTests {
         return courses.create(teacher,f).id().value();
     }
     Map<String,Object> weekly(int day,String start,String end) {return Map.of("rules",List.of(SchedulePlanTests.rule(day,start,end)));}
+    @Test void ownerPublishesPreparedDraftAndDiscoveryReadsSameId() throws Exception {
+        long id=scheduledCourse(2);
+        String meet="https://meet.google.com/abc-defg-hij";
+        var discovery=context.getBean(PublicCourseService.class);
+        assertEquals(CourseFailure.Reason.MISSING,assertThrows(CourseFailure.class,()->courses.publish(other,id,meet)).reason());
+        assertEquals(CourseFailure.Reason.MEET_URL_INVALID,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,"https://example.org")).reason());
+        var reviews=context.getBean(com.englishlearning.features.paymentaccount.service.ReceivingAccountReviewService.class);
+        for (boolean approve : List.of(false,true)) {
+            assertEquals(CourseFailure.Reason.RECEIVING_ACCOUNT_REQUIRED,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,meet)).reason());
+            String key=UUID.randomUUID().toString();
+            sql("INSERT INTO teacher_payment_accounts(teacher_id,bank_code,bank_bin,bank_name,account_number,account_holder_name,provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at) VALUES ("+teacher+",'VCB','970436','Fixture','00001234','Teacher','VIETQR','INACTIVE','PENDING','"+key+".png',repeat('a',64),128,'"+key+"',repeat('b',64),now(),now())");
+            assertEquals(CourseFailure.Reason.RECEIVING_ACCOUNT_REQUIRED,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,meet)).reason());
+            long account=count("SELECT id FROM teacher_payment_accounts WHERE submission_key='"+key+"'");
+            reviews.review(admin,account,approve,approve?null:"Fixture rejection");
+        }
+        assertEquals(CourseFailure.Reason.PUBLICATION_SESSIONS,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,meet)).reason());
+        assertThrows(CourseFailure.class,()->discovery.get(id));
+        courses.replaceSchedule(teacher,id,weekly(2,"19:00","20:00"));
+        courses.generate(teacher,id);
+        var outline=new com.englishlearning.features.course.dto.CourseOutline("Intro","Goals","Beginners","","Outcome",
+                List.of(new com.englishlearning.features.course.dto.CourseOutline.Stage("Stage",List.of(
+                new com.englishlearning.features.course.dto.CourseOutline.Topic("Topic","Description")))));
+        assertThrows(CourseFailure.class,()->courses.replaceOutline(other,id,outline));
+        courses.replaceOutline(teacher,id,outline);
+        assertEquals(outline,courses.outline(teacher,id));
+        var published=courses.publish(teacher,id,meet);
+        assertEquals(outline,discovery.get(id).outline());
+        assertThrows(CourseFailure.class,()->courses.replaceOutline(teacher,id,outline));
+        assertEquals("PUBLISHED",published.status());
+        assertEquals(published.id(),discovery.get(id).course().id());
+        assertTrue(discovery.list(0,20).items().stream().anyMatch(c->c.id().equals(published.id())));
+        assertEquals(CourseFailure.Reason.NOT_DRAFT,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,meet)).reason());
+    }
     @Test void scheduleGenerationRoundTripAndPlanningProtection() throws Exception {
         long id=scheduledCourse(12);
         var schedule=courses.replaceSchedule(teacher,id,weekly(2,"19:00","20:30"));

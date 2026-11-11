@@ -48,7 +48,7 @@ class ReconciliationPersistenceTests {
         String base=System.getenv("PAYMENT_TEST_URL");assertEquals("jdbc:postgresql://127.0.0.1:15442/task022c_payments",base);
         url=base.replace("/task022c_payments","/task022d_reconciliation");user=System.getenv("PAYMENT_TEST_USER");password=System.getenv("PAYMENT_TEST_PASSWORD");assertEquals("task022c_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
-        assertEquals(10,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
+        assertEquals(11,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
         sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (1,'teacher@example.invalid','unused','Teacher','TEACHER',true,false,now(),now()),(2,'admin@example.invalid','unused','Admin','ADMIN',true,false,now(),now()),(3,'student@example.invalid','unused','Student','STUDENT',false,false,now(),now()),(4,'other@example.invalid','unused','Other','STUDENT',true,false,now(),now()),(5,'teacher2@example.invalid','unused','Other Teacher','TEACHER',true,false,now(),now())");
         sql("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,created_at,updated_at) VALUES (1,'Test','Test','Test','APPROVED',now(),now(),2,now(),now()),(5,'Test','Test','Test','APPROVED',now(),now(),2,now(),now())");
         sql("INSERT INTO course_categories(id,name,created_at,updated_at) VALUES (100,'Reconciliation',now(),now())");

@@ -1,6 +1,7 @@
 package com.englishlearning.features.course.service;
 
 import com.englishlearning.features.category.repository.CategoryRepository;
+import com.englishlearning.features.course.dto.CourseOutline;
 import com.englishlearning.features.course.dto.CourseDto;
 import com.englishlearning.features.course.dto.ScheduleDto;
 import com.englishlearning.features.course.dto.SessionDto;
@@ -8,6 +9,7 @@ import com.englishlearning.features.course.dto.ScheduleChangeDto;
 import com.englishlearning.features.course.repository.CourseRepository;
 import com.englishlearning.features.teacher.service.*;
 import com.englishlearning.features.user.service.UserCredentialService;
+import com.englishlearning.features.payment.repository.PaymentRepository;
 import java.time.Clock;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,10 +24,11 @@ public class CourseService {
     private final CategoryRepository categories;
     private final TeacherBusinessEligibility eligibility;
     private final UserCredentialService users;
+    private final PaymentRepository payments;
     private final Clock clock;
     public CourseService(CourseRepository courses, CategoryRepository categories, TeacherBusinessEligibility eligibility,
-            UserCredentialService users, @Qualifier("refreshSessionClock") Clock clock) {
-        this.courses=courses; this.categories=categories; this.eligibility=eligibility; this.users=users; this.clock=clock;
+            UserCredentialService users, PaymentRepository payments, @Qualifier("refreshSessionClock") Clock clock) {
+        this.courses=courses; this.categories=categories; this.eligibility=eligibility; this.users=users; this.clock=clock; this.payments=payments;
     }
     public record CalendarPage(List<com.englishlearning.features.course.dto.CalendarSessionDto> items,int page,int size,boolean hasNext) {}
     @Transactional(readOnly=true)
@@ -162,6 +165,37 @@ public class CourseService {
         var occurrences=SchedulePlan.generate(planRules(courses.rules(id)),course.plannedStartDate(),course.timezone(),course.sessionCount(),now);
         courses.insertSessions(id,occurrences,now);
         return new ScheduleDto.Generated(course.id(),occurrences.size());
+    }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public CourseDto publish(long actor, long id, Object meetUrl) {
+        lockActor(actor);
+        var course = owned(actor, id, true);
+        if (!"DRAFT".equals(course.status())) throw new CourseFailure(Reason.NOT_DRAFT);
+        if (!(meetUrl instanceof String url) || !url.matches("https://meet[.]google[.]com/[a-z]{3}-[a-z]{4}-[a-z]{3}"))
+            throw new CourseFailure(Reason.MEET_URL_INVALID);
+        if (new java.math.BigDecimal(course.tuition().amount()).signum() <= 0)
+            throw new CourseFailure(Reason.PUBLICATION_TUITION);
+        activeCategory(course.category().id().value());
+        // V7 requires immutable QR evidence for reviewed accounts; V8 requires an audited approval.
+        if (payments.destination(actor).isEmpty()) throw new CourseFailure(Reason.RECEIVING_ACCOUNT_REQUIRED);
+        var now = clock.instant();
+        if (courses.rules(id).isEmpty() || !courses.publishDraft(actor, id, url, now))
+            throw new CourseFailure(Reason.PUBLICATION_SESSIONS);
+        return owned(actor, id, false);
+    }
+
+    @Transactional(readOnly=true)
+    public CourseOutline outline(long actor,long id) {
+        eligible(actor);
+        owned(actor,id,false);
+        return courses.outline(id);
+    }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public CourseOutline replaceOutline(long actor,long id,CourseOutline outline) {
+        lockActor(actor);
+        if (!"DRAFT".equals(owned(actor,id,true).status())) throw new CourseFailure(Reason.NOT_DRAFT);
+        courses.replaceOutline(id,outline,clock.instant());
+        return outline;
     }
     private List<SchedulePlan.Rule> planRules(List<ScheduleDto.Rule> rules) {
         return rules.stream().map(r -> new SchedulePlan.Rule(r.dayOfWeek(),java.time.LocalTime.parse(r.startTime()),java.time.LocalTime.parse(r.endTime()))).toList();

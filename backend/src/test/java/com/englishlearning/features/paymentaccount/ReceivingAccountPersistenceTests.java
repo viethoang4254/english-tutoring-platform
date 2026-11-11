@@ -43,7 +43,7 @@ class ReceivingAccountPersistenceTests {
         assertEquals(7,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var v8=Flyway.configure().dataSource(url,user,password).target("8").cleanDisabled(true).load();assertEquals(1,v8.migrate().migrationsExecuted);v8.validate();
         assertEquals(8,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
-        assertEquals(2,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
+        assertEquals(3,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
         var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
         props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");

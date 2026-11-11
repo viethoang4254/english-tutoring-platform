@@ -17,7 +17,7 @@ class CourseServiceTests {
     final CategoryRepository categories=mock(CategoryRepository.class);
     final TeacherBusinessEligibility eligibility=mock(TeacherBusinessEligibility.class);
     final UserCredentialService users=mock(UserCredentialService.class);
-    final CourseService service=new CourseService(repository,categories,eligibility,users,Clock.systemUTC());
+    final CourseService service=new CourseService(repository,categories,eligibility,users,mock(com.englishlearning.features.payment.repository.PaymentRepository.class),Clock.systemUTC());
     @Test void lockedSnapshotCannotBeBypassedByCachedEligibility() {
         for(var account:List.of(new AccountSnapshot(1L,Role.TEACHER,true,true,false),
                 new AccountSnapshot(1L,Role.TEACHER,false,false,false),new AccountSnapshot(1L,Role.ADMIN,false,true,false))) {

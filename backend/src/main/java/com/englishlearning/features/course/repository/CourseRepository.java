@@ -4,6 +4,7 @@ import com.englishlearning.common.api.*;
 import com.englishlearning.features.course.dto.CourseDto;
 import com.englishlearning.features.course.dto.PublicCourseDto;
 import com.englishlearning.features.course.dto.SessionDto;
+import com.englishlearning.features.course.dto.CourseOutline;
 import com.englishlearning.features.course.dto.ScheduleChangeDto;
 import com.englishlearning.features.course.service.RescheduleInput;
 import com.englishlearning.features.course.service.SessionInput;
@@ -133,6 +134,60 @@ public class CourseRepository {
                 ((Number)r[2]).intValue(),(String)r[3],instant(r[4]),instant(r[5]),(String)r[6],
                 (String)r[7],(String)r[8],instant(r[9]),instant(r[10]));
     }
+    public boolean publishDraft(long actor, long id, String meetUrl, Instant now) {
+        return em.createNativeQuery("""
+            UPDATE public.courses c SET status='PUBLISHED', meet_url=:url, updated_at=:now
+            WHERE c.id=:id AND c.teacher_id=:actor AND c.status='DRAFT'
+              AND (SELECT count(*) = c.session_count AND min(session_number)=1
+                     AND max(session_number)=c.session_count AND bool_and(status='SCHEDULED')
+                     AND min(scheduled_start_at)>:now
+                   FROM public.sessions WHERE course_id=c.id)
+            """).setParameter("id",id).setParameter("actor",actor).setParameter("url",meetUrl)
+                .setParameter("now",now).executeUpdate() == 1;
+    }
+
+    public CourseOutline outline(long course) {
+        var header = (Object[])em.createNativeQuery("""
+            SELECT coalesce(introduction,''),coalesce(learning_objectives,''),coalesce(target_students,''),
+                   coalesce(entry_requirements,''),coalesce(learning_outcomes,'') FROM public.courses WHERE id=:id
+            """).setParameter("id",course).getSingleResult();
+        var stages = new java.util.ArrayList<CourseOutline.Stage>();
+        Number previous = null;
+        for (Object item : em.createNativeQuery("""
+            SELECT s.id,s.title,t.title,t.description FROM public.course_stages s
+            LEFT JOIN public.course_topics t ON t.stage_id=s.id WHERE s.course_id=:id
+            ORDER BY s.position,t.position
+            """).setParameter("id",course).getResultList()) {
+            Object[] row=(Object[])item;
+            if (!row[0].equals(previous)) {
+                stages.add(new CourseOutline.Stage((String)row[1], new java.util.ArrayList<>()));
+                previous=(Number)row[0];
+            }
+            if (row[2]!=null) stages.get(stages.size()-1).topics().add(new CourseOutline.Topic((String)row[2],(String)row[3]));
+        }
+        return new CourseOutline((String)header[0],(String)header[1],(String)header[2],(String)header[3],(String)header[4],stages);
+    }
+    public void replaceOutline(long course, CourseOutline outline, Instant now) {
+        em.createNativeQuery("""
+            UPDATE public.courses SET introduction=:intro,learning_objectives=:objectives,target_students=:audience,
+              entry_requirements=:requirements,learning_outcomes=:outcomes,updated_at=:now WHERE id=:id
+            """).setParameter("intro",outline.introduction()).setParameter("objectives",outline.objectives())
+            .setParameter("audience",outline.audience()).setParameter("requirements",outline.requirements())
+            .setParameter("outcomes",outline.outcomes()).setParameter("now",now).setParameter("id",course).executeUpdate();
+        em.createNativeQuery("DELETE FROM public.course_stages WHERE course_id=:id").setParameter("id",course).executeUpdate();
+        int stageNumber=0;
+        for (var stage : outline.stages()) {
+            var id=em.createNativeQuery("INSERT INTO public.course_stages(course_id,position,title) VALUES (:course,:position,:title) RETURNING id")
+                .setParameter("course",course).setParameter("position",++stageNumber).setParameter("title",stage.title()).getSingleResult();
+            int topicNumber=0;
+            for (var topic : stage.topics()) {
+                em.createNativeQuery("INSERT INTO public.course_topics(stage_id,position,title,description) VALUES (:id,:position,:title,:description)")
+                    .setParameter("id",id).setParameter("position",++topicNumber).setParameter("title",topic.title())
+                    .setParameter("description",topic.description()).executeUpdate();
+            }
+        }
+    }
+
     public long sessionCount(long id) {
         return ((Number) em.createNativeQuery("SELECT count(*) FROM public.sessions WHERE course_id=:id")
                 .setParameter("id", id).getSingleResult()).longValue();

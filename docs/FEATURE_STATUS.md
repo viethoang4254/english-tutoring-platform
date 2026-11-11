@@ -1354,3 +1354,11 @@ V1-V9 or historical Payment snapshots. See TASK-022D.md for API and transaction 
 Focused HTTP and isolated PostgreSQL acceptance suites are registered in TASK-009.
 No frontend, provider verification, refunds, disputes or Calendar changes are included.
 Production privacy, retention and dispute handling require separate explicit review.
+
+## Teacher Course publication — IN_PROGRESS
+
+The owner can publish a prepared draft through the Teacher course detail form. The backend checks Teacher eligibility, ownership, active category, positive tuition, an audited APPROVED/ACTIVE receiving account with V7 QR evidence, weekly rules, the complete future session schedule and the supplied Google Meet link. Publication makes the existing course ID eligible for public discovery. Isolated end-to-end acceptance is pending.
+
+## Detailed public course outline — IN_PROGRESS
+
+V11 prepared only. Owner draft GET/PUT outline, ordered stages and topics, and published detail presentation prepared. Course cover upload awaits a dedicated bucket. Isolated persistence and end-to-end acceptance pending; do not deploy the V11-dependent backend against V10.

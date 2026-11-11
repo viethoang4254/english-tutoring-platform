@@ -20,6 +20,10 @@ public class CourseExceptionHandler {
             case MISSING -> error(404, "COURSE_NOT_FOUND");
             case CATEGORY_MISSING -> error(404, "CATEGORY_NOT_FOUND");
             case CATEGORY_INACTIVE -> error(409, "CATEGORY_INACTIVE");
+            case MEET_URL_INVALID -> error(400, "COURSE_MEET_URL_INVALID");
+            case PUBLICATION_SESSIONS -> error(409, "COURSE_PUBLICATION_SESSIONS");
+            case RECEIVING_ACCOUNT_REQUIRED -> error(409, "COURSE_RECEIVING_ACCOUNT_REQUIRED");
+            case PUBLICATION_TUITION -> error(409, "COURSE_PUBLICATION_TUITION");
             case NOT_DRAFT -> error(409, "COURSE_NOT_DRAFT");
             case SCHEDULE_LOCKED -> error(409, "COURSE_SCHEDULE_LOCKED");
             case SCHEDULE_OVERLAP -> error(409, "SCHEDULE_OVERLAP");

@@ -280,10 +280,10 @@ def start_backend():
         with urllib.request.urlopen("http://127.0.0.1:8081/api/v1/auth/csrf", timeout=3) as response:
             require(response.status == 200 and bool(json.load(response).get("token")), "Backend not ready")
     wait_for(ready)
-    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7,8,9,10", "Unexpected migration history")
-    require(sql("SELECT count(*) FROM flyway_schema_history") == "10", "Unexpected migration entry")
-    require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "24", "Unexpected table count")
-    print("Isolated backend ready; V1-V10 and 24 application tables verified")
+    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7,8,9,10,11", "Unexpected migration history")
+    require(sql("SELECT count(*) FROM flyway_schema_history") == "11", "Unexpected migration entry")
+    require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "26", "Unexpected table count")
+    print("Isolated backend ready; V1-V11 and 26 application tables verified")
 
 
 def fixture():
@@ -294,6 +294,13 @@ def fixture():
     if data["action"] == "admin":
         require(sql(f"SELECT role FROM users WHERE id={identifier}") == "STUDENT", "Fresh Student fixture required")
         sql(f"UPDATE users SET role='ADMIN',student_login_without_verification=false,email_verified=true WHERE id={identifier}")
+    elif data["action"] == "publication-account":
+        require(sql(f"SELECT count(*) FROM teacher_applications WHERE teacher_id={identifier} AND status='APPROVED'") == "1", "Approved CI Teacher required")
+        print(sql(f"""WITH submission AS (SELECT gen_random_uuid() AS key), inserted AS (
+            INSERT INTO teacher_payment_accounts(teacher_id,bank_code,bank_bin,bank_name,account_number,account_holder_name,
+              provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at)
+            SELECT {identifier},'VCB','970436','CI bank','00001234','CI Teacher','VIETQR','INACTIVE','PENDING',
+              key::text||'.png',repeat('a',64),128,key,repeat('b',64),now(),now() FROM submission RETURNING id) SELECT id FROM inserted"""))
     elif data["action"] == "lock":
         sql(f"UPDATE users SET locked=true WHERE id={identifier}")
     elif data["action"] == "snapshot":

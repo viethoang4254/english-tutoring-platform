@@ -1,11 +1,12 @@
 "use client";
 
+import { AccountWorkspace } from "../auth/account-workspace";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { Icon } from "../../components/site-shell";
 import { useSession } from "../auth/session-provider";
-import { authorized, type Session } from "../auth/browser-api";
+import { authorized, signIn, type Session } from "../auth/browser-api";
 import { ApiRequestError } from "../../lib/api";
 import { dashboardTimeZone, dayKey, monthDays, previewCourses, previewSessions, shiftMonth, type PreviewSession } from "./dashboard-preview";
 import styles from "./student-dashboard.module.css";
@@ -16,22 +17,41 @@ const monthFormat = new Intl.DateTimeFormat("vi-VN", { timeZone: dashboardTimeZo
 type Profile = { fullName: string; email: string };
 type ProfileState = { status: "loading" } | { status: "ready"; profile: Profile } | { status: "error"; forbidden: boolean };
 
-export function StudentDashboard() {
-  const { session } = useSession();
+const catalogPath = "/student/dashboard/courses";
+const profilePath = "/account";
+type PanelProps = {children?: ReactNode};
+export function StudentDashboard({children}:PanelProps) {
+  const { session,setSession } = useSession();
   const router = useRouter();
-  useEffect(() => { if (!session) router.replace("/login?next=/student/dashboard"); }, [session, router]);
-  if (!session) return <main className={styles.gate} role="status">Đang chuyển đến trang đăng nhập…</main>;
-  if (session.account.role !== "STUDENT") return <main className={styles.gate}><h1>Không gian dành cho học viên</h1><p>Tài khoản hiện tại không có quyền truy cập trang này.</p><Link href="/account">Về tài khoản của tôi</Link></main>;
-  return <DashboardAccount key={session.accessToken} session={session} />;
+  const embedded=children!=null;
+  const restoration=useRef<ReturnType<typeof signIn>|null>(null);
+  const [needsLogin,setNeedsLogin]=useState(false);
+  useEffect(() => {
+    if (session) {restoration.current=null;return;}
+    if (!embedded) {router.replace("/login?next=/student/dashboard");return;}
+    let active=true;
+    restoration.current??=signIn();
+    restoration.current.then(current=>{if(active)setSession(current);}).catch(()=>{if(active)setNeedsLogin(true);});
+    return ()=>{active=false;};
+  }, [session,router,embedded,setSession]);
+  if (!session) return <main className={styles.gate}>{embedded&&needsLogin
+    ? <AccountWorkspace dedicatedLogin stayOnPage />
+    : <p role="status">Đang kiểm tra phiên đăng nhập…</p>}</main>;
+  if (session.account.role !== "STUDENT") return <main className={styles.gate}><h1>Không gian dành cho học viên</h1><p role="alert">Tài khoản hiện tại không có quyền truy cập trang này.</p><Link href="/account">Về tài khoản của tôi</Link></main>;
+  return <DashboardAccount key={session.accessToken} session={session}>{children}</DashboardAccount>;
 }
 
-function DashboardAccount({ session }: { session: Session }) {
+function DashboardAccount({ session, children }: { session: Session } & PanelProps) {
   const { clearSession } = useSession();
   const [state, setState] = useState<ProfileState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const profileRead = useRef<{ attempt: number; request: ReturnType<typeof authorized<Profile>> } | null>(null);
   useEffect(() => {
     let active = true;
-    authorized<Profile>(session.accessToken, "/users/me/profile").then(profile => {
+    if (profileRead.current?.attempt !== attempt) {
+      profileRead.current = { attempt, request: authorized<Profile>(session.accessToken, "/users/me/profile") };
+    }
+    profileRead.current.request.then(profile => {
       if (!profile || typeof profile.fullName !== "string" || typeof profile.email !== "string") throw new Error("Invalid profile");
       if (active) setState({ status: "ready", profile });
     }).catch(error => {
@@ -43,10 +63,13 @@ function DashboardAccount({ session }: { session: Session }) {
   }, [session.accessToken, attempt, clearSession]);
   if (state.status === "loading") return <main className={styles.gate} aria-busy="true"><h1>Bảng học tập</h1><p role="status">Đang tải thông tin học viên…</p></main>;
   if (state.status === "error") return <main className={styles.gate}><h1>Chưa thể mở bảng học tập</h1><p role="alert">{state.forbidden ? "Tài khoản hiện tại không được phép truy cập. Vui lòng kiểm tra lại tài khoản." : "Không thể tải thông tin học viên. Vui lòng thử lại."}</p>{!state.forbidden && <button className="ui-button ui-button-primary" onClick={() => { setState({ status: "loading" }); setAttempt(value => value + 1); }}>Thử lại</button>} <Link href="/account">Về tài khoản</Link></main>;
-  return <DashboardView profile={state.profile} />;
+  return <DashboardView profile={state.profile}>{children}</DashboardView>;
 }
 
-function DashboardView({ profile }: { profile: Profile }) {
+function DashboardView({ profile, children }: { profile: Profile } & PanelProps) {
+  const pathname = usePathname();
+  const inProfile = pathname === profilePath;
+  const inCatalog = pathname === catalogPath || pathname.startsWith(catalogPath + "/");
   const [now] = useState(() => new Date());
   const today = dayKey(now);
   const [month, setMonth] = useState(today.slice(0, 7));
@@ -67,19 +90,20 @@ function DashboardView({ profile }: { profile: Profile }) {
       <div className={styles.identity}><span className={styles.avatar} aria-hidden="true">{initials}</span><div><strong>{profile.fullName}</strong><span>Học viên</span></div></div>
       <button className={styles.mobileToggle} aria-expanded={mobileOpen} aria-controls="student-navigation" onClick={() => setMobileOpen(value => !value)}>Điều hướng học tập <span aria-hidden="true">{mobileOpen ? "−" : "+"}</span></button>
       <nav id="student-navigation" className={mobileOpen ? styles.navigationOpen : styles.navigation} aria-label="Điều hướng học viên">
-        <a className={styles.activeNav} href="#lich-hoc" onClick={() => setMobileOpen(false)}><Icon kind="check" />Lịch học của tôi</a>
-        <Link href="/courses"><Icon kind="book" />Khám phá khóa học</Link>
+        <Link className={children?undefined:styles.activeNav} href={children?"/student/dashboard#lich-hoc":"#lich-hoc"} onClick={() => setMobileOpen(false)}><Icon kind="check" />Lịch học của tôi</Link>
+        <Link href={catalogPath} className={inCatalog?styles.activeNav:undefined} aria-current={inCatalog?"page":undefined} onClick={()=>setMobileOpen(false)}><Icon kind="book" />Khám phá khóa học</Link>
         <Link href="/student/enrollments"><Icon kind="book" />Đăng ký của tôi</Link>
         <a href="#khoa-hoc-da-dang-ky" onClick={() => setMobileOpen(false)}><Icon kind="book" />Khóa học đã đăng ký</a>
-        <a href="#bai-tap" onClick={() => setMobileOpen(false)}><Icon kind="check" />Bài tập</a>
-        <a href="#thanh-toan" onClick={() => setMobileOpen(false)}><Icon kind="book" />Thanh toán</a>
-        <a href="#hoan-tien" onClick={() => setMobileOpen(false)}><Icon kind="check" />Yêu cầu hoàn tiền</a>
-        <Link href="/account"><Icon kind="person" />Hồ sơ & bảo mật</Link>
+        <Link href={children?"/student/dashboard#bai-tap":"#bai-tap"} onClick={() => setMobileOpen(false)}><Icon kind="check" />Bài tập</Link>
+        <Link href={children?"/student/dashboard#thanh-toan":"#thanh-toan"} onClick={() => setMobileOpen(false)}><Icon kind="book" />Thanh toán</Link>
+        <Link href={children?"/student/dashboard#hoan-tien":"#hoan-tien"} onClick={() => setMobileOpen(false)}><Icon kind="check" />Yêu cầu hoàn tiền</Link>
+        <Link href={profilePath} className={inProfile?styles.activeNav:undefined} aria-current={inProfile?"page":undefined} onClick={()=>setMobileOpen(false)}><Icon kind="person" />Hồ sơ & bảo mật</Link>
       </nav>
       <div className={styles.sidebarNote}><Icon kind="video" /><strong>Học cùng gia sư</strong><p>Lịch rõ ràng, từng buổi học có người đồng hành.</p></div>
     </aside>
     <div className={styles.content}>
-      <header className={styles.welcome}><div><p className={styles.eyebrow}>KHÔNG GIAN HỌC VIÊN</p><h1>Xin chào, {profile.fullName} <span aria-hidden="true">✦</span></h1><p>Sắp xếp lịch học. Sẵn sàng cho buổi học tiếp theo.</p></div><Link className={styles.profileLink} href="/account">Hồ sơ của tôi ↗</Link></header>
+      {children ?? <>
+      <header className={styles.welcome}><div><p className={styles.eyebrow}>KHÔNG GIAN HỌC VIÊN</p><h1>Xin chào, {profile.fullName} <span aria-hidden="true">✦</span></h1><p>Sắp xếp lịch học. Sẵn sàng cho buổi học tiếp theo.</p></div><Link className={styles.profileLink} href={profilePath}>Hồ sơ của tôi ↗</Link></header>
       <section className={styles.previewNotice} aria-label="Thông báo dữ liệu minh họa"><div><strong>Bản xem trước · Dữ liệu minh họa</strong><p>Lịch và khóa học bên dưới là dữ liệu mẫu, không phải đăng ký học thật của bạn. Chưa kết nối lịch học hoặc Google Calendar.</p></div><label>Chế độ xem trước<select value={empty ? "empty" : "sample"} onChange={event => setEmpty(event.target.value === "empty")}><option value="sample">Có dữ liệu mẫu</option><option value="empty">Trạng thái trống</option></select></label></section>
       <div className={styles.scheduleLayout}>
         <section className={styles.calendar} id="lich-hoc" aria-labelledby="calendar-title">
@@ -102,13 +126,13 @@ function DashboardView({ profile }: { profile: Profile }) {
         <aside className={styles.upcoming} aria-labelledby="upcoming-title"><p className={styles.eyebrow}>CHUẨN BỊ CHO BUỔI HỌC</p><h2 id="upcoming-title">Sắp diễn ra</h2><p className={styles.muted}>Các buổi học tiếp theo · minh họa</p>{upcoming.length ? upcoming.map(session => <div key={session.id} className={styles.upcomingItem}><span className={styles.dateBadge}>{new Date(session.startsAt).toLocaleDateString("vi-VN", { timeZone: dashboardTimeZone, day: "2-digit", month: "2-digit" })}</span><div><strong>{session.title}</strong><p>{timeFormat.format(new Date(session.startsAt))} · Google Meet</p><button className={styles.textButton} onClick={() => { const day = dayKey(session.startsAt); setSelected(day); setMonth(day.slice(0, 7)); document.getElementById("lich-hoc")?.scrollIntoView({ block: "start" }); }}>Xem trong lịch →</button></div></div>) : <p className={styles.empty}>Chưa có buổi học sắp tới.</p>}<div className={styles.meetNote}><Icon kind="video" /><p>Mỗi khóa học dùng một liên kết Google Meet do gia sư cung cấp. Bản xem trước không mở phòng học thật.</p></div></aside>
       </div>
       <section id="khoa-hoc-da-dang-ky" aria-labelledby="courses-title"><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>HÀNH TRÌNH CỦA BẠN</p><h2 id="courses-title">Khóa học đã đăng ký</h2></div><span className={styles.pill}>Dữ liệu minh họa</span></div>
-        {courses.length ? <div className={styles.courseGrid}>{courses.map(course => <article className={styles.courseCard} key={course.id}><div className={course.tone === "cyan" ? styles.courseCyan : styles.courseIndigo}><Icon kind="book" /><span>{course.category}</span></div><div className={styles.courseBody}><span className={styles.pill}>Khóa học mẫu</span><h3>{course.title}</h3><p>{course.teacher}</p><div className={styles.courseMeta}><span>{course.sessionCount} buổi học</span><span>Trực tuyến · Google Meet</span></div><a href="#lich-hoc">Xem lịch minh họa <span aria-hidden="true">↗</span></a></div></article>)}</div> : <div className={styles.empty}><Icon kind="book" /><h3>Chưa có khóa học trong bản xem trước</h3><p>Đây là trạng thái đăng ký trống trong bản xem trước, không phải ngày không có buổi học.</p><Link className="ui-button ui-button-primary" href="/courses">Khám phá khóa học</Link></div>}
+        {courses.length ? <div className={styles.courseGrid}>{courses.map(course => <article className={styles.courseCard} key={course.id}><div className={course.tone === "cyan" ? styles.courseCyan : styles.courseIndigo}><Icon kind="book" /><span>{course.category}</span></div><div className={styles.courseBody}><span className={styles.pill}>Khóa học mẫu</span><h3>{course.title}</h3><p>{course.teacher}</p><div className={styles.courseMeta}><span>{course.sessionCount} buổi học</span><span>Trực tuyến · Google Meet</span></div><a href="#lich-hoc">Xem lịch minh họa <span aria-hidden="true">↗</span></a></div></article>)}</div> : <div className={styles.empty}><Icon kind="book" /><h3>Chưa có khóa học trong bản xem trước</h3><p>Đây là trạng thái đăng ký trống trong bản xem trước, không phải ngày không có buổi học.</p><Link className="ui-button ui-button-primary" href={catalogPath}>Khám phá khóa học</Link></div>}
       </section>
       <section aria-labelledby="quick-title"><div className={styles.sectionHeading}><div><p className={styles.eyebrow}>MỌI THỨ Ở MỘT NƠI</p><h2 id="quick-title">Truy cập nhanh</h2></div></div><div className={styles.quickGrid}>
         <article id="bai-tap"><Icon kind="check" /><h3>Bài tập</h3><p>Bài tập theo buổi học và phản hồi của gia sư.</p><span>Chưa khả dụng</span><p className={styles.small}>Chưa kết nối bài tập. Không có bài nộp thật trong bản xem trước.</p></article>
         <article id="thanh-toan"><Icon kind="book" /><h3>Thanh toán</h3><p>Theo dõi học phí các khóa học đã đăng ký.</p><span>Chưa khả dụng</span><p className={styles.small}>Chưa kết nối thanh toán. Không thể chuyển tiền tại đây.</p></article>
         <article id="hoan-tien"><Icon kind="person" /><h3>Yêu cầu hoàn tiền</h3><p>Theo dõi yêu cầu hoàn tiền và hỗ trợ từ quản trị viên.</p><span>Chưa khả dụng</span><p className={styles.small}>Chưa thể gửi yêu cầu hoặc khiếu nại trong bản xem trước.</p></article>
-      </div></section>
+      </div></section></>}
     </div>
   </main>;
 }

@@ -60,6 +60,29 @@ class CourseHttpTests extends AuthenticationHttpTestSupport {
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("COURSE_NOT_DRAFT"));
         }
     }
+    @Test void publishRequiresOwnedDraftAndReturnsOnlyTeacherCourseDto() throws Exception {
+        account(Role.TEACHER,true,false);
+        var endpoint="/api/v1/teacher/courses/2/publish";
+        String body="{\"meetUrl\":\"https://meet.google.com/abc-defg-hij\"}";
+        mvc.perform(post(endpoint).header("Authorization","Bearer access").contentType("application/json").content(body))
+            .andExpect(status().isNotFound());
+        var draft=row("DRAFT");
+        var priced=new CourseDto(new ApiId(2), draft.name(), "DRAFT", draft.category(),new ApiMoney("100000.00","VND"),
+            draft.plannedStartDate(),draft.timezone(),2,1,10,now,now,draft.description(),null);
+        when(courseRepository.find(1,2,true)).thenReturn(Optional.of(priced));
+        when(categoryRepository.find(1,true)).thenReturn(Optional.of(new CategoryDto(new ApiId(1),"Category",true,now,now)));
+        mvc.perform(post(endpoint).header("Authorization","Bearer access").contentType("application/json").content(body))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("COURSE_RECEIVING_ACCOUNT_REQUIRED"));
+        verify(courseRepository, never()).publishDraft(anyLong(),anyLong(),anyString(),any());
+        when(paymentRepository.destination(1)).thenReturn(Optional.of(new com.englishlearning.features.payment.repository.PaymentRepository.Destination(1,"970436","Bank","123","Teacher")));
+        mvc.perform(post(endpoint).header("Authorization","Bearer access").contentType("application/json").content(body))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("COURSE_PUBLICATION_SESSIONS"));
+        when(courseRepository.rules(2)).thenReturn(List.of(new com.englishlearning.features.course.dto.ScheduleDto.Rule(new ApiId(1),2,"09:00","10:00")));
+        when(courseRepository.publishDraft(1,2,"https://meet.google.com/abc-defg-hij",now)).thenReturn(true);
+        when(courseRepository.find(1,2,false)).thenReturn(Optional.of(row("PUBLISHED")));
+        mvc.perform(post(endpoint).header("Authorization","Bearer access").contentType("application/json").content(body))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PUBLISHED")).andExpect(jsonPath("$.meetUrl").doesNotExist());
+    }
     @Test void inactiveRetentionAndMergedValidation() throws Exception {
         account(Role.TEACHER,true,false);
         when(courseRepository.find(1,2,true)).thenReturn(Optional.of(row("DRAFT")));

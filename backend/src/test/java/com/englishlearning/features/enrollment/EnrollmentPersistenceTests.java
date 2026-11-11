@@ -33,7 +33,7 @@ class EnrollmentPersistenceTests {
         assertEquals("jdbc:postgresql://127.0.0.1:15440/task016_enrollments",url);assertEquals("task016_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();flyway.migrate();flyway.validate();
-        assertEquals(10,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(11,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
         props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");

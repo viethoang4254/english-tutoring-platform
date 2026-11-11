@@ -20,6 +20,6 @@ public class PublicCourseService {
     }
     public PublicCourseDto.Detail get(long id) {
         var course=courses.publicFind(id).orElseThrow(()->new CourseFailure(Reason.MISSING));
-        return new PublicCourseDto.Detail(course,courses.rules(id));
+        return new PublicCourseDto.Detail(course,courses.rules(id),courses.outline(id));
     }
 }
