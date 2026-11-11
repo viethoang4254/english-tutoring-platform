@@ -152,7 +152,7 @@ def prepare():
             "APP_SECURITY_JWT_PUBLICKEY": (directory / "jwt-public.pem").as_uri(),
             "APP_SECURITY_BROWSER_LOCALHTTP": "true", "APP_SECURITY_BROWSER_ALLOWEDORIGINS": "http://127.0.0.1:3000",
             "SERVER_ADDRESS": "127.0.0.1", "SERVER_PORT": "8081",
-            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "10",
+            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "11",
             "SPRING_JPA_HIBERNATE_DDLAUTO": "validate", "SPRING_SQL_INIT_MODE": "never",
             "NEXT_PUBLIC_API_ORIGIN": "http://127.0.0.1:8081",
             "MAVEN_OPTS": "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=192m"})
