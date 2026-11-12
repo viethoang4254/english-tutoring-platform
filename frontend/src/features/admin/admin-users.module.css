@@ -1,0 +1,35 @@
+.actions,.filters,.form footer {display:flex;flex-wrap:wrap;align-items:center;gap:.75rem}
+.filters .addUser {margin-inline-start:auto}
+.dialogActions {display:flex;justify-content:flex-end;gap:.65rem;margin-top:1rem}
+.filters {padding:1rem;background:#f4f7fb;border-radius:.75rem;margin-bottom:1rem}
+.filters label,.form label {display:grid;gap:.35rem}
+.filters input,.filters select,.form input,.form textarea,.form select {padding:.6rem;border:1px solid #a6b2c3;border-radius:.4rem;font:inherit;width:100%;min-width:0}
+.table {width:100%;border-collapse:collapse;text-align:left}
+.table th,.table td {padding:.7rem;border-bottom:1px solid #dce3eb;vertical-align:top}
+.table th {background:#f4f7fb}
+.badge {display:inline-block;background:#edf2fa;padding:.2rem .55rem;border-radius:1rem;white-space:nowrap}
+.dialog {width:min(32rem,94vw);max-height:85vh;overflow:auto;border:0;border-radius:1rem;padding:1.4rem;color:inherit}
+.dialog::backdrop {background:#17243888}
+.form fieldset {display:grid;gap:.8rem;border:0;padding:0}
+.form footer {justify-content:flex-end}
+
+.filters {align-items:end}
+.filters label:first-child {flex:1 1 14rem;max-width:30rem}
+.tableScroll {max-width:100%;overflow-x:auto}
+.table {min-width:46rem;font-size:.9rem}
+.table caption {text-align:left;font-size:1.08rem;font-weight:700;padding:.65rem 0}
+.table th,.table td {vertical-align:middle;padding:.65rem .5rem}
+.table th,.table td:first-child {white-space:nowrap}
+.identity {width:34%;min-width:11rem;overflow-wrap:anywhere}
+.identity strong,.identity span {display:block}
+.identity span {color:#475569;margin-top:.2rem}
+.table .actions {display:flex;gap:.5rem}
+.table .actions :is(button,a) {display:inline-flex;align-items:center;min-height:1.8rem;padding:.15rem .4rem;border:0;background:transparent;color:#3730a3;font:inherit;text-decoration:underline;text-underline-offset:.16em;white-space:nowrap}
+.table .actions button:last-child:not(:first-of-type) {color:#9f1239}
+@media(max-width:640px){
+ .filters {display:grid;grid-template-columns:minmax(0,1fr) auto}
+ .filters label:first-child {grid-column:1/-1;max-width:none}
+ .table .actions :is(button,a) {min-height:2.75rem}
+}
+
+@media(max-width:640px){.filters .addUser {grid-column:1/-1;width:100%;margin:0}}

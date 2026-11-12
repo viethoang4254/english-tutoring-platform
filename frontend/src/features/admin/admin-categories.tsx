@@ -18,24 +18,40 @@ export function AdminCategories({ session, busy, run }: {
 }) {
   const [result, setResult] = useState<Page | null>(null);
   const [filter, setFilter] = useState("");
+  const [search,setSearch]=useState("");
+  const [applied,setApplied]=useState("");
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [blocked, setBlocked] = useState(false);
 
-  async function load(page = 0, active = filter) {
+  async function load(page = 0, active = filter, query = applied) {
     setResult(null);
     const data = await authorized<Page>(session.accessToken,
-      `${root}?page=${page}&size=20${active ? `&active=${active}` : ""}`);
+      `${root}?page=${page}&size=20${query ? `&search=${encodeURIComponent(query)}` : ""}${active ? `&active=${active}` : ""}`);
     if (!data || data.page !== page || data.size !== 20 || typeof data.hasNext !== "boolean" ||
         !Array.isArray(data.items) || !data.items.every(validCategory)) throw new Error("Invalid category response");
     setResult(data); setBlocked(false);
   }
-  function refresh(page = 0, active = filter) {
+  function refresh(page = 0, active = filter, query = applied) {
     void run(async () => {
       setNotice("");
-      try { await load(page, active); }
+      try { await load(page, active, query); }
       catch (error) { setBlocked(true); throw error; }
+    });
+  }
+  function remove(item: Category) {
+    if (!window.confirm(`Xóa vĩnh viễn danh mục “${item.name}”? Chỉ có thể xóa danh mục chưa được sử dụng.`)) return;
+    void run(async () => {
+      try {
+        await authorized(session.accessToken, `${root}/${item.id}`, undefined, "DELETE");
+        setEditing(null); setName(""); setNotice("Đã xóa danh mục."); await load();
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.code==="CATEGORY_IN_USE") {
+          setNotice("Danh mục đang được sử dụng. Bạn có thể ngừng hoạt động để giữ lịch sử khóa học."); return;
+        }
+        setBlocked(true); throw error;
+      }
     });
   }
   function mutate(id: string | null, body: { name: string } | { active: boolean }) {
@@ -70,6 +86,10 @@ export function AdminCategories({ session, busy, run }: {
     mutate(editing, { name: trimmed });
   }
   return <section className={styles.panel} aria-label="Quản lý danh mục">
+    <form className={styles.toolbar} onSubmit={e=>{e.preventDefault();setApplied(search.trim());refresh(0,filter,search.trim());}}>
+      <label>Tìm danh mục<input maxLength={100} value={search} onChange={e=>setSearch(e.target.value)} /></label>
+      <button disabled={busy}>Tìm kiếm</button>
+    </form>
     <div className={styles.toolbar}>
       <label>Trạng thái<select value={filter} disabled={busy} onChange={e => {
         setFilter(e.target.value); setEditing(null); setName(""); refresh(0, e.target.value);
@@ -89,6 +109,7 @@ export function AdminCategories({ session, busy, run }: {
         <div><strong>{item.name}</strong><p>{item.active ? "Đang hoạt động" : "Ngừng hoạt động"}</p></div>
         <div className={styles.actions}>
           <button className="ui-button ui-button-secondary" disabled={busy || blocked} onClick={() => { setEditing(item.id); setName(item.name); setNotice(""); }}>Đổi tên</button>
+          <button type="button" disabled={busy || blocked} onClick={()=>remove(item)}>Xóa danh mục</button>
           <button className="ui-button ui-button-secondary" disabled={busy || blocked} onClick={() => mutate(item.id, { active: !item.active })}>{item.active ? "Ngừng hoạt động" : "Kích hoạt"}</button>
         </div>
       </li>)}</ul>
