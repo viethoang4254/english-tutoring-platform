@@ -33,7 +33,7 @@ export function PasswordRecovery({ reset = false }: { reset?: boolean }) {
     <nav className="auth-breadcrumb" aria-label="Đường dẫn"><Link href="/">Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">{title}</span></nav>
     <main><section className="account-workspace auth-panel"><h1>{title}</h1>
       <p role="status" aria-live="polite">{message}</p>
-      <form onSubmit={submit} onInvalid={event => { const field = event.target; if (field instanceof HTMLInputElement) field.setCustomValidity(field.validity.valueMissing ? "Vui lòng điền thông tin này." : "Vui lòng kiểm tra thông tin đã nhập."); }} onInput={event => { if (event.target instanceof HTMLInputElement) event.target.setCustomValidity(""); }}>
+      <form method="post" onSubmit={submit} onInvalid={event => { const field = event.target; if (field instanceof HTMLInputElement) field.setCustomValidity(field.validity.valueMissing ? "Vui lòng điền thông tin này." : "Vui lòng kiểm tra thông tin đã nhập."); }} onInput={event => { if (event.target instanceof HTMLInputElement) event.target.setCustomValidity(""); }}>
         <fieldset disabled={busy}>
           <label>Email<input name="email" type="email" autoComplete="email" required placeholder="ban@example.com" /></label>
           {reset ? <><label>Mã đặt lại mật khẩu<input name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" required placeholder="Nhập mã gồm 6 chữ số" /></label><PasswordField registration /><PasswordField registration confirm /></> : null}

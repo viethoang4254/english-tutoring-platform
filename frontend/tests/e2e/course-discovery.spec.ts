@@ -150,9 +150,14 @@ test('unknown and non-public Course IDs show the same safe missing state',async(
 });
 test('detail retries transient failures and handles missing weekly rules',async({page})=>{
  let calls=0;
- await page.route('**/api/v1/public/courses/*',route=>++calls===1?route.abort():route.fulfill({json:{course:first,rules:[]}}));
+ let allowRetry=false;
+ await page.route('**/api/v1/public/courses/*',route=>{
+  calls++;
+  return allowRetry ? route.fulfill({json:{course:first,rules:[]}}) : route.abort();
+ });
  await page.goto(`/courses/${first.id}`);
  await expect(page.getByRole('heading',{name:'Chưa thể tải khóa học',exact:true})).toBeVisible();expect(calls).toBe(1);
+ allowRetry=true;
  await page.getByRole('button',{name:'Thử lại',exact:true}).click();
  await expect(page.getByRole('heading',{name:first.name,exact:true})).toBeVisible();
  await expect(page.getByText('Chưa có lịch học hằng tuần.',{exact:true})).toBeVisible();expect(calls).toBe(2);

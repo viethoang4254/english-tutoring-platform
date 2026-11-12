@@ -72,7 +72,16 @@ test("published course is read-only and authorization denial clears private cont
   await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();await page.getByRole("button",{name:"Xem chi tiết"}).click();await expect(page).toHaveURL(new RegExp(`/teacher/courses/${id}$`));await expect(page.getByRole("heading",{name:course.name,exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true})).toHaveCount(0);
   denied=true;await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();await expect(page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true})).toHaveCount(0);await expect(page.getByRole("heading",{name:course.name})).toHaveCount(0);
 });
-test("expired authentication removes course workspace without refresh retry",async({page})=>{
+test("expired authentication removes course workspace without refresh retry",async({page,browser,baseURL})=>{
+  const withoutJs=await browser.newContext({javaScriptEnabled:false,baseURL});
+  try {
+    const preHydration=await withoutJs.newPage();
+    await preHydration.goto("/account");
+    const login=preHydration.locator("form").filter({has:preHydration.getByLabel("Mật khẩu",{exact:true})});
+    await expect(login).toHaveAttribute("method","post");
+    await expect(login.getByLabel("Mật khẩu",{exact:true})).toBeDisabled();
+    await expect(login.getByRole("button",{name:"Đăng nhập",exact:true})).toBeDisabled();
+  } finally { await withoutJs.close(); }
   await open(page);let calls=0;
   await page.route("**/api/v1/teacher/courses**",r=>{calls++;return r.fulfill({status:401,json:{code:"AUTHENTICATION_REQUIRED",message:"Denied"}});});
   await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();

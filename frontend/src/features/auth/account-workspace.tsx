@@ -2,7 +2,7 @@
 import { StudentProfile } from "../user/student-profile";
 
 import { ChangePassword } from "./change-password";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "./session-provider";
@@ -20,6 +20,8 @@ type View = "login" | "register" | "student" | "verify";
 const applicationFields = ["specialization", "teachingExperience", "introduction"] as const;
 const labels = { specialization: "Chuyên môn", teachingExperience: "Kinh nghiệm giảng dạy", introduction: "Giới thiệu" };
 
+const subscribeToHydration = () => () => {};
+
 function ApplicationFields() {
   return applicationFields.map(name => <label key={name}>{labels[name]}<textarea name={name} required rows={3} /></label>);
 }
@@ -36,6 +38,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
   const [status, setStatus] = useState<Onboarding | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const inFlight = useRef(false);
   const [message, setMessage] = useState(initialMessage);
 
@@ -123,8 +126,8 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     {!session ? <>
       {view === "login" && <section>
         <h2>Đăng nhập</h2>
-        <form onSubmit={event => { const [form, data] = values(event); void run(async () => { validate(data); await authenticate(data); form.reset(); }); }}>
-          <fieldset disabled={busy}><label>Email<input name="email" type="email" autoComplete="username" required /></label>
+        <form method="post" onSubmit={event => { const [form, data] = values(event); void run(async () => { validate(data); await authenticate(data); form.reset(); }); }}>
+          <fieldset disabled={!hydrated || busy}><label>Email<input name="email" type="email" autoComplete="username" required /></label>
             <PasswordField />
             <Link className="recovery-note" href="/forgot-password">Quên mật khẩu?</Link>
             <button className="auth-primary" type="submit">{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button></fieldset>
@@ -132,7 +135,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
         <p className="auth-switch">Bạn chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link></p>
       </section>}
       {(view === "register" || view === "student") && <section key={view}><h2>Đăng ký {view === "student" ? "học viên" : "gia sư"}</h2>
-        <form onSubmit={event => { const [form, data] = values(event); void run(async () => {
+        <form method="post" onSubmit={event => { const [form, data] = values(event); void run(async () => {
           const { confirmPassword, ...request } = data;
           if (view === "student" && request.password !== confirmPassword) { setMessage("Mật khẩu xác nhận không khớp."); return; }
           if (view === "student" && !/^[A-Za-z][A-Za-z0-9_]{2,29}$/.test(request.username.replace(/^ +| +$/g, ""))) {
@@ -145,7 +148,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
           validate(request);
           await authMutation(view === "student" ? "/auth/register/student" : "/auth/register/teacher", request);
           form.reset(); router.push(view === "student" ? "/login?registered=1" : "/verify-email?registered=1");
-        }); }}><fieldset className="registration-grid" disabled={busy}>
+        }); }}><fieldset className="registration-grid" disabled={!hydrated || busy}>
           <label>Họ và tên<input name="fullName" autoComplete="name" placeholder="Nguyễn Văn An" required /></label>
           {view === "student" && <div><label>Tên người dùng<input name="username" autoComplete="username" required placeholder="nguyenvanan" /></label></div>}
           <label>Email<input name="email" type="email" autoComplete="email" placeholder="ban@example.com" required /></label>

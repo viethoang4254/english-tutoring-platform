@@ -18,7 +18,7 @@ export function ChangePassword({session}:{session:Session}) {
     finally{pending.current=false;setBusy(false);}
   }
   return <details id="change-password"><summary>Đổi mật khẩu</summary>{message && <p role="status" aria-live="polite">{message}</p>}
-    <form onSubmit={submit} onInvalid={event=>{if(event.target instanceof HTMLInputElement)event.target.setCustomValidity("Vui lòng điền thông tin này.");}} onInput={event=>{if(event.target instanceof HTMLInputElement)event.target.setCustomValidity("");}}><fieldset disabled={busy}>
+    <form method="post" onSubmit={submit} onInvalid={event=>{if(event.target instanceof HTMLInputElement)event.target.setCustomValidity("Vui lòng điền thông tin này.");}} onInput={event=>{if(event.target instanceof HTMLInputElement)event.target.setCustomValidity("");}}><fieldset disabled={busy}>
       <PasswordField name="currentPassword" label="Mật khẩu hiện tại" />
       <PasswordField registration name="newPassword" label="Mật khẩu mới" />
       <PasswordField registration confirm />

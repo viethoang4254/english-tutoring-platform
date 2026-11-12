@@ -19,9 +19,12 @@ export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;b
   const key = `${courseId}:${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    apiRequest<PublicCourseDetail>(`/public/courses/${encodeURIComponent(courseId)}`, {credentials:'omit', cache:'no-store', signal:controller.signal})
-      .then(data => { if (!data) throw new Error('Missing response'); if (!controller.signal.aborted) setResult({key,data}); })
-      .catch(error => { if (!controller.signal.aborted) setResult({key,missing:error instanceof ApiRequestError && error.status === 404}); });
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      apiRequest<PublicCourseDetail>(`/public/courses/${encodeURIComponent(courseId)}`, {credentials:'omit', cache:'no-store', signal:controller.signal})
+        .then(data => { if (!data) throw new Error('Missing response'); if (!controller.signal.aborted) setResult({key,data}); })
+        .catch(error => { if (!controller.signal.aborted) setResult({key,missing:error instanceof ApiRequestError && error.status === 404}); });
+    });
     return () => controller.abort();
   }, [courseId,key]);
   if (result?.key !== key) return <p role="status">Đang tải khóa học…</p>;
