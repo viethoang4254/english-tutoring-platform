@@ -23,7 +23,7 @@ class ReconciliationHttpTests extends AuthenticationHttpTestSupport {
     String origin(){return "https://frontend.example";}String api(){return "https://backend.example";}boolean secure(){return true;}
     void actor(Role role,boolean verified,boolean locked) {
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        var a=new AccountSnapshot(1L,role,locked,verified,true);
+        var a=new AccountSnapshot(1L,role,locked,verified,true, role == Role.TEACHER && verified);
         when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));
     }
     PaymentDto payment(){return new PaymentDto(new ApiId(7),new ApiId(3),"PENDING","VND","101","0","0","0","101",

@@ -31,7 +31,7 @@ public class TeacherOnboardingService {
     public TeacherOnboardingStatus resubmit(Long teacherId, Long applicationId,
             String specialization, String teachingExperience, String introduction) {
         var account = users.lockAccountById(teacherId).orElse(null);
-        if (account == null || account.role() != Role.TEACHER || account.locked() || !account.emailVerified())
+        if (account == null || account.role() != Role.TEACHER || account.locked() || !account.loginEligible())
             throw new TeacherReviewFailure(DENIED);
         for (String text : new String[]{specialization, teachingExperience, introduction})
             if (text == null || text.isBlank() || text.indexOf(0) >= 0) throw new TeacherReviewFailure(INVALID_REQUEST);
@@ -55,7 +55,7 @@ public class TeacherOnboardingService {
     @Transactional(readOnly = true)
     public TeacherOnboardingStatus ownStatus(Long authenticatedUserId) {
         var account = accounts.findById(authenticatedUserId).orElse(null);
-        if (account == null || account.role() != Role.TEACHER || account.locked() || !account.emailVerified())
+        if (account == null || account.role() != Role.TEACHER || account.locked() || !account.loginEligible())
             throw new TeacherReviewFailure(TeacherReviewFailure.Reason.DENIED);
         // Account-only visibility deliberately does not require approved business eligibility.
         return applications.findFirstByTeacherIdOrderBySubmittedAtDescIdDesc(authenticatedUserId)

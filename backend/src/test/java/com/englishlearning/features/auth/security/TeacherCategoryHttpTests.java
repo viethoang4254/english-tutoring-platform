@@ -18,7 +18,7 @@ class TeacherCategoryHttpTests extends AuthenticationHttpTestSupport {
     boolean secure() { return true; }
     void account(Role role, boolean verified, boolean locked) {
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, role, locked, verified, false)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L, role, locked, verified, false, role == Role.TEACHER && verified)));
     }
     @Test void activeOnlyPaginationAndStringIds() throws Exception {
         account(Role.TEACHER,true,false);
@@ -34,6 +34,19 @@ class TeacherCategoryHttpTests extends AuthenticationHttpTestSupport {
         verify(teacherEligibility).requireEligible(1L);
         verify(categoryRepository).list(0,1,true);
         verifyNoMoreInteractions(categoryRepository);
+    }
+    @Test void approvalControlsBusinessAccessIndependentlyOfMailboxVerification() throws Exception {
+        account(Role.TEACHER,true,false);
+        for (boolean verified : List.of(false,true)) {
+            when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,verified,false,true)));
+            mvc.perform(get("/api/v1/teacher/categories").header("Authorization","Bearer access")).andExpect(status().isOk());
+        }
+        // Both PENDING and REJECTED project to teacherApproved=false.
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true,false,false)));
+        mvc.perform(get("/api/v1/teacher/categories").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,true,true,false,true)));
+        mvc.perform(get("/api/v1/teacher/categories").header("Authorization","Bearer access")).andExpect(status().isUnauthorized());
+        verify(teacherEligibility,times(2)).requireEligible(1L);
     }
     @Test void defaultAndEmptyPage() throws Exception {
         account(Role.TEACHER,true,false);

@@ -16,7 +16,7 @@ public class TeacherBusinessEligibility {
     @Transactional(readOnly = true)
     public void requireEligible(Long userId) {
         var user = accounts.findById(userId).orElse(null);
-        if (user == null || user.role() != Role.TEACHER || user.locked() || !user.emailVerified()
+        if (user == null || user.role() != Role.TEACHER || user.locked()
                 || !applications.existsByTeacherIdAndStatus(userId, "APPROVED"))
             throw new TeacherReviewFailure(TeacherReviewFailure.Reason.DENIED);
     }

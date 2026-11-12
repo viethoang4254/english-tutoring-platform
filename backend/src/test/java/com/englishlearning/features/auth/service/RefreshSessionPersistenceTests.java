@@ -872,7 +872,7 @@ class RefreshSessionPersistenceTests {
             }
         }
         assertEquals(0,scalar("SELECT count(*) FROM public.teacher_profiles WHERE teacher_id="+user.id()));
-        assertEquals(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED,
+        assertEquals(AuthenticationFailure.Reason.TEACHER_APPROVAL_REQUIRED,
                 assertThrows(AuthenticationFailure.class,()->workflow().login(email," test password ")).reason());
         time.set(time.get().plusSeconds(60));registration.resend(email);assertEquals(2,sent.size());
         registration.verify(sent.get(0));assertNotNull(workflow().login(email," test password "));

@@ -216,7 +216,7 @@ public class CourseService {
     private void lockActor(long actor) {
         var account = users.lockAccountById(actor).orElseThrow(() -> new CourseFailure(Reason.DENIED));
         // Use the locked database snapshot even if a request-scoped JPA identity was loaded earlier.
-        if (account.locked() || !account.emailVerified()
+        if (!account.loginEligible()
                 || account.role() != com.englishlearning.features.user.entity.User.Role.TEACHER)
             throw new CourseFailure(Reason.DENIED);
         eligible(actor);

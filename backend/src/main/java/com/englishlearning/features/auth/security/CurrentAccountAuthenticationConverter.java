@@ -37,7 +37,7 @@ public class CurrentAccountAuthenticationConverter implements Converter<Jwt, Abs
                 || account.role() == com.englishlearning.features.user.entity.User.Role.STUDENT && !account.loginEligible()) {
             throw new BadCredentialsException("Authentication required.");
         }
-        var principal = new AccountPrincipal(account.id(), account.role(), account.emailVerified());
+        var principal = new AccountPrincipal(account.id(), account.role(), account.emailVerified(), account.teacherApproved());
         // A Teacher role is not approved onboarding, ownership or business-operation permission.
         return UsernamePasswordAuthenticationToken.authenticated(principal, null,
                 List.of(new SimpleGrantedAuthority("ROLE_" + account.role().name())));

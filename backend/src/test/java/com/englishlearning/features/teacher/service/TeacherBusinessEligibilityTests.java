@@ -12,12 +12,11 @@ class TeacherBusinessEligibilityTests {
     final CurrentAccountService accounts=mock(CurrentAccountService.class);
     final TeacherApplicationRepository applications=mock(TeacherApplicationRepository.class);
     final TeacherBusinessEligibility policy=new TeacherBusinessEligibility(accounts,applications);
-    @Test void currentAccountMustBeTeacherVerifiedUnlockedAndPresent() {
+    @Test void currentAccountMustBeTeacherUnlockedAndPresent() {
         for(var state:List.of(Optional.<AccountSnapshot>empty(),
                 Optional.of(new AccountSnapshot(1L,Role.STUDENT,false,true, false)),
                 Optional.of(new AccountSnapshot(1L,Role.ADMIN,false,true, false)),
-                Optional.of(new AccountSnapshot(1L,Role.TEACHER,true,true, false)),
-                Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,false, false)))) {
+                Optional.of(new AccountSnapshot(1L,Role.TEACHER,true,true, false)))) {
             when(accounts.findById(1L)).thenReturn(state);
             assertEquals(TeacherReviewFailure.Reason.DENIED,assertThrows(TeacherReviewFailure.class,
                     ()->policy.requireEligible(1L)).reason());
@@ -25,7 +24,7 @@ class TeacherBusinessEligibilityTests {
         verifyNoInteractions(applications);
     }
     @Test void approvalIsDatabaseBackedAndRecheckedOnEachInvocation() {
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,true, false)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.TEACHER,false,false, false)));
         when(applications.existsByTeacherIdAndStatus(1L,"APPROVED")).thenReturn(false,true,false);
         assertThrows(TeacherReviewFailure.class,()->policy.requireEligible(1L));
         policy.requireEligible(1L);

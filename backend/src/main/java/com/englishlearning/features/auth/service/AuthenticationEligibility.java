@@ -9,7 +9,8 @@ final class AuthenticationEligibility {
             throw new AuthenticationFailure(AuthenticationFailure.Reason.INVALID_CREDENTIAL);
         }
         if (!account.loginEligible()) {
-            throw new AuthenticationFailure(AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED);
+            throw new AuthenticationFailure(account.role() == com.englishlearning.features.user.entity.User.Role.TEACHER
+                    ? AuthenticationFailure.Reason.TEACHER_APPROVAL_REQUIRED : AuthenticationFailure.Reason.EMAIL_VERIFICATION_REQUIRED);
         }
     }
     static void require(CredentialSnapshot account) {

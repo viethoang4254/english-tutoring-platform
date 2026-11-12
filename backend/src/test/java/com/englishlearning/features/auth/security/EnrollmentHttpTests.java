@@ -19,7 +19,7 @@ class EnrollmentHttpTests extends AuthenticationHttpTestSupport {
     String origin(){return "https://frontend.example";} String api(){return "https://backend.example";} boolean secure(){return true;}
     void actor(Role role,boolean verified,boolean locked) {
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        var a=new AccountSnapshot(1L,role,locked,verified,true);when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));
+        var a=new AccountSnapshot(1L,role,locked,verified,true, role == Role.TEACHER && verified);when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));
     }
     EnrollmentDto row(){return new EnrollmentDto(new ApiId(9007199254740993L),new ApiId(2),"Course","PENDING",null,now.plusSeconds(900),false,null,null,now,now);}
     @Test void verifiedAndUnverifiedStudentCanCreateWithoutActivation() throws Exception {

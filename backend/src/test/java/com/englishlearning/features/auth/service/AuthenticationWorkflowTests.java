@@ -69,6 +69,15 @@ class AuthenticationWorkflowTests {
         order.verify(manager).commit(tx);
         verifyNoInteractions(accounts);
     }
+    @Test void approvedTeacherCanLogInAndRefreshWithoutProvingEmailOwnership() {
+        var teacher = new CredentialSnapshot(1L, account.email(), "HASH", false, false,
+                com.englishlearning.features.user.entity.User.Role.TEACHER, false, true);
+        when(users.findByEmail(account.email())).thenReturn(Optional.of(teacher));
+        when(users.lockById(1L)).thenReturn(Optional.of(teacher));
+        assertDoesNotThrow(() -> workflow.login(account.email(), raw));
+        assertDoesNotThrow(() -> workflow.refresh(refresh));
+        assertFalse(teacher.emailVerified());
+    }
     @Test void unknownAccountPerformsDummyComparison() {
         when(users.findByEmail(any())).thenReturn(Optional.empty());
         failure(AuthenticationFailure.Reason.INVALID_CREDENTIAL, () -> workflow.login("absent", raw));

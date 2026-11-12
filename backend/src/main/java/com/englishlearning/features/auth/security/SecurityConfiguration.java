@@ -34,13 +34,21 @@ public class SecurityConfiguration {
                 && auth.getPrincipal() instanceof AccountPrincipal account
                 && account.role() == com.englishlearning.features.user.entity.User.Role.ADMIN && account.emailVerified());
     }
-    private static org.springframework.security.authorization.AuthorizationDecision verifiedTeacher(
+    private static org.springframework.security.authorization.AuthorizationDecision onboardingTeacher(
             java.util.function.Supplier<? extends org.springframework.security.core.Authentication> authentication,
             org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
         var auth = authentication.get();
         return new org.springframework.security.authorization.AuthorizationDecision(auth.isAuthenticated()
                 && auth.getPrincipal() instanceof AccountPrincipal account
-                && account.role() == com.englishlearning.features.user.entity.User.Role.TEACHER && account.emailVerified());
+                && account.role() == com.englishlearning.features.user.entity.User.Role.TEACHER && (account.emailVerified() || account.teacherApproved()));
+    }
+    private static org.springframework.security.authorization.AuthorizationDecision approvedTeacher(
+            java.util.function.Supplier<? extends org.springframework.security.core.Authentication> authentication,
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
+        var auth = authentication.get();
+        return new org.springframework.security.authorization.AuthorizationDecision(auth.isAuthenticated()
+                && auth.getPrincipal() instanceof AccountPrincipal account
+                && account.role() == com.englishlearning.features.user.entity.User.Role.TEACHER && account.teacherApproved());
     }
     @Bean
     JwtDecoder jwtDecoder(@Value("${app.security.jwt.public-key}") Resource publicKey,
@@ -148,20 +156,20 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
                                 "/api/v1/student/enrollments/{enrollmentId}/renew", "/api/v1/student/enrollments/{enrollmentId}/cancel").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/enrollments", "/api/v1/student/enrollments/{enrollmentId}").hasRole("STUDENT")
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/payments", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/attempts").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/confirm-manually", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/reconcile-late").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/enrollments").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}/publish").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/sessions/generate").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/sessions", "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/reschedule", "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/cancel").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/schedule-changes").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/categories", "/api/v1/teacher/calendar/sessions").access(SecurityConfiguration::verifiedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/payments", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/attempts").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/confirm-manually", "/api/v1/teacher/courses/{courseId}/payments/{paymentId}/reconcile-late").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/enrollments").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}/publish").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/sessions/generate").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/sessions", "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/reschedule", "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/cancel").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}/schedule-changes").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/categories", "/api/v1/teacher/calendar/sessions").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/categories").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/categories").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/admin/categories/{categoryId}").access(SecurityConfiguration::verifiedAdmin)
@@ -173,15 +181,15 @@ public class SecurityConfiguration {
                                 "/api/v1/admin/teacher-applications/{applicationId}/reject")
                         .access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/onboarding")
-                        .access(SecurityConfiguration::verifiedTeacher)
+                        .access(SecurityConfiguration::onboardingTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/applications/{applicationId}/resubmit")
-                        .access(SecurityConfiguration::verifiedTeacher)
+                        .access(SecurityConfiguration::onboardingTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me/profile").hasAnyRole("STUDENT", "TEACHER")
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/users/me/profile").hasAnyRole("STUDENT", "TEACHER")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/users/me")
                         .hasAnyRole("STUDENT", "TEACHER", "ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/payment-accounts").access(SecurityConfiguration::verifiedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/payment-accounts", "/api/v1/teacher/payment-accounts/{id}", "/api/v1/teacher/payment-accounts/{id}/qr-image").access(SecurityConfiguration::verifiedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/payment-accounts").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/payment-accounts", "/api/v1/teacher/payment-accounts/{id}", "/api/v1/teacher/payment-accounts/{id}/qr-image").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/payment-accounts/{id}/qr-image").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/payment-accounts/pending", "/api/v1/admin/payment-accounts/{id}").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/payment-accounts/{id}/approve", "/api/v1/admin/payment-accounts/{id}/reject").access(SecurityConfiguration::verifiedAdmin)

@@ -18,7 +18,7 @@ class SessionHttpTests extends AuthenticationHttpTestSupport {
     static final String PATH="/api/v1/teacher/courses/42/sessions";
     void account(Role role) {
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        var a=new AccountSnapshot(1L,role,false,true,false);
+        var a=new AccountSnapshot(1L,role,false,true,false, role == Role.TEACHER);
         when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));
     }
     CourseDto parent(String status) {return new CourseDto(new ApiId(42),"C",status,new CourseDto.Category(new ApiId(1),"K",true),new ApiMoney("0.00","VND"),LocalDate.of(2030,1,1),"UTC",1,1,2,now,now,"Description",null);}

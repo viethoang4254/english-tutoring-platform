@@ -25,7 +25,7 @@ class CourseHttpTests extends AuthenticationHttpTestSupport {
     boolean secure() { return true; }
     void account(Role role, boolean verified, boolean locked) {
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        var a = new AccountSnapshot(1L, role, locked, verified, false);
+        var a = new AccountSnapshot(1L, role, locked, verified, false, role == Role.TEACHER && verified);
         when(accounts.findById(1L)).thenReturn(Optional.of(a));
         when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));
     }

@@ -50,7 +50,7 @@ public class ReconciliationService {
         AccountSnapshot student=null;
         for(long id:new TreeSet<>(List.of(teacher,context.student()))) {
             var account=users.lockAccountById(id).orElseThrow(()->fail(ACCESS_DENIED));
-            if(id==teacher && (account.locked() || !account.emailVerified() || account.role()!=Role.TEACHER))throw fail(ACCESS_DENIED);
+            if(id==teacher && (account.locked() || account.role()!=Role.TEACHER))throw fail(ACCESS_DENIED);
             if(id==context.student())student=account;
         }
         eligible(teacher);var parent=owned(teacher,course,true);

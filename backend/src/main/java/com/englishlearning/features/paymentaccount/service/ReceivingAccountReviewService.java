@@ -54,7 +54,7 @@ public class ReceivingAccountReviewService {
         for(long user : new TreeSet<>(List.of(actor,teacher))) locked.put(user,users.lockAccountById(user).orElse(null));
         admin(locked.get(actor));
         var owner=locked.get(teacher);
-        if(owner==null || owner.role()!=Role.TEACHER || owner.locked() || !owner.emailVerified()) throw new ReceivingFailure(DENIED);
+        if(owner==null || owner.role()!=Role.TEACHER || owner.locked()) throw new ReceivingFailure(DENIED);
         try { teachers.requireEligible(teacher); } catch(TeacherReviewFailure e) { throw new ReceivingFailure(DENIED); }
         var row=rows.lock(id).orElseThrow(() -> new ReceivingFailure(MISSING));
         if(row.teacher()!=teacher || !"PENDING".equals(row.account().reviewStatus())) throw new ReceivingFailure(ALREADY_REVIEWED);

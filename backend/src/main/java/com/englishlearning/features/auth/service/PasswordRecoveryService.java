@@ -35,7 +35,7 @@ public class PasswordRecoveryService {
             if(found==null) return null;
             var user=users.lockById(found.id()).orElse(null);
             var now=clock.instant().truncatedTo(ChronoUnit.MICROS);
-            if(user==null || user.locked() || !user.email().equals(found.email()) || !resets.mayIssue(user.id(),now)) return null;
+            if(user==null || user.locked() || (user.role()==com.englishlearning.features.user.entity.User.Role.TEACHER && !user.emailVerified()) || !user.email().equals(found.email()) || !resets.mayIssue(user.id(),now)) return null;
             String token=tokens.generate();resets.invalidateCredentials(user.id(),now);resets.issue(user.id(),tokens.hash(user.id(),now,token),now);
             return new Delivery(user.email(),token);
         });
@@ -50,7 +50,7 @@ public class PasswordRecoveryService {
             var found=users.findByEmail(email).orElse(null);
             if(found==null) return false;
             var user=users.lockById(found.id()).orElse(null);
-            if(user==null || user.locked() || !user.email().equals(found.email())) return false;
+            if(user==null || user.locked() || (user.role()==com.englishlearning.features.user.entity.User.Role.TEACHER && !user.emailVerified()) || !user.email().equals(found.email())) return false;
             var credential=resets.latest(user.id()).orElse(null);
             var now=clock.instant().truncatedTo(ChronoUnit.MICROS);
             if(credential==null || credential.used() || credential.failures()>=5 || !now.isBefore(credential.expiresAt())) return false;

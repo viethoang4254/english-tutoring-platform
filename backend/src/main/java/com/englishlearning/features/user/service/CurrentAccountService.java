@@ -14,6 +14,7 @@ public class CurrentAccountService {
     @Transactional(readOnly = true)
     public Optional<AccountSnapshot> findById(Long id) {
         return users.findById(id).map(user -> new AccountSnapshot(
-                user.getId(), user.getRole(), user.isLocked(), user.isEmailVerified(), user.isStudentLoginWithoutVerification()));
+                user.getId(), user.getRole(), user.isLocked(), user.isEmailVerified(), user.isStudentLoginWithoutVerification(),
+                user.getRole() == com.englishlearning.features.user.entity.User.Role.TEACHER && users.approvedTeacher(id)));
     }
 }

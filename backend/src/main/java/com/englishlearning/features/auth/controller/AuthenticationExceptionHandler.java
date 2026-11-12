@@ -22,6 +22,7 @@ public class AuthenticationExceptionHandler {
             case INVALID_CREDENTIAL -> {
                 status = 401; code = "AUTHENTICATION_REQUIRED"; message = "Authentication required.";
             }
+            case TEACHER_APPROVAL_REQUIRED -> { status=403; code="TEACHER_APPROVAL_REQUIRED"; message="Teacher approval required."; }
             case EMAIL_VERIFICATION_REQUIRED -> {
                 status = 403; code = "EMAIL_VERIFICATION_REQUIRED"; message = "Email verification required.";
             }

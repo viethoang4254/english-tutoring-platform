@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ReceivingAccountHttpTests extends AuthenticationHttpTestSupport {
     @org.springframework.test.context.bean.override.mockito.MockitoBean ReceivingAccountTransactions receivingTransactions;
     String origin(){return "https://frontend.example";}String api(){return "https://backend.example";}boolean secure(){return true;}
-    void actor(Role role,boolean verified,boolean locked){when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());var a=new AccountSnapshot(1L,role,locked,verified,true);when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));}
+    void actor(Role role,boolean verified,boolean locked){when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());var a=new AccountSnapshot(1L,role,locked,verified,true, role == Role.TEACHER && verified);when(accounts.findById(1L)).thenReturn(Optional.of(a));when(credentials.lockAccountById(1L)).thenReturn(Optional.of(a));}
     ReceivingAccountRepository.Stored row(long owner){return new ReceivingAccountRepository.Stored(owner,new ReceivingAccount(new ApiId(9),"970436","VCB","Bank","Teacher","0012345678","PENDING","INACTIVE",true,now),"12345678-1234-1234-1234-123456789abc.png",QrImage.hash(ReceivingImageTests.png()),"fingerprint");}
     @Test void anonymousStudentUnverifiedAndLockedDenied()throws Exception {
         mvc.perform(get("/api/v1/teacher/payment-accounts")).andExpect(status().isUnauthorized());

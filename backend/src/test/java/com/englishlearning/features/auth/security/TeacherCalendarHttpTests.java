@@ -17,7 +17,7 @@ class TeacherCalendarHttpTests extends AuthenticationHttpTestSupport {
  final String from="2030-01-01T00:00:00Z",to="2030-02-01T00:00:00Z";
  void account(Role role,boolean verified,boolean locked){
   when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-  when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,role,locked,verified,false)));
+  when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,role,locked,verified,false, role == Role.TEACHER && verified)));
  }
  @Test void safeDtoPaginationAndActorBinding() throws Exception {
   account(Role.TEACHER,true,false);

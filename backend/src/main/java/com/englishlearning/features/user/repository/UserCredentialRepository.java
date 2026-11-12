@@ -19,13 +19,13 @@ public class UserCredentialRepository {
     }
     public Optional<com.englishlearning.features.user.service.AccountSnapshot> lockAccountById(Long id) {
         List<?> rows = entityManager.createNativeQuery(
-                "SELECT id,role,locked,email_verified,student_login_without_verification FROM public.users WHERE id=:id FOR UPDATE")
+                "SELECT id,role,locked,email_verified,student_login_without_verification, EXISTS (SELECT 1 FROM public.teacher_applications a WHERE a.teacher_id=users.id AND a.status='APPROVED') FROM public.users WHERE id=:id FOR UPDATE")
                 .setParameter("id", id).getResultList();
         if (rows.isEmpty()) return Optional.empty();
         Object[] row = (Object[]) rows.get(0);
         return Optional.of(new com.englishlearning.features.user.service.AccountSnapshot(
                 ((Number) row[0]).longValue(), com.englishlearning.features.user.entity.User.Role.valueOf((String) row[1]),
-                (Boolean) row[2], (Boolean) row[3], (Boolean) row[4]));
+                (Boolean) row[2], (Boolean) row[3], (Boolean) row[4], (Boolean) row[5]));
     }
     public Optional<Long> createStudent(String email, String hash, String fullName, String username, String phone, java.time.Instant now) {
         try {
@@ -70,12 +70,12 @@ public class UserCredentialRepository {
     private Optional<CredentialSnapshot> query(String predicate, Object value) {
         // Scalar reads avoid returning a stale first-level-cache entity during the locked recheck.
         List<?> rows = entityManager.createNativeQuery(
-                "SELECT id,email,password_hash,locked,email_verified,role,student_login_without_verification FROM public.users WHERE " + predicate)
+                "SELECT id,email,password_hash,locked,email_verified,role,student_login_without_verification, EXISTS (SELECT 1 FROM public.teacher_applications a WHERE a.teacher_id=users.id AND a.status='APPROVED') FROM public.users WHERE " + predicate)
                 .setParameter("value", value).getResultList();
         if (rows.isEmpty()) return Optional.empty();
         Object[] row = (Object[]) rows.get(0);
         return Optional.of(new CredentialSnapshot(((Number) row[0]).longValue(),
                 (String) row[1], (String) row[2], (Boolean) row[3], (Boolean) row[4],
-                com.englishlearning.features.user.entity.User.Role.valueOf((String) row[5]), (Boolean) row[6]));
+                com.englishlearning.features.user.entity.User.Role.valueOf((String) row[5]), (Boolean) row[6], (Boolean) row[7]));
     }
 }
