@@ -13,7 +13,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-function apiUrl(path: string): string {
+export function apiUrl(path: string): string {
   const origin = process.env.NEXT_PUBLIC_API_ORIGIN;
   if (!origin) throw new Error("NEXT_PUBLIC_API_ORIGIN is required.");
 

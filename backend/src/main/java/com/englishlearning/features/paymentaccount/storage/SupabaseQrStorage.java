@@ -11,7 +11,12 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class SupabaseQrStorage implements PrivateQrStorage {
     private final String origin,bucket,key; private final JsonMapper json;
-    private final HttpClient client=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
+    private HttpClient client;
+    private synchronized HttpClient client() {
+        if (client == null) client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
+                .followRedirects(HttpClient.Redirect.NEVER).build();
+        return client;
+    }
     public SupabaseQrStorage(@Value("${app.bank-qr.storage-origin:}") String origin,
         @Value("${app.bank-qr.bucket:}") String bucket,@Value("${app.bank-qr.service-key:}") String key,JsonMapper json) {
         this.origin=origin;this.bucket=bucket;this.key=key;this.json=json;
@@ -55,7 +60,7 @@ public class SupabaseQrStorage implements PrivateQrStorage {
     protected Duration operationTimeout() { return Duration.ofSeconds(15); }
     private long deadline() { return System.nanoTime()+operationTimeout().toNanos(); }
     protected CompletableFuture<HttpResponse<byte[]>> send(HttpRequest request, HttpResponse.BodyHandler<byte[]> handler) {
-        return client.sendAsync(request,handler);
+        return client().sendAsync(request,handler);
     }
 
     // A single deadline covers bucket checks, request-body upload and the complete bounded response.

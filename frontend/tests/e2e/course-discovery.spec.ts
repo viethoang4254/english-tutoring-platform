@@ -15,8 +15,9 @@ test('catalog search, category filters, details and responsive public data are s
  await page.route('**/api/v1/**',route=>{
   const request=route.request();const path=new URL(request.url()).pathname;
   expect(request.method()).toBe('GET');expect(request.headers()['authorization']).toBeUndefined();
-  if(path === '/api/v1/public/courses')return route.fulfill({json:coursePage([first,second])});
-  if(path === `/api/v1/public/courses/${second.id}`)return route.fulfill({json:detail});
+  if(path === '/api/v1/public/courses')return route.fulfill({json:coursePage([first,{...second,hasCover:true}])});
+  if(path === `/api/v1/public/courses/${second.id}/cover`)return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXkAAAAASUVORK5CYII=','base64')});
+  if(path === `/api/v1/public/courses/${second.id}`)return route.fulfill({json:{...detail,course:{...second,hasCover:true}}});
   forbidden.push(path);return route.abort();
  });
  await page.goto('/courses');
@@ -26,6 +27,7 @@ test('catalog search, category filters, details and responsive public data are s
  await expect(page.getByText('Gia sư An',{exact:true})).toBeVisible();
  await expect(page.getByText(`Mã khóa học: ${first.id}`,{exact:true})).toBeVisible();
  await expect(page.getByText('1.800.000 ₫',{exact:true})).toBeVisible();
+ await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(1);
  await page.getByLabel('Tìm khóa học',{exact:true}).fill('hang ngay');
  await expect(page.getByRole('status')).toHaveText('1 khóa học trên trang 1');
  await page.getByRole('combobox',{name:'Danh mục',exact:true}).selectOption('12');
@@ -40,6 +42,7 @@ test('catalog search, category filters, details and responsive public data are s
  await expect(page).toHaveURL(new RegExp(`/courses/${second.id}$`));
  await page.reload();
  await expect(page.getByRole('heading',{name:second.name,exact:true})).toBeVisible();
+ await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(1);
  await expect(page.getByText('2.000.001 ₫',{exact:true})).toBeVisible();
  await expect(page.getByText(`Mã khóa học: ${second.id}`,{exact:true})).toBeVisible();
  await expect(page.getByText('Thứ 3 · 09:00–10:30',{exact:true})).toBeVisible();

@@ -34,6 +34,36 @@ class CourseHttpTests extends AuthenticationHttpTestSupport {
                 new CourseDto.Category(new ApiId(1), "Category", false), new ApiMoney("0.00","VND"),
                 LocalDate.of(2026,1,1), "Asia/Ho_Chi_Minh", 200, 1, 150, now, now, "Description", null);
     }
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.englishlearning.features.course.service.CourseCoverStorage coverStorage;
+
+    @Test void coverRequiresAnOwnedDraftAndPublishedReadsOnly() throws Exception {
+        var image = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(6,4,1),"png",image);
+        var file = new org.springframework.mock.web.MockMultipartFile("image","cover.png","image/png",image.toByteArray());
+        String path="/api/v1/teacher/courses/2/cover";
+        account(Role.STUDENT,true,false);
+        mvc.perform(multipart(org.springframework.http.HttpMethod.PUT,path).file(file).header("Authorization","Bearer access"))
+                .andExpect(status().isForbidden());
+        account(Role.TEACHER,true,false);
+        mvc.perform(multipart(org.springframework.http.HttpMethod.PUT,path).file(file).header("Authorization","Bearer access"))
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(coverStorage);
+        when(courseRepository.find(1,2,false)).thenReturn(Optional.of(row("DRAFT")));
+        when(courseRepository.find(1,2,true)).thenReturn(Optional.of(row("DRAFT")));
+        when(courseRepository.cover(2,false)).thenReturn("previous.png");
+        mvc.perform(multipart(org.springframework.http.HttpMethod.PUT,path).file(file).header("Authorization","Bearer access"))
+                .andExpect(status().isNoContent());
+        var key=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(coverStorage).put(key.capture(),any(byte[].class));
+        verify(courseRepository).setCover(2,key.getValue());
+        verify(coverStorage).delete("previous.png");
+        mvc.perform(get("/api/v1/public/courses/2/cover")).andExpect(status().isNotFound());
+        when(courseRepository.cover(2,true)).thenReturn(key.getValue());
+        when(coverStorage.read(key.getValue())).thenReturn(image.toByteArray());
+        mvc.perform(get("/api/v1/public/courses/2/cover")).andExpect(status().isOk())
+                .andExpect(content().contentType("image/png")).andExpect(content().bytes(image.toByteArray()));
+    }
     @Test void createAndListUseSafeDtosAndPrincipal() throws Exception {
         account(Role.TEACHER,true,false);
         when(categoryRepository.find(1,true)).thenReturn(Optional.of(new CategoryDto(new ApiId(1),"Category",true,now,now)));

@@ -9,7 +9,7 @@ import org.springframework.http.*;
 import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes={CourseController.class,TeacherCalendarController.class,PublicCourseController.class})
+@RestControllerAdvice(assignableTypes={CourseCoverController.class,CourseController.class,TeacherCalendarController.class,PublicCourseController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CourseExceptionHandler {
     @ExceptionHandler(CourseFailure.class)
@@ -36,6 +36,8 @@ public class CourseExceptionHandler {
             case CALENDAR_SYNC_REQUIRED -> error(409, "CALENDAR_SYNC_REQUIRED");
         };
     }
+    @ExceptionHandler(com.englishlearning.features.paymentaccount.service.ReceivingFailure.class)
+    ResponseEntity<ApiError> storageFailure() { return error(503, "COURSE_COVER_UNAVAILABLE"); }
     @ExceptionHandler({DataAccessException.class, TransactionException.class})
     ResponseEntity<ApiError> unavailable(Exception failure) { return error(503, "COURSE_UNAVAILABLE"); }
     private ResponseEntity<ApiError> error(int status, String code) {

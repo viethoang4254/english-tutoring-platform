@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import signal
 import smtplib
 import socket
@@ -273,9 +274,15 @@ def start_backend():
     maven(["-DskipTests", "package"])
     jars = list((REPO / "backend/target").glob("english-learning-backend-*.jar"))
     require(len(jars) == 1, "Expected one executable backend JAR")
+    # Extend only the browser JVM classpath; the production JAR contains no test adapter.
+    adapter = Path("com/englishlearning/features/course/BrowserCourseCoverStorage.class")
+    extra = root() / "browser-test-classes"
+    (extra / adapter.parent).mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(REPO / "backend/target/test-classes" / adapter, extra / adapter)
     spawn("backend", ["java", "-Xms128m", "-Xmx512m", "-XX:MaxMetaspaceSize=256m",
                       "-Djavax.net.ssl.trustStore=" + str(root() / "trust.p12"),
-                      "-Djavax.net.ssl.trustStoreType=PKCS12", "-jar", str(jars[0])])
+                      "-Djavax.net.ssl.trustStoreType=PKCS12", f"-Dloader.path={extra}", "-Dspring.profiles.active=task009-cover",
+                      "-cp", str(jars[0]), "org.springframework.boot.loader.launch.PropertiesLauncher"])
     def ready():
         with urllib.request.urlopen("http://127.0.0.1:8081/api/v1/auth/csrf", timeout=3) as response:
             require(response.status == 200 and bool(json.load(response).get("token")), "Backend not ready")

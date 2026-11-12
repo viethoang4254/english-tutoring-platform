@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/site-shell';
-import { apiRequest } from '../../lib/api';
+import { apiUrl, apiRequest } from '../../lib/api';
 import { type PublicCoursePage, courseDate, searchText, tuitionLabel } from './public-courses';
 import styles from './discovery.module.css';
 
@@ -57,7 +57,7 @@ export function CourseCatalog({basePath="/courses"}:{basePath?:string}) {
     </section>
     <div className={styles.results}><p role="status">{courses.length} khóa học trên trang {data.page + 1}</p>{(query || category) && <button className="ui-button ui-button-secondary" onClick={resetFilters}>Xóa bộ lọc</button>}</div>
     {courses.length ? <div className={styles.grid}>{courses.map(course => <article className={styles.card} key={course.id}>
-      <div className={styles.indigo}><Icon kind="book" /><span>{course.category.name}</span></div>
+      {course.hasCover ? <img className={styles.coverImage} src={apiUrl(`/public/courses/${course.id}/cover`)} alt={`Ảnh bìa: ${course.name}`}/> : <div className={styles.indigo}><Icon kind="book" /><span>{course.category.name}</span></div>}
       <div className={styles.cardBody}><span className={styles.tag}>Mã khóa học: {course.id}</span><h2><Link href={`${basePath}/${course.id}`}>{course.name}</Link></h2><p className={styles.teacher}><Icon kind="person" />{course.teacher.fullName}</p><p>{course.description}</p>
         <div className={styles.schedule}><Icon kind="check" /><div>Dự kiến bắt đầu: {courseDate(course.plannedStartDate)}<small>{course.timezone} · {course.sessionCount} buổi</small></div></div>
         <div className={styles.cardBottom}><div><small>Học phí gốc / cả khóa</small><strong>{tuitionLabel(course.tuition.amount)}</strong></div><Link href={`${basePath}/${course.id}`} aria-label={`Xem chi tiết ${course.name}`}>Chi tiết →</Link></div>

@@ -3,7 +3,7 @@ import { outlineFields,type OutlineField } from "./course-outline";
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/site-shell';
-import { apiRequest, ApiRequestError } from '../../lib/api';
+import { apiUrl, apiRequest, ApiRequestError } from '../../lib/api';
 import { type PublicCourseDetail, courseDate, tuitionLabel } from './public-courses';
 import styles from './discovery.module.css';
 import { CourseRegistration } from './course-registration';
@@ -44,7 +44,7 @@ export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;b
       <section id="chi-tiet" className={styles.panel}><h2>Chi tiết lớp học</h2><p>{course.sessionCount} buổi học · Múi giờ: {course.timezone}</p><p>Mã khóa học: {course.id}</p><Link href={basePath}>← Khám phá khóa học khác</Link></section>
     </div>
     <aside id="dang-ky" className={styles.registrationCard}>
-      <div className={styles.courseCover} aria-hidden="true"><Icon kind="book"/><span>{course.category.name}</span><strong>{course.name}</strong></div>
+      {course.hasCover ? <img className={styles.coverImage} src={apiUrl(`/public/courses/${course.id}/cover`)} alt={`Ảnh bìa: ${course.name}`}/> : <div className={styles.courseCover} aria-hidden="true"><Icon kind="book"/><span>{course.category.name}</span><strong>{course.name}</strong></div>}
       <small>Học phí cả khóa</small><strong className={styles.price}>{tuitionLabel(course.tuition.amount)}</strong>
       <CourseRegistration courseId={course.id}/>
       <div className={styles.facts}><p>Dự kiến bắt đầu: {courseDate(course.plannedStartDate)}</p>

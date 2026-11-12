@@ -54,6 +54,47 @@ test('owner publishes a draft visible across public and Student catalogs', async
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await expect(page).toHaveURL(/\/teacher$/);
   await page.evaluate(path=>(window as unknown as {next:{router:{push:(p:string)=>void}}}).next.router.push(path),'/teacher/courses/'+id);
+  const student = await register(request,false);
+  async function syntheticPng(width:number) {
+    const data = await page.evaluate(w => {
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=8;
+      const context=canvas.getContext('2d')!;
+      context.fillStyle=w===16?'#c02030':'#2040c0';
+      context.fillRect(0,0,w,8);
+      return canvas.toDataURL('image/png').split(',')[1];
+    },width);
+    return {name:'cover.png',mimeType:'image/png',buffer:Buffer.from(data,'base64')};
+  }
+  const first = await syntheticPng(16);
+  const replacement = await syntheticPng(24);
+  const preview = page.getByRole('img',{name:'Ảnh bìa hiện tại'});
+  const publicCover = page.getByRole('img',{name:`Ảnh bìa: ${title}`,exact:true});
+  async function expectPublishedCover() {
+    await expect(publicCover).toBeVisible();
+    await expect(publicCover).toHaveAttribute('src',api+'/public/courses/'+id+'/cover');
+    await expect.poll(()=>publicCover.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBe(24);
+  }
+  async function upload(file:typeof first,width:number) {
+    await page.getByLabel(/Chọn ảnh PNG hoặc JPEG/).setInputFiles(file);
+    const result=page.waitForResponse(r=>r.url()===course+'/cover' && r.request().method()==='PUT');
+    await page.getByRole('button',{name:'Lưu ảnh bìa'}).click();
+    expect((await result).status()).toBe(204);
+    await expect.poll(()=>preview.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBe(width);
+    const saved = await request.get(course+'/cover',{headers:owner.headers});
+    expect(saved.status()).toBe(200);
+    return saved.body();
+  }
+  const originalBytes = await upload(first,16);
+  const savedBytes = await upload(replacement,24);
+  expect(savedBytes.equals(originalBytes)).toBe(false);
+  for (const [headers,expected] of [[other.headers,404],[student.headers,403]] as const) {
+    expect((await request.put(course+'/cover',{headers,multipart:{image:first}})).status()).toBe(expected);
+  }
+  expect((await request.get(api+'/public/courses/'+id+'/cover')).status()).toBe(404);
+  await page.reload();
+  await expect.poll(()=>preview.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBe(24);
+  expect(await (await request.get(course+'/cover',{headers:owner.headers})).body()).toEqual(savedBytes);
   await page.getByText('Giới thiệu và lộ trình học',{exact:true}).click();
   await page.getByLabel('Mục tiêu học tập',{exact:true}).fill('Discuss travel plans');
   await page.getByRole('button',{name:'Thêm giai đoạn'}).click();
@@ -77,17 +118,21 @@ test('owner publishes a draft visible across public and Student catalogs', async
   expect(publicDetail.course).toMatchObject({id,name:title,teacher:{id:owner.id},sessionCount:2,tuition:{amount:'1500000.00',currency:'VND'}});
   expect(publicDetail.rules).toHaveLength(1);
   expect(JSON.stringify(publicDetail)).not.toContain('meet.google.com');
+  const publishedImage = await request.get(api+'/public/courses/'+id+'/cover');
+  expect(publishedImage.status()).toBe(200);
+  expect(await publishedImage.body()).toEqual(savedBytes);
   for(const path of ['/','/courses']){
     await page.goto(path);
+    await expectPublishedCover();
     await expect(page.getByRole('link',{name:title,exact:true})).toHaveAttribute('href','/courses/'+id);
   }
   await page.getByRole('link',{name:title,exact:true}).click();
   await expect(page).toHaveURL(new RegExp('/courses/'+id+'$'));
   await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
+  await expectPublishedCover();
   await expect(page.getByText('Discuss travel plans',{exact:true})).toBeVisible();
   await page.getByText('1. Travel conversations',{exact:true}).click();
   await expect(page.getByText('Ask for departure times',{exact:true})).toBeVisible();
-  const student=await register(request,false);
   await page.goto('/login');
   await page.getByLabel('Email',{exact:true}).fill(student.email);
   await page.getByLabel('Mật khẩu',{exact:true}).fill(student.password);
@@ -96,9 +141,11 @@ test('owner publishes a draft visible across public and Student catalogs', async
   const toggle=page.locator('button[aria-controls="student-navigation"]');
   if(await toggle.isVisible())await toggle.click();
   await page.locator('#student-navigation').getByRole('link',{name:'Khám phá khóa học'}).click();
+  await expectPublishedCover();
   await page.getByRole('link',{name:title,exact:true}).click();
   await expect(page).toHaveURL(new RegExp('/student/dashboard/courses/'+id+'$'));
   await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
+  await expectPublishedCover();
   await expect(page.getByText('Discuss travel plans',{exact:true})).toBeVisible();
   await page.getByText('1. Travel conversations',{exact:true}).click();
   await expect(page.getByText('Ask for departure times',{exact:true})).toBeVisible();

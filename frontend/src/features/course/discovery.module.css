@@ -92,6 +92,7 @@
 .stage li {padding:.75rem;border-bottom:1px solid #e0e9ef;}
 .stage p {margin:.3rem 0;}
 .registrationCard {border:1px solid #aecbc8;border-top:4px solid #088477;border-radius:1rem;padding:1.15rem;background:white;box-shadow:0 10px 32px #14394712;min-width:0;}
+.coverImage {display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:.65rem;}
 .courseCover {position:relative;isolation:isolate;overflow:hidden;min-height:155px;aspect-ratio:1.9;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:.3rem;padding:1.3rem;border-radius:.65rem;margin-bottom:1rem;background:linear-gradient(135deg,#123248,#126b69);color:white;}
 .courseCover::after {content:"";position:absolute;z-index:-1;right:-15%;top:-65%;width:85%;aspect-ratio:1;border-radius:50%;border:1.8rem solid #74d7bb33;box-shadow:0 0 0 2.5rem #89d3c119;}
 .courseCover svg {width:28px;height:28px;}

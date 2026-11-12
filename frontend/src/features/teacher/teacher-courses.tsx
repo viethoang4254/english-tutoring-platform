@@ -1,4 +1,5 @@
 "use client";
+import { CourseCoverUpload } from "./course-cover-upload";
 import { OutlineEditor } from "./outline-editor";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -129,6 +130,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
     {courseId && <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void run(async()=>{await detail(courseId);setBlocked(false);})}>Tải lại khóa học</button>}
     {courseId && selected?.id !== courseId && <p role="status">Chưa tải được chi tiết khóa học.</p>}
     {selected&&selected.id===courseId&&!editing&&<article><h3>{selected.name}</h3><dl>{Object.entries({"Trạng thái":states[selected.status],"Danh mục":selected.category.name+(selected.category.active?"":" (ngừng hoạt động)"),"Mô tả":selected.description,"Học phí":`${selected.tuition.amount} VND`,"Số học viên":`${selected.minStudents}–${selected.maxStudents}`,"Ngày bắt đầu dự kiến":selected.plannedStartDate,"Múi giờ":selected.timezone,"Số buổi dự kiến":selected.sessionCount,"Giảm giá":selected.discount?`${selected.discount.percent}% · ${selected.discount.startAt} → ${selected.discount.endAt}`:"Không"}).map(([label,text])=><div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
+      {selected.status==="DRAFT" && <CourseCoverUpload key={selected.id} id={selected.id} session={session}/>}
       {selected.status==="DRAFT" && <details key={selected.id}><summary>Giới thiệu và lộ trình học</summary><OutlineEditor id={selected.id} session={session}/></details>}
       {selected.status==="DRAFT" && <form onSubmit={event=>{
         event.preventDefault();

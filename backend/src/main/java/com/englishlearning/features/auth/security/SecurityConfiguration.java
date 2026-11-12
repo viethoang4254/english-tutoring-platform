@@ -150,7 +150,7 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable()).httpBasic(basic -> basic.disable()).logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/public/courses", "/api/v1/public/courses/{courseId}").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/public/courses", "/api/v1/public/courses/{courseId}", "/api/v1/public/courses/{courseId}/cover").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/enrollments/{enrollmentId}/payments").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/student/payments/{paymentId}", "/api/v1/student/payments/{paymentId}/qr-image", "/api/v1/student/enrollments/{enrollmentId}/payments/latest", "/api/v1/student/enrollments/{enrollmentId}/course-access").hasRole("STUDENT")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/student/courses/{courseId}/enrollment",
@@ -162,8 +162,8 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses", "/api/v1/teacher/courses/{courseId}/publish").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}").access(SecurityConfiguration::approvedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/cover", "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/teacher/courses/{courseId}/cover", "/api/v1/teacher/courses/{courseId}/schedule", "/api/v1/teacher/courses/{courseId}/outline").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/teacher/courses/{courseId}/sessions/generate").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/courses/{courseId}/sessions", "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/teacher/courses/{courseId}/sessions/{sessionId}").access(SecurityConfiguration::approvedTeacher)

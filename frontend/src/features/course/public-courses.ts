@@ -1,5 +1,5 @@
 export type PublicCourse = {
-  id: string; name: string; description: string;
+  id: string; name: string; description: string; hasCover?: boolean;
   tuition: {amount: string; currency: string};
   category: {id: string; name: string}; teacher: {id: string; fullName: string};
   plannedStartDate: string; timezone: string; sessionCount: number;

@@ -21,7 +21,7 @@ class PublicCourseHttpTests extends AuthenticationHttpTestSupport {
     boolean secure(){return true;}
     PublicCourseDto row(){return new PublicCourseDto(new ApiId(9007199254740993L),"English","Public description",
         new ApiMoney("250000.00","VND"),new PublicCourseDto.Category(new ApiId(2),"Speaking"),
-        new PublicCourseDto.Teacher(new ApiId(3),"Teacher"),LocalDate.of(2030,1,1),"Asia/Ho_Chi_Minh",10);}
+        new PublicCourseDto.Teacher(new ApiId(3),"Teacher"),LocalDate.of(2030,1,1),"Asia/Ho_Chi_Minh",10,true);}
     @Test void anonymousListUsesDefaultsAndSafeMoneyAndIds() throws Exception {
         when(courseRepository.publicList(0,20)).thenReturn(List.of(row()));
         mvc.perform(get("/api/v1/public/courses")).andExpect(status().isOk())
@@ -44,7 +44,7 @@ class PublicCourseHttpTests extends AuthenticationHttpTestSupport {
             .andReturn().getResponse().getContentAsString();
         var json=mapper.readTree(response);
         var course=json.get("course");
-        assertEquals(9,course.size());assertEquals(2,course.get("teacher").size());
+        assertTrue(course.get("hasCover").asBoolean());assertEquals(10,course.size());assertEquals(2,course.get("teacher").size());
         assertEquals(2,course.get("category").size());assertEquals(3,json.size());assertEquals("Goals",json.get("outline").get("objectives").asText());
         for(String field:List.of("meetUrl","password","passwordHash","email","bankAccount","content","enrollments","thumbnailPath")) {
             assertFalse(course.has(field));assertFalse(course.get("teacher").has(field));

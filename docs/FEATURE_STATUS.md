@@ -1361,4 +1361,4 @@ The owner can publish a prepared draft through the Teacher course detail form. T
 
 ## Detailed public course outline — IN_PROGRESS
 
-V11 prepared only. Owner draft GET/PUT outline, ordered stages and topics, and published detail presentation prepared. Course cover upload awaits a dedicated bucket. Isolated persistence and end-to-end acceptance pending; do not deploy the V11-dependent backend against V10.
+V11 prepared only. Owner draft GET/PUT outline, ordered stages and topics, and published detail presentation prepared. Course cover upload is IN_PROGRESS. The owning Teacher can upload or replace an image on a saved draft. Published courses serve the cover through Spring Boot. Configure a private course-covers bucket (5 MiB, image/png, no client policies) before deployment; live Storage acceptance remains pending. Isolated persistence and end-to-end acceptance pending; do not deploy the V11-dependent backend against V10.

@@ -34,7 +34,7 @@ public class CourseRepository {
     }
     private static final String PUBLIC_SELECT = """
         SELECT c.id,c.name,c.description,c.tuition,c.currency,k.id,k.name,u.id,u.full_name,
-               c.planned_start_date,c.timezone,c.session_count
+               c.planned_start_date,c.timezone,c.session_count,c.thumbnail_path IS NOT NULL
         FROM public.courses c JOIN public.course_categories k ON k.id=c.category_id
         JOIN public.users u ON u.id=c.teacher_id
         WHERE c.status='PUBLISHED'
@@ -54,8 +54,20 @@ public class CourseRepository {
                 (String)r[1],(String)r[2],ApiMoney.from(((BigDecimal)r[3]).setScale(2),(String)r[4]),
                 new PublicCourseDto.Category(new ApiId(((Number)r[5]).longValue()),(String)r[6]),
                 new PublicCourseDto.Teacher(new ApiId(((Number)r[7]).longValue()),(String)r[8]),
-                r[9] instanceof LocalDate d?d:((java.sql.Date)r[9]).toLocalDate(),(String)r[10],((Number)r[11]).intValue());
+                r[9] instanceof LocalDate d?d:((java.sql.Date)r[9]).toLocalDate(),(String)r[10],((Number)r[11]).intValue(),(Boolean)r[12]);
     }
+    public String cover(long id, boolean publishedOnly) {
+        var rows = em.createNativeQuery("SELECT thumbnail_path FROM public.courses WHERE id=:id AND thumbnail_path IS NOT NULL"
+                + (publishedOnly ? " AND status='PUBLISHED'" : ""))
+                .setParameter("id",id).getResultList();
+        return rows.isEmpty() ? null : (String) rows.get(0);
+    }
+
+    public void setCover(long id, String object) {
+        em.createNativeQuery("UPDATE public.courses SET thumbnail_path=:object, updated_at=CURRENT_TIMESTAMP WHERE id=:id")
+                .setParameter("object",object).setParameter("id",id).executeUpdate();
+    }
+
     public boolean hasCalendarEvents(long session) {
         return (Boolean)em.createNativeQuery("SELECT EXISTS(SELECT 1 FROM public.session_calendar_events WHERE session_id=:id)").setParameter("id",session).getSingleResult();
     }

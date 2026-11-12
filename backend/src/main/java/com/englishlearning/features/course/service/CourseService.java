@@ -197,6 +197,15 @@ public class CourseService {
         courses.replaceOutline(id,outline,clock.instant());
         return outline;
     }
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public String replaceCover(long actor, long id, String object) {
+        lockActor(actor);
+        if (!"DRAFT".equals(owned(actor,id,true).status())) throw new CourseFailure(Reason.NOT_DRAFT);
+        String previous = courses.cover(id,false);
+        courses.setCover(id,object);
+        return previous;
+    }
+
     private List<SchedulePlan.Rule> planRules(List<ScheduleDto.Rule> rules) {
         return rules.stream().map(r -> new SchedulePlan.Rule(r.dayOfWeek(),java.time.LocalTime.parse(r.startTime()),java.time.LocalTime.parse(r.endTime()))).toList();
     }
