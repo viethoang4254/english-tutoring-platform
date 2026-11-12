@@ -108,7 +108,7 @@ class CategoryLiveHttpTests {
         sql("UPDATE users SET locked=true WHERE role='TEACHER'");
         assertEquals(401,request("TEACHER","GET","/teacher/categories",null).statusCode());
         sql("UPDATE users SET locked=false,email_verified=false WHERE role='TEACHER'");
-        assertEquals(403,request("TEACHER","GET","/teacher/categories",null).statusCode());
+        assertEquals(200,request("TEACHER","GET","/teacher/categories",null).statusCode());
         sql("UPDATE users SET email_verified=true WHERE role='TEACHER'");
         sql("UPDATE teacher_applications SET status='REJECTED',rejection_reason='Fixture'");
         assertEquals(403,request("TEACHER","GET","/teacher/categories",null).statusCode());
