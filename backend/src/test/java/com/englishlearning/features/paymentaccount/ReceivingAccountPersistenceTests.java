@@ -160,13 +160,24 @@ class ReceivingAccountPersistenceTests {
         for(String change:List.of("locked=true","email_verified=false")) {
             sql("UPDATE users SET "+change+" WHERE id=2");assertThrows(ReceivingFailure.class,()->reviews.review(2,id,true,null));
             sql("UPDATE users SET locked=false,email_verified=true WHERE id=2");
-            sql("UPDATE users SET "+change+" WHERE id=1");assertThrows(ReceivingFailure.class,()->reviews.review(2,id,false,"Mismatch"));
-            sql("UPDATE users SET locked=false,email_verified=true WHERE id=1");
         }
+        sql("UPDATE users SET locked=true WHERE id=1");
+        try {assertEquals(ReceivingFailure.Reason.DENIED,assertThrows(ReceivingFailure.class,()->reviews.review(2,id,false,"Mismatch")).reason());}
+        finally {sql("UPDATE users SET locked=false WHERE id=1");}
         sql("UPDATE teacher_applications SET status='REJECTED',rejection_reason='test eligibility loss' WHERE teacher_id=1");
         try {assertEquals(ReceivingFailure.Reason.DENIED,assertThrows(ReceivingFailure.class,()->reviews.review(2,id,true,null)).reason());}
         finally {sql("UPDATE teacher_applications SET status='APPROVED',rejection_reason=NULL WHERE teacher_id=1");}
         assertNull(reviews.detail(2,id).reviewedAt());assertEquals(0,activeCount());
+        sql("UPDATE users SET email_verified=false WHERE id=1");
+        try {
+            reviews.review(2,id,false,"Mismatch");
+            var decision=reviews.detail(2,id);
+            assertEquals("REJECTED",decision.account().reviewStatus());
+            assertEquals("INACTIVE",decision.account().selectionStatus());
+            assertEquals(2L,decision.reviewedBy().value());
+            assertNotNull(decision.reviewedAt());
+            assertEquals("Mismatch",decision.rejectionReason());
+        } finally {sql("UPDATE users SET email_verified=true WHERE id=1");}
     }
     @Test void concurrentAdminApprovalAndRejectionProduceExactlyOneDecision()throws Exception {
         long id=pendingAccount();sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (7,'reviewer@example.invalid','unused','Reviewer','ADMIN',true,false,now(),now()) ON CONFLICT(id) DO NOTHING");
