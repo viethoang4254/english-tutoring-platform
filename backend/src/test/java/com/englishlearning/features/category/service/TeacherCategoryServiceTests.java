@@ -29,12 +29,14 @@ class TeacherCategoryServiceTests {
     @Test void repositoryFiltersBeforePagination() {
         var em = mock(jakarta.persistence.EntityManager.class);
         var query = mock(jakarta.persistence.Query.class);
-        when(em.createNativeQuery("SELECT id,name,active,created_at,updated_at FROM public.course_categories WHERE active=:active ORDER BY id ASC")).thenReturn(query);
+        when(em.createNativeQuery("SELECT id,name,active,created_at,updated_at FROM public.course_categories WHERE strpos(lower(name),lower(:search))>0 AND active=:active ORDER BY id ASC")).thenReturn(query);
+        when(query.setParameter("search","")).thenReturn(query);
         when(query.setParameter("active",true)).thenReturn(query);
         when(query.setFirstResult(20)).thenReturn(query);
         when(query.setMaxResults(21)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
         assertTrue(new CategoryRepository(em).list(1,20,true).isEmpty());
+        verify(query).setParameter("search","");
         verify(query).setParameter("active",true);
         verify(query).setFirstResult(20);
         verify(query).setMaxResults(21);
