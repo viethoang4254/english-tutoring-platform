@@ -166,7 +166,7 @@ class CoursePersistenceTests {
         } finally {release.countDown();pool.shutdownNow();}
     }
     @Test void currentAccountAndOnboardingEligibilityIsEnforced() throws Exception {
-        for(String change:List.of("locked=true", "email_verified=false", "role='STUDENT'")) {
+        for(String change:List.of("locked=true", "role='STUDENT'")) {
             sql("UPDATE users SET "+change+" WHERE id="+teacher);
             try { assertThrows(CourseFailure.class,()->courses.create(teacher,fields())); }
             finally { sql("UPDATE users SET locked=false,email_verified=true,role='TEACHER' WHERE id="+teacher); }
@@ -178,6 +178,11 @@ class CoursePersistenceTests {
             finally { sql("UPDATE teacher_applications SET status='APPROVED',reviewed_at=now(),reviewed_by="+admin+",rejection_reason=null WHERE teacher_id="+teacher); }
         }
         assertEquals(0,count("SELECT count(*) FROM courses"));
+        sql("UPDATE users SET email_verified=false WHERE id="+teacher);
+        try {
+            var draft=courses.create(teacher,fields());
+            assertEquals("DRAFT",courses.get(teacher,draft.id().value()).status());
+        } finally { sql("UPDATE users SET email_verified=true WHERE id="+teacher); }
     }
     long scheduledCourse(int count) {
         var f=fields();f.put("plannedStartDate","2030-01-01");f.put("sessionCount",count);
