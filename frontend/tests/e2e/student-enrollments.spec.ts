@@ -11,6 +11,10 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "fixture" } });
     if (path.endsWith("/login")) return route.fulfill({ json: { accessToken: "fixture", tokenType: "Bearer" } });
     if (path.endsWith("/users/me")) return route.fulfill({ json: { id: "1", role: options.role ?? "STUDENT", emailVerified: false } });
+    if (options.role === "TEACHER" && path === "/api/v1/teacher/onboarding" && request.method() === "GET") {
+      expect(request.headers().authorization).toBe("Bearer fixture");
+      return route.fulfill({ json: { applicationId: "1", status: "APPROVED", submittedAt: "2026-10-01T00:00:00Z", reviewedAt: "2026-10-02T00:00:00Z", rejectionReason: null } });
+    }
     if (path.endsWith("/profile")) return route.fulfill({ json: { fullName: "Học viên", email: "fixture@example.invalid" } });
     if (path.includes("/student/enrollments")) {
       expect(request.headers().authorization).toBe("Bearer fixture");
@@ -147,6 +151,7 @@ test("Teacher cannot open Student enrollment management", async ({ page }) => {
   await navigate(page, "/student/enrollments");
   await expect(page).toHaveURL(/\/student\/enrollments$/);
   await expect(page.getByRole("main").getByRole("alert")).toHaveText("Trang đăng ký chỉ dành cho học viên.");
+  expect(calls).toContain("GET /api/v1/teacher/onboarding");
   expect(calls.some(call => call.includes("/student/enrollments"))).toBe(false);
   await expect(page.getByRole("region", { name: "Quản lý đăng ký" })).toHaveCount(0);
 });
