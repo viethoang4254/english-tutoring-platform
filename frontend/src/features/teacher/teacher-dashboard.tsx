@@ -38,7 +38,7 @@ export function TeacherDashboard({ children }: { children: ReactNode }) {
         const account = await authorized<Account>(session!.accessToken, "/users/me");
         if (account?.id !== session!.account.id || account.role !== session!.account.role) throw new ApiRequestError(403,"ACCESS_DENIED","Denied");
         let allowed = false;
-        if(account.role === "TEACHER" && account.emailVerified) {
+        if(account.role === "TEACHER") {
           const onboarding = await authorized<Onboarding>(session!.accessToken,"/teacher/onboarding");
           allowed = onboarding?.status === "APPROVED";
         }

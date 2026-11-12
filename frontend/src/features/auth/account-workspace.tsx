@@ -70,7 +70,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     else if (current.account.role === "ADMIN") router.replace("/admin/dashboard");
   }
   useEffect(() => {
-    if (modal || !session || session.account.role !== "TEACHER" || !session.account.emailVerified) return;
+    if (modal || !session || session.account.role !== "TEACHER") return;
     let active = true;
     authorized<Onboarding>(session.accessToken, "/teacher/onboarding").then(latest => {
       if (!latest || !/^[1-9][0-9]*$/.test(latest.applicationId) || !["PENDING", "APPROVED", "REJECTED"].includes(latest.status)) throw new Error("Invalid status response");
@@ -92,7 +92,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     if (data.password !== undefined && !validPassword(data.password)) throw new ApiRequestError(400, "INVALID_REQUEST", "Invalid input");
   }
 
-  const teaching = session?.account.role === "TEACHER" && session.account.emailVerified && ready && status?.status === "APPROVED";
+  const teaching = session?.account.role === "TEACHER" && ready && status?.status === "APPROVED";
   const navigation: [Panel, string][] = [["overview", "Tổng quan"]];
   if (session?.account.role === "STUDENT" || session?.account.role === "TEACHER") navigation.push(["profile", "Hồ sơ cá nhân"]);
   if (session?.account.role === "TEACHER") navigation.push(["teacher", "Hồ sơ gia sư"]);
@@ -187,7 +187,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
 
       {session.account.role === "ADMIN" && session.account.emailVerified &&
         <div hidden={activePanel !== "reviews"}><AdminApplications session={session} busy={busy} run={run} /></div>}
-      {session.account.role === "TEACHER" && session.account.emailVerified ? <section hidden={activePanel !== "teacher"} className={dashboard.card}>
+      {session.account.role === "TEACHER" && <section hidden={activePanel !== "teacher"} className={dashboard.card}>
         <h2>Hồ sơ đăng ký gia sư</h2>
         <button disabled={busy} onClick={() => void run(() => loadStatus(session))}>Cập nhật trạng thái hồ sơ</button>
         {!ready && <p>Vui lòng kiểm tra trạng thái mới nhất trước khi gửi. Chỉ có thể gửi lại sau khi kiểm tra thành công.</p>}
@@ -219,7 +219,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
             }}><fieldset disabled={busy || !ready}><legend>Gửi lại hồ sơ</legend><ApplicationFields /><button type="submit">Gửi lại hồ sơ</button></fieldset></form>
           </>}
         </>}
-      </section> : session.account.role === "TEACHER" && <p hidden={activePanel !== "teacher"}>Chỉ tài khoản gia sư đã xác minh email mới có thể truy cập hồ sơ đăng ký gia sư.</p>}
+      </section>}
       </div>
     </div>}
   </div>;

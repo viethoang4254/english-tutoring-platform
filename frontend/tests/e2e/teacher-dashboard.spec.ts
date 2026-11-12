@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openTeacher, teacherPanel } from "../support/teacher-navigation";
 
-async function login(page: Page, role = "TEACHER", status = "APPROVED", accountStatus?: 401 | 403) {
+async function login(page: Page, role = "TEACHER", status = "APPROVED", accountStatus?: 401 | 403, emailVerified = true) {
   const calls: string[] = [];
   let accountRequests = 0;
   await page.route("**/api/v1/**", route => {
@@ -13,10 +13,10 @@ async function login(page: Page, role = "TEACHER", status = "APPROVED", accountS
       accountRequests++;
       // Login resolves identity first; the persistent Dashboard then rechecks eligibility.
       if (accountStatus && accountRequests > 1) return route.fulfill({ status: accountStatus, json: { code: "ACCESS_DENIED" } });
-      return route.fulfill({ json: { id: "1", role, emailVerified: true } });
+      return route.fulfill({ json: { id: "1", role, emailVerified } });
     }
     if (path.endsWith("/onboarding")) return route.fulfill({ json: { applicationId: "1", status, submittedAt: "2026-01-01T00:00:00Z" } });
-    if (path.endsWith("/profile")) return route.fulfill({ json: { id: "1", fullName: "Gia sư thử nghiệm", username: null, phone: null, email: "teacher@example.invalid", emailVerified: true } });
+    if (path.endsWith("/profile")) return route.fulfill({ json: { id: "1", fullName: "Gia sư thử nghiệm", username: null, phone: null, email: "teacher@example.invalid", emailVerified } });
     return route.fulfill({ status: 404, json: { code: "COURSE_NOT_FOUND" } });
   });
   await page.goto("/account");
@@ -29,8 +29,8 @@ async function login(page: Page, role = "TEACHER", status = "APPROVED", accountS
   return calls;
 }
 
-test("Teacher routes reuse profile settings and accessible navigation", async ({ page }, info) => {
-  await login(page); await openTeacher(page);
+test("approved Teacher without verified email can open profile, settings and course navigation", async ({ page }, info) => {
+  await login(page, "TEACHER", "APPROVED", undefined, false); await openTeacher(page);
   await expect(page).toHaveURL(/\/teacher$/);
   await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
   await teacherPanel(page, "Hồ sơ gia sư");
