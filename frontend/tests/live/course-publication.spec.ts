@@ -48,12 +48,17 @@ test('owner publishes a draft visible across public and Student catalogs', async
     })).status()).toBe(204);
     if(decision==='reject') await expectBankConflict();
   }
+  const editorPath='/teacher/courses/'+id;
+  async function signInAndOpenOwnerDraft() {
+    await page.getByLabel('Email',{exact:true}).fill(owner.email);
+    await page.getByLabel('Mật khẩu',{exact:true}).fill(owner.password);
+    await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+    await expect(page).toHaveURL(/\/teacher$/);
+    await page.evaluate(path=>(window as unknown as {next:{router:{push:(p:string)=>void}}}).next.router.push(path),editorPath);
+    await expect(page).toHaveURL(url=>url.pathname===editorPath);
+  }
   await page.goto('/login');
-  await page.getByLabel('Email',{exact:true}).fill(owner.email);
-  await page.getByLabel('Mật khẩu',{exact:true}).fill(owner.password);
-  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await expect(page).toHaveURL(/\/teacher$/);
-  await page.evaluate(path=>(window as unknown as {next:{router:{push:(p:string)=>void}}}).next.router.push(path),'/teacher/courses/'+id);
+  await signInAndOpenOwnerDraft();
   const student = await register(request,false);
   async function syntheticPng(width:number) {
     const data = await page.evaluate(w => {
@@ -93,6 +98,9 @@ test('owner publishes a draft visible across public and Student catalogs', async
   }
   expect((await request.get(api+'/public/courses/'+id+'/cover')).status()).toBe(404);
   await page.reload();
+  // A document reload clears the in-memory session. Reopen the same draft as its owner.
+  await expect(page).toHaveURL(url=>url.pathname==='/login' && url.searchParams.get('next')===editorPath);
+  await signInAndOpenOwnerDraft();
   await expect.poll(()=>preview.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBe(24);
   expect(await (await request.get(course+'/cover',{headers:owner.headers})).body()).toEqual(savedBytes);
   await page.getByText('Giới thiệu và lộ trình học',{exact:true}).click();
