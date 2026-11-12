@@ -65,7 +65,8 @@ public class SupabaseQrStorage implements PrivateQrStorage {
             long remaining = deadline-System.nanoTime();
             if (remaining<=0) throw unavailable();
             var builder=HttpRequest.newBuilder(URI.create(origin+"/storage/v1"+path))
-                .timeout(Duration.ofNanos(remaining)).header("apikey",key).header("Authorization","Bearer "+key);
+                .timeout(Duration.ofNanos(remaining)).header("apikey",key);
+            if (!key.startsWith("sb_secret_")) builder.header("Authorization","Bearer "+key);
             if(body!=null) builder.header("Content-Type","image/png").header("x-upsert","false");
             var request=builder.method(method,body==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofByteArray(body)).build();
             pending=send(request,info -> bounded(limit));

@@ -21,7 +21,8 @@ class ReceivingStorageTests {
         List<HttpRequest> requests=new ArrayList<>();
         CompletableFuture<HttpResponse<byte[]>> stalled;
         Flow.Subscription lastSubscription;
-        Fake(String origin){super(origin,"bank-qr-private","test-only",tools.jackson.databind.json.JsonMapper.builder().build());}
+        Fake(String origin){this(origin,"test-only");}
+        Fake(String origin,String key){super(origin,"bank-qr-private",key,tools.jackson.databind.json.JsonMapper.builder().build());}
         @Override protected Duration operationTimeout(){return Duration.ofSeconds(15);}
         @Override protected CompletableFuture<HttpResponse<byte[]>> send(HttpRequest request,HttpResponse.BodyHandler<byte[]> handler){
             requests.add(request);
@@ -30,12 +31,26 @@ class ReceivingStorageTests {
             var subscriber=handler.apply(mock(HttpResponse.ResponseInfo.class));
             lastSubscription=mock(Flow.Subscription.class);
             subscriber.onSubscribe(lastSubscription);
-            subscriber.onNext(List.of(ByteBuffer.wrap(reply.body())));
+            if (reply.body().length > 0) subscriber.onNext(List.of(ByteBuffer.wrap(reply.body())));
             subscriber.onComplete();
             return subscriber.getBody().toCompletableFuture().thenApply(bytes->{
                 @SuppressWarnings("unchecked") HttpResponse<byte[]> response=mock(HttpResponse.class);
                 when(response.statusCode()).thenReturn(reply.status());when(response.body()).thenReturn(bytes);return response;
             });
+        }
+    }
+    @Test void modernAndLegacyHeadersApplyToBucketAndObjectRequests() {
+        for (String key : List.of("sb_secret_fixture", "legacy.fixture.jwt")) {
+            var storage = new Fake("https://fixture.supabase.co", key);
+            storage.replies.add(new Reply(200, PRIVATE));
+            storage.replies.add(new Reply(200, ReceivingImageTests.png()));
+            storage.read(OBJECT);
+            assertEquals(2, storage.requests.size());
+            for (var request : storage.requests) {
+                assertEquals(List.of(key), request.headers().allValues("apikey"));
+                assertEquals(key.equals("sb_secret_fixture") ? List.of() : List.of("Bearer " + key),
+                        request.headers().allValues("Authorization"));
+            }
         }
     }
     @Test void publicBucketAndRedirectFailClosed() {
