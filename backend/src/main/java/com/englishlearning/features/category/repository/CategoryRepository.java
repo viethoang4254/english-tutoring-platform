@@ -12,9 +12,16 @@ public class CategoryRepository {
  private CategoryDto dto(Object value){Object[] r=(Object[])value;return new CategoryDto(new ApiId(((Number)r[0]).longValue()),(String)r[1],(Boolean)r[2],instant(r[3]),instant(r[4]));}
  private Instant instant(Object v){return v instanceof Instant i?i:v instanceof java.time.OffsetDateTime o?o.toInstant():((java.sql.Timestamp)v).toInstant();}
  public List<CategoryDto> list(int page,int size,Boolean active){
-  var q=em.createNativeQuery("SELECT id,name,active,created_at,updated_at FROM public.course_categories"+(active==null?"":" WHERE active=:active")+" ORDER BY id ASC");
+  return list(page,size,active,"");
+ }
+ public List<CategoryDto> list(int page,int size,Boolean active,String search){
+  var q=em.createNativeQuery("SELECT id,name,active,created_at,updated_at FROM public.course_categories WHERE strpos(lower(name),lower(:search))>0"+(active==null?"":" AND active=:active")+" ORDER BY id ASC").setParameter("search",search);
   if(active!=null)q.setParameter("active",active);
   return ((List<?>)q.setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(this::dto).toList();
+ }
+ public boolean deleteUnused(long id){
+  return em.createNativeQuery("DELETE FROM public.course_categories WHERE id=:id AND NOT EXISTS (SELECT 1 FROM public.courses WHERE category_id=:id)")
+      .setParameter("id",id).executeUpdate()==1;
  }
  public Optional<CategoryDto> find(long id,boolean lock){
   var rows=em.createNativeQuery("SELECT id,name,active,created_at,updated_at FROM public.course_categories WHERE id=:id"+(lock?" FOR UPDATE":"")).setParameter("id",id).getResultList();

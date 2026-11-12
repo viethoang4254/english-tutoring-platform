@@ -172,6 +172,10 @@ public class SecurityConfiguration {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/teacher/categories", "/api/v1/teacher/calendar/sessions").access(SecurityConfiguration::approvedTeacher)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/categories").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/categories").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/admin/users").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/admin/users/{id}/profile", "/api/v1/admin/users/{id}/lock").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/users", "/api/v1/admin/users/{id}").access(SecurityConfiguration::verifiedAdmin)
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/v1/admin/categories/{categoryId}").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/v1/admin/categories/{categoryId}").access(SecurityConfiguration::verifiedAdmin)
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/teacher-applications/pending",
                                 "/api/v1/admin/teacher-applications/{applicationId}")

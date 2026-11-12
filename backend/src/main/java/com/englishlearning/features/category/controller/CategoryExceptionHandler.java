@@ -11,7 +11,7 @@ import org.springframework.transaction.TransactionException;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CategoryExceptionHandler {
  @ExceptionHandler(CategoryFailure.class) ResponseEntity<ApiError> rejected(CategoryFailure e){return switch(e.reason()){
- case INVALID->error(400,"INVALID_REQUEST");case UNAUTHENTICATED->error(401,"AUTHENTICATION_REQUIRED");case DENIED->error(403,"ACCESS_DENIED");case MISSING->error(404,"CATEGORY_NOT_FOUND");};}
+ case IN_USE->error(409,"CATEGORY_IN_USE");case INVALID->error(400,"INVALID_REQUEST");case UNAUTHENTICATED->error(401,"AUTHENTICATION_REQUIRED");case DENIED->error(403,"ACCESS_DENIED");case MISSING->error(404,"CATEGORY_NOT_FOUND");};}
  @ExceptionHandler({DataAccessException.class,TransactionException.class}) ResponseEntity<ApiError> database(Exception e){
   for(Throwable cause=e;cause!=null;cause=cause.getCause())if(cause instanceof org.hibernate.exception.ConstraintViolationException sql && "23505".equals(sql.getSQLState()) && java.util.Set.of("uq_course_categories_name","uq_course_categories_normalized_name").contains(sql.getConstraintName()==null?"":sql.getConstraintName()))return error(409,"CATEGORY_NAME_CONFLICT");
   return error(503,"CATEGORY_UNAVAILABLE");

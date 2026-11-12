@@ -14,9 +14,13 @@ public class CategoryService {
  public CategoryService(CategoryRepository categories,CurrentAccountService accounts,UserCredentialService users,@Qualifier("refreshSessionClock") Clock clock){this.categories=categories;this.accounts=accounts;this.users=users;this.clock=clock;}
  public record Page(List<CategoryDto> items,int page,int size,boolean hasNext){}
  @Transactional(readOnly=true) public Page list(Long actor,int page,int size,Boolean active){
+  return list(actor,page,size,active,"");
+ }
+ @Transactional(readOnly=true) public Page list(Long actor,int page,int size,Boolean active,String search){
   check(accounts.findById(actor).orElse(null));
+  if(search.length()>100 || search.codePoints().anyMatch(Character::isISOControl))throw invalid();
   if(page<0||size<1||size>100||(long)page*size>Integer.MAX_VALUE)throw invalid();
-  var rows=categories.list(page,size,active);return new Page(rows.stream().limit(size).toList(),page,size,rows.size()>size);
+  var rows=search.isBlank()?categories.list(page,size,active):categories.list(page,size,active,search.strip());return new Page(rows.stream().limit(size).toList(),page,size,rows.size()>size);
  }
  @Transactional(isolation=Isolation.READ_COMMITTED) public CategoryDto create(Long actor,Map<String,Object> fields){
   check(users.lockAccountById(actor).orElse(null));validate(fields);if(!fields.containsKey("name"))throw invalid();
@@ -26,6 +30,12 @@ public class CategoryService {
   check(users.lockAccountById(actor).orElse(null));validate(fields);if(id<=0)throw invalid();
   var current=categories.find(id,true).orElseThrow(()->new CategoryFailure(CategoryFailure.Reason.MISSING));
   return categories.update(id,fields.containsKey("name")?name(fields.get("name")):current.name(),fields.containsKey("active")?(Boolean)fields.get("active"):current.active(),clock.instant());
+ }
+ @Transactional(isolation=Isolation.READ_COMMITTED) public void delete(Long actor,long id){
+  check(users.lockAccountById(actor).orElse(null));
+  if(id<=0)throw invalid();
+  categories.find(id,true).orElseThrow(()->new CategoryFailure(CategoryFailure.Reason.MISSING));
+  if(!categories.deleteUnused(id))throw new CategoryFailure(CategoryFailure.Reason.IN_USE);
  }
  static void validate(Map<String,Object> fields){
   if(fields==null||fields.isEmpty()||!Set.of("name","active").containsAll(fields.keySet()))throw invalid();
