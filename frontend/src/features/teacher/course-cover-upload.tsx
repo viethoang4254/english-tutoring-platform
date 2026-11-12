@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiRequestError, apiRequest } from "../../lib/api";
 import { safeMessage, type Session } from "../auth/browser-api";
 
@@ -7,21 +7,22 @@ export function CourseCoverUpload({id,session}:{id:string;session:Session}) {
   const path = `/teacher/courses/${id}/cover`;
   const token = session.accessToken;
   const [revision, setRevision] = useState(0);
-  const [preview, setPreview] = useState("");
+  const request = useMemo(() => ({path,token,revision}), [path,token,revision]);
+  const [loaded, setLoaded] = useState<{request: typeof request; url: string}>();
+  const preview = loaded?.request === request ? loaded.url : undefined;
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     let url = "";
-    setPreview("");
-    apiRequest(path,{headers:{Authorization:`Bearer ${token}`},credentials:"omit",cache:"no-store",signal:controller.signal},"image/png")
+    apiRequest(request.path,{headers:{Authorization:`Bearer ${request.token}`},credentials:"omit",cache:"no-store",signal:controller.signal},"image/png")
       .then(blob => {
-        if (!controller.signal.aborted) { url = URL.createObjectURL(blob); setPreview(url); }
+        if (!controller.signal.aborted) { url = URL.createObjectURL(blob); setLoaded({request,url}); }
       }).catch(error => {
         if (!controller.signal.aborted && !(error instanceof ApiRequestError && error.status === 404)) setMessage(safeMessage(error));
       });
     return () => {controller.abort(); if (url) URL.revokeObjectURL(url);};
-  },[path,token,revision]);
+  },[request]);
 
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
