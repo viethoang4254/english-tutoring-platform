@@ -132,6 +132,32 @@ class CategoryLiveHttpTests {
         assertEquals(1,json.readTree(request("TEACHER","GET","/teacher/categories?size=1&page=1",null).body()).get("items").size());
         assertEquals(3,scalar("SELECT count(*) FROM users"));
     }
+    @Test @Order(4) void adminUserLifecyclePreservesIdentityAndHistory() throws Exception {
+        String body="""
+                {"email":"directory@example.invalid","fullName":"Directory Fixture","role":"STUDENT",
+                 "password":"Fixture-Only-123","confirmPassword":"Fixture-Only-123","username":"directory_fixture","phone":"0912345678"}
+                """;
+        assertEquals(403,request("TEACHER","GET","/admin/users",null).statusCode());
+        assertEquals(201,request("ADMIN","POST","/admin/users",body).statusCode());
+        assertEquals(409,request("ADMIN","POST","/admin/users",body).statusCode());
+        var page=json.readTree(request("ADMIN","GET","/admin/users?search=directory&role=STUDENT&size=1",null).body());
+        assertEquals(1,page.get("items").size());
+        assertFalse(page.get("hasNext").asBoolean());
+        var row=page.get("items").get(0);
+        assertEquals(6,row.size());
+        String target="/admin/users/"+row.get("id").asString();
+        var changed=request("ADMIN","PATCH",target+"/profile","{\"fullName\":\"Updated Fixture\"}");
+        assertEquals(200,changed.statusCode());
+        assertEquals("Updated Fixture",json.readTree(changed.body()).get("fullName").asString());
+        assertEquals(403,request("STUDENT","PATCH",target+"/lock","{\"locked\":true}").statusCode());
+        for(boolean locked : List.of(true,false)){
+            assertEquals(200,request("ADMIN","PATCH",target+"/lock","{\"locked\":"+locked+"}").statusCode());
+            var detail=json.readTree(request("ADMIN","GET",target,null).body());
+            assertEquals(locked,detail.get("locked").asBoolean());
+            assertEquals(row.get("id"),detail.get("id"));
+        }
+        assertEquals(403,request("ADMIN","DELETE",target,null).statusCode());
+    }
     @AfterAll void stop() throws Exception {
         if(context!=null)context.close();
         if(keyDirectory!=null){Files.deleteIfExists(keyDirectory.resolve("private.pem"));Files.deleteIfExists(keyDirectory.resolve("public.pem"));Files.deleteIfExists(keyDirectory);}

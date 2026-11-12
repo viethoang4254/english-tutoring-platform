@@ -47,6 +47,11 @@ class CategoryPersistenceTests {
   var cat=service.create(admin,Map.of("name","Referenced"));
   sql("INSERT INTO courses(teacher_id,category_id,name,description,tuition,currency,min_students,max_students,planned_start_date,timezone,session_count,status,created_at,updated_at) SELECT id,"+cat.id().value()+",'Fixture','Fixture',0,'VND',1,5,current_date,'Asia/Ho_Chi_Minh',1,'DRAFT',now(),now() FROM users WHERE role='TEACHER'");
   var ready=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);try{var a=pool.submit(()->{ready.await();return service.update(admin,cat.id().value(),Map.of("name","Renamed"));});var b=pool.submit(()->{ready.await();return service.update(other,cat.id().value(),Map.of("active",false));});ready.countDown();a.get(15,TimeUnit.SECONDS);b.get(15,TimeUnit.SECONDS);}finally{pool.shutdownNow();}
+  assertEquals(CategoryFailure.Reason.IN_USE,assertThrows(CategoryFailure.class,()->service.delete(admin,cat.id().value())).reason());
+  var unused=service.create(admin,Map.of("name","Unused"));
+  assertEquals(unused.id(),service.list(admin,0,20,null,"NuSe").items().get(0).id());
+  service.delete(admin,unused.id().value());
+  assertTrue(service.list(admin,0,20,null,"unused").items().isEmpty());
   var result=service.list(admin,0,20,null).items().get(0);assertEquals("Renamed",result.name());assertFalse(result.active());assertEquals(1,count("SELECT count(*) FROM courses WHERE category_id="+cat.id().value()));
  }
  @Test void missingAndInvalidUpdatesDoNotWrite(){var cat=service.create(admin,Map.of("name","Keep"));assertThrows(CategoryFailure.class,()->service.update(admin,Long.MAX_VALUE,Map.of("active",false)));assertThrows(CategoryFailure.class,()->service.update(admin,cat.id().value(),Collections.singletonMap("active",null)));assertTrue(service.list(admin,0,20,null).items().get(0).active());}

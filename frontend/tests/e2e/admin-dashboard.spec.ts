@@ -27,6 +27,18 @@ for (const modal of [false, true]) test(`Admin login and protected dashboard (${
   await expect(page.getByText("Chưa có số liệu tổng hợp", { exact: true })).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("admin-dashboard.png"), fullPage: true });
+  await page.route("**/api/v1/admin/users?*",route=>{
+    expect(route.request().headers().authorization).toBe("Bearer test-access");
+    return route.fulfill({json:{items:[{id:"2",fullName:"Học viên thử",email:"demo@example.invalid",role:"STUDENT",locked:false,emailVerified:false}],page:0,size:20,hasNext:false}});
+  });
+  await menu(page);
+  await page.getByRole("button",{name:"Quản lý người dùng",exact:true}).click();
+  await expect(page.getByText("Học viên thử",{exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Khóa",exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText("Hồ sơ và lịch sử giao dịch được giữ lại");
+  await page.getByRole("button",{name:"Hủy",exact:true}).click();
+  await menu(page);
+  await page.getByRole("button",{name:"Tổng quan",exact:true}).click();
   await page.getByRole("contentinfo").getByRole("link", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
   await page.getByRole("button", { name: "Mở danh sách chờ xét duyệt" }).click();

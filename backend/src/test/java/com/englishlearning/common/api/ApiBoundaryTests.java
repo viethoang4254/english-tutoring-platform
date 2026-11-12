@@ -33,6 +33,7 @@ class ApiBoundaryTests {
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.payment.repository.PaymentRepository paymentRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.paymentaccount.repository.ReceivingAccountRepository receivingRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.category.repository.CategoryRepository categoryRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.AdminUserRepository adminUsers;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.course.repository.CourseRepository courseRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.enrollment.repository.EnrollmentRepository enrollmentRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.auth.service.PasswordChangeService passwordChanges;

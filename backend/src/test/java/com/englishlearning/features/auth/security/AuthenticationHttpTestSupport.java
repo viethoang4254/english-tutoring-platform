@@ -36,6 +36,7 @@ abstract class AuthenticationHttpTestSupport {
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.service.StudentProfileService studentProfiles;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.StudentProfileRepository profileRepository;
     @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.category.repository.CategoryRepository categoryRepository;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.englishlearning.features.user.repository.AdminUserRepository adminUsers;
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     com.englishlearning.features.teacher.service.TeacherApplicationReviewService teacherReviews;
     @org.springframework.test.context.bean.override.mockito.MockitoBean

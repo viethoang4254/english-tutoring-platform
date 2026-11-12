@@ -1362,3 +1362,7 @@ The owner can publish a prepared draft through the Teacher course detail form. T
 ## Detailed public course outline — IN_PROGRESS
 
 V11 prepared only. Owner draft GET/PUT outline, ordered stages and topics, and published detail presentation prepared. Course cover upload is IN_PROGRESS. The owning Teacher can upload or replace an image on a saved draft. Published courses serve the cover through Spring Boot. Configure a private course-covers bucket (5 MiB, image/png, no client policies) before deployment; live Storage acceptance remains pending. Isolated persistence and end-to-end acceptance pending; do not deploy the V11-dependent backend against V10.
+
+## Admin user and category CRUD — IN_PROGRESS
+
+Verified Admins can create Student or pending Teacher accounts, search and page through users, edit permitted names, and deactivate or reactivate non-Admin accounts. Deactivation retains history and revokes refresh sessions. Admin category search supports literal name matching. DELETE is restricted to unused categories; referenced categories can be deactivated. Teacher review uses the existing onboarding workflow. Disposable PostgreSQL and browser acceptance pending.

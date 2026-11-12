@@ -11,7 +11,7 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["AdminRegistrationHttpTests", "AdminUserServiceTests", "ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]

@@ -29,7 +29,13 @@ class CategoryHttpTests extends AuthenticationHttpTestSupport {
  mvc.perform(get("/api/v1/admin/categories")).andExpect(status().isUnauthorized());
  for(Role role:List.of(Role.STUDENT,Role.TEACHER)){account(role,true,false);mvc.perform(post("/api/v1/admin/categories").header("Authorization","Bearer access").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"English\"}")).andExpect(status().isForbidden());}
  account(Role.ADMIN,false,false);mvc.perform(get("/api/v1/admin/categories").header("Authorization","Bearer access")).andExpect(status().isForbidden());account(Role.ADMIN,true,true);mvc.perform(get("/api/v1/admin/categories").header("Authorization","Bearer access")).andExpect(status().isUnauthorized());
- account(Role.ADMIN,true,false);mvc.perform(delete("/api/v1/admin/categories/1").header("Authorization","Bearer access")).andExpect(status().isForbidden());mvc.perform(post("/api/v1/admin/courses").header("Authorization","Bearer access")).andExpect(status().isForbidden());mvc.perform(get("/api/v1/admin/categories").cookie(new jakarta.servlet.http.Cookie("refresh_token",refresh))).andExpect(status().isUnauthorized());verifyNoInteractions(categories);
+ account(Role.TEACHER,true,false);mvc.perform(delete("/api/v1/admin/categories/1").header("Authorization","Bearer access")).andExpect(status().isForbidden());account(Role.ADMIN,true,false);mvc.perform(post("/api/v1/admin/courses").header("Authorization","Bearer access")).andExpect(status().isForbidden());mvc.perform(get("/api/v1/admin/categories").cookie(new jakarta.servlet.http.Cookie("refresh_token",refresh))).andExpect(status().isUnauthorized());verifyNoInteractions(categories);
+ }
+ @Test void adminCanDeleteUnusedAndGetsConflictForReferencedCategory()throws Exception{
+  account(Role.ADMIN,true,false);
+  mvc.perform(delete("/api/v1/admin/categories/1").header("Authorization","Bearer access")).andExpect(status().isNoContent());
+  doThrow(new CategoryFailure(CategoryFailure.Reason.IN_USE)).when(categories).delete(1L,2L);
+  mvc.perform(delete("/api/v1/admin/categories/2").header("Authorization","Bearer access")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CATEGORY_IN_USE"));
  }
  @Test void safeErrors()throws Exception{account(Role.ADMIN,true,false);when(categories.update(eq(1L),eq(1L),any())).thenThrow(new CategoryFailure(CategoryFailure.Reason.MISSING));mvc.perform(patch("/api/v1/admin/categories/1").header("Authorization","Bearer access").contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));}
  @Test void duplicateConstraintMapsTo409WithoutSqlDisclosure()throws Exception{
