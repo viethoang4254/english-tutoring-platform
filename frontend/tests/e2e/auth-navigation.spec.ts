@@ -66,6 +66,7 @@ test("header login shares session across navigation and logout clears it without
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "csrf-test" } });
     if (path.endsWith("/login")) return route.fulfill({ json: { accessToken: "test-token", tokenType: "Bearer" } });
     if (path.endsWith("/users/me")) return route.fulfill({ json: { id: "1", role: "STUDENT", emailVerified: true } });
+    if (path.endsWith("/profile")) return route.fulfill({json:{id:"1",fullName:"Học viên",email:"student@example.test"}});
     if (path.endsWith("/refresh")) refreshes++;
     return route.fulfill({ status: 204 });
   });
@@ -75,19 +76,19 @@ test("header login shares session across navigation and logout clears it without
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.locator(".header-account-menu summary").click();
-  await expect(page.getByRole("link", { name: "Tài khoản của tôi" })).toBeVisible();
-  await page.getByRole("link", { name: "Tài khoản của tôi" }).click();
-  await expect(page.getByText("Đã đăng nhập với vai trò học viên.")).toBeVisible();
+  await page.locator("[data-dashboard-account] summary").click();
+  await expect(page.getByRole("link", { name: "Hồ sơ và bảo mật",exact:true })).toBeVisible();
+  await page.getByRole("link", { name: "Hồ sơ và bảo mật",exact:true }).click();
+  await expect(page.getByRole("heading",{name:"Hồ sơ và cài đặt",exact:true})).toBeVisible();
   await page.goto("/");
   expect(refreshes).toBe(0);
   await page.getByRole("button", { name: "Tài khoản", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill("student@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await page.locator(".header-account-menu summary").click();
-  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Tài khoản", exact: true })).toBeVisible();
+  await page.locator("[data-dashboard-account] summary").click();
+  await page.locator("[data-dashboard-account]").getByRole("button", { name: "Đăng xuất", exact: true }).click();
+  await expect(page.getByLabel("Email",{exact:true})).toBeVisible();
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
 });
 
@@ -97,6 +98,7 @@ test("dedicated login and registration share shell and navigate independently of
   await page.route("**/api/v1/**", async route => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "csrf-test" } });
+    if (path.endsWith("/profile")) return route.fulfill({json:{id:"1",fullName:"Học viên",email:"student@example.test"}});
     if (path.endsWith("/refresh")) refreshes++;
     if (path.endsWith("/login")) { logins++; return route.fulfill({ json: { accessToken: "test", tokenType: "Bearer" } }); }
     return route.fulfill({ json: { id: "1", role: "STUDENT", emailVerified: true } });

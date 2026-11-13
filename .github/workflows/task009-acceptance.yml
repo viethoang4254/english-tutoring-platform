@@ -100,17 +100,32 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '8'
       - run: python ci/task009/run.py resources
-      - name: Mocked Dashboard and Calendar regressions (58 cases)
+      - name: Mocked Dashboard and Calendar regressions (64 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/teacher-calendar.spec.ts tests/e2e/unified-dashboard.spec.ts tests/e2e/teacher-login.spec.ts tests/e2e/teacher-courses.spec.ts tests/e2e/teacher-sessions.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '58'
+          TASK009_EXPECTED_TESTS: '64'
       - run: python ci/task009/run.py resources
       - name: Additional feature browser acceptance (108 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/course-registration.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
         working-directory: frontend
         env:
           TASK009_EXPECTED_TESTS: '108'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/ui-review
+      - name: Verify ten full-page screenshots
+        run: |
+          for page in teacher-dashboard landing student-dashboard admin-categories course-detail; do
+            for viewport in desktop mobile; do
+              test -s "$RUNNER_TEMP/ui-review/$page-$viewport.png"
+            done
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() }}
+        with:
+          name: ui-review-screenshots
+          path: ${{ runner.temp }}/ui-review/*.png
+          retention-days: 7
+          if-no-files-found: warn
       - run: python ci/task009/run.py resources
       - name: Receiving account submission and review (30 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/receiving-accounts.spec.ts

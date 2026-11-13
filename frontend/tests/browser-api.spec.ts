@@ -1,6 +1,6 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { authMutation, authorized, signIn, safeMessage, validPassword } from "../src/features/auth/browser-api.ts";
+import { authMutation, authorized, signIn, safeMessage, loginMessage, loginValidation, validPassword } from "../src/features/auth/browser-api.ts";
 import { ApiRequestError } from "../src/lib/api.ts";
 const original = globalThis.fetch;
 const originalOrigin = process.env.NEXT_PUBLIC_API_ORIGIN;
@@ -65,4 +65,55 @@ test("explicit recovery retains CSRF cookie transport and never retries", async 
     attempts++; throw new TypeError("network");
   };
   await assert.rejects(signIn()); assert.equal(attempts, 1);
+});
+
+test("login validation and errors never call invalid credentials an expired session", () => {
+  assert.equal(loginValidation("", ""), "Vui lòng nhập email.");
+  assert.equal(loginValidation("broken", "password"), "Email không hợp lệ.");
+  assert.equal(loginValidation("a@example.invalid", ""), "Vui lòng nhập mật khẩu.");
+  assert.equal(loginValidation(" a@example.invalid ", "password"), "");
+  assert.equal(loginMessage(new ApiRequestError(401,"AUTHENTICATION_REQUIRED","private")), "Email hoặc mật khẩu không đúng.");
+  assert.equal(loginMessage(new TypeError("private")), "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+  assert.equal(loginMessage(new ApiRequestError(503,"UNAVAILABLE","private")), "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.");
+});
+test("remember preference travels only in JSON, passwords never in URLs", async () => {
+  process.env.NEXT_PUBLIC_API_ORIGIN="http://localhost:8080";
+  for(const rememberMe of [false,true]) {
+    globalThis.fetch=async(url,init)=>{
+      assert.equal(new URL(String(url)).search, "");
+      if(String(url).endsWith("/csrf"))return Response.json({token:"fixture"});
+      if(String(url).endsWith("/login")) {
+        assert.deepEqual(JSON.parse(String(init?.body)), {email:"a@example.invalid",password:"fixture-password",rememberMe});
+        return Response.json({accessToken:"fixture",tokenType:"Bearer"});
+      }
+      return Response.json({id:"1",role:"TEACHER",emailVerified:false});
+    };
+    assert.equal((await signIn({email:"a@example.invalid",password:"fixture-password",rememberMe})).account.role,"TEACHER");
+  }
+});
+
+test("remembered restoration is single-flight and stores only a non-secret flag", async () => {
+  const {rememberLogin,restoreRememberedSession}=await import("../src/features/auth/remember-session.ts");
+  const descriptor=Object.getOwnPropertyDescriptor(globalThis,"localStorage");
+  const saved=new Map<string,string>();
+  Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{getItem:(key:string)=>saved.get(key)??null,setItem:(key:string,value:string)=>saved.set(key,value),removeItem:(key:string)=>saved.delete(key)}});
+  try {
+    let calls=0;
+    process.env.NEXT_PUBLIC_API_ORIGIN="http://localhost:8080";
+    globalThis.fetch=async(url)=>{
+      calls++;
+      if(String(url).endsWith("/csrf"))return Response.json({token:"csrf"});
+      if(String(url).endsWith("/refresh"))return Response.json({accessToken:"private-access",tokenType:"Bearer"});
+      return Response.json({id:"1",role:"STUDENT",emailVerified:false});
+    };
+    assert.equal(await restoreRememberedSession(),null);assert.equal(calls,0);
+    rememberLogin(true);
+    const first=restoreRememberedSession(),second=restoreRememberedSession();
+    assert.equal(first,second);assert.equal((await first)?.account.id,"1");assert.equal(calls,3);
+    assert.deepEqual([...saved],[["remember-login","1"]]);
+    rememberLogin(false);assert.equal(await restoreRememberedSession(),null);assert.equal(saved.size,0);
+    rememberLogin(true);globalThis.fetch=async()=>{throw new TypeError("offline");};
+    assert.equal(await restoreRememberedSession(),null);
+    assert.equal(saved.size,0); // No retry after an uncertain rotation on the next load.
+  } finally {if(descriptor)Object.defineProperty(globalThis,"localStorage",descriptor);else Reflect.deleteProperty(globalThis,"localStorage");}
 });

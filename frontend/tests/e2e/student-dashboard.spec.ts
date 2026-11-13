@@ -1,14 +1,17 @@
+import { captureReview } from "../support/ui-review";
 import { expect, test, type Page } from '@playwright/test';
 import { monthDays, shiftMonth, dayKey } from '../../src/features/student/dashboard-preview';
 
 async function signIn(page: Page, role = 'STUDENT', profileStatus = 200) {
   await page.clock.setFixedTime(new Date('2026-10-18T03:00:00Z'));
   const calls: string[] = [];
+  let remembered = false;
   await page.route('**/api/v1/**', async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     calls.push(path);
     if (path.endsWith('/csrf')) return route.fulfill({json:{token:'test-csrf'}});
-    if (path.endsWith('/login')) return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}});
+    if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
+    if (path.endsWith('/login')) { remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
     if (path.endsWith('/users/me')) return route.fulfill({json:{id:'1',role,emailVerified:true}});
     if (path.endsWith('/profile')) {
       expect(request.headers().authorization).toBe('Bearer test-access');
@@ -21,6 +24,7 @@ async function signIn(page: Page, role = 'STUDENT', profileStatus = 200) {
   const dialog = page.locator('main');
   await dialog.getByLabel('Email',{exact:true}).fill('student@example.test');
   await dialog.getByLabel('Mật khẩu',{exact:true}).fill('password');
+  if(role!=='STUDENT')await page.getByLabel('Ghi nhớ đăng nhập').check();
   const rejectedProfile = profileStatus === 401 ? page.waitForResponse(response => response.url().endsWith('/profile')) : null;
   await dialog.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   if (rejectedProfile) await rejectedProfile;
@@ -44,6 +48,8 @@ test('calendar selection, navigation and preview states are responsive', async (
   const calendar = page.locator('#lich-hoc');
   await expect(calendar.getByRole('heading',{name:'Giới thiệu bản thân',exact:true})).toBeVisible();
   await expect(calendar.getByRole('button',{name:'Vào lớp'})).toBeDisabled();
+  await expect(calendar.getByRole('heading',{name:'Lịch minh họa',exact:true})).toBeVisible();
+  await captureReview(page, info, 'student-dashboard');
   await calendar.getByRole('button',{name:/20 tháng 10.*2 buổi học/}).click();
   await expect(calendar.getByRole('heading',{name:'Trao đổi trong cuộc họp'})).toBeVisible();
   await expect(calendar.getByRole('heading',{name:'Hội thoại theo tình huống'})).toBeVisible();
@@ -60,15 +66,15 @@ test('calendar selection, navigation and preview states are responsive', async (
   await page.getByLabel('Chế độ xem trước').selectOption('empty');
   await expect(page.getByText('Chưa có buổi học sắp tới.')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Chưa có khóa học trong bản xem trước'})).toBeVisible();
-  const toggle = page.locator('button[aria-controls="student-navigation"]');
+  const toggle = page.locator('[data-dashboard-toggle]');
   await expect(toggle).toBeAttached();
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
-  await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Bài tập',exact:true}).click();
-  await expect(page.locator('#bai-tap')).toBeInViewport();
+  await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Lịch học',exact:true}).click();
+  await expect(page.locator('#lich-hoc')).toBeInViewport();
   await page.getByRole('link',{name:'Hồ sơ của tôi'}).click();
   await expect(page).toHaveURL(/\/account$/);
-  await page.locator('.header-account-menu summary').click();
-  await page.getByRole('link',{name:'Bảng học tập',exact:true}).click();
+  if(await toggle.isVisible())await toggle.click();
+  await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Tổng quan',exact:true}).click();
   await expect(page.getByRole('heading',{name:/Xin chào, Nguyễn Minh Anh/})).toBeVisible();
 });
 
@@ -76,7 +82,7 @@ for (const role of ['TEACHER','ADMIN']) test(`${role} preserves its existing acc
   await signIn(page,role);
   await expect(page).toHaveURL(role === 'TEACHER' ? /\/teacher$/ : /\/admin\/dashboard$/);
   await expect(page.getByRole('heading',{name:/Xin chào,/})).toHaveCount(0);
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (path: string) => void } } }).next.router.push('/student/dashboard'));
+  await page.goto('/student/dashboard');
   await expect(page.getByRole('heading',{name:'Không gian dành cho học viên',exact:true})).toBeVisible();
   await expect(page.locator('#lich-hoc')).toHaveCount(0);
 });

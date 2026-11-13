@@ -39,30 +39,48 @@ public class AuthenticationController {
             HttpServletRequest request) {
         noQuery(request);
         if (!PasswordInput.isValid(body.password())) throw invalid();
-        return issued(workflows.login(body.email(), body.password()));
+        return issued(workflows.login(body.email(), body.password()), Boolean.TRUE.equals(body.rememberMe()));
     }
     @PostMapping("/refresh")
     public ResponseEntity<AccessTokenResponse> refresh(HttpServletRequest request) throws IOException {
         emptyInput(request);
-        return issued(workflows.refresh(refreshCookie(request)));
+        boolean remember = remembered(request);
+        return issued(workflows.refresh(refreshCookie(request)), remember);
     }
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) throws IOException {
         emptyInput(request);
         workflows.logout(refreshCookie(request));
-        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie("", 0).toString()).build();
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie("", 0).toString(), preference(false, 0).toString()).build();
     }
-    private ResponseEntity<AccessTokenResponse> issued(AuthenticationResult result) {
+    private ResponseEntity<AccessTokenResponse> issued(AuthenticationResult result, boolean remember) {
         var token = result.accessToken();
         long remaining = Math.max(0, Duration.between(clock.instant(), result.refreshCredential().expiresAt()).getSeconds());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.SET_COOKIE, cookie(result.refreshCredential().credential(), remaining).toString())
+                .header(HttpHeaders.SET_COOKIE, cookie(result.refreshCredential().credential(), remember ? remaining : -1).toString(),
+                        preference(remember, remember ? remaining : -1).toString())
                 .body(new AccessTokenResponse(token.value(), "Bearer", token.issuedAt(), token.expiresAt()));
     }
     private ResponseCookie cookie(String value, long remaining) {
         return ResponseCookie.from(BrowserAuthSettings.REFRESH_COOKIE, value)
                 .httpOnly(true).secure(browser.secure()).sameSite("Lax")
                 .path(BrowserAuthSettings.PATH).maxAge(remaining).build();
+    }
+    // This flag controls browser persistence only; it never grants or extends server authority.
+    private ResponseCookie preference(boolean remember, long remaining) {
+        return ResponseCookie.from("remember_login", remember ? "1" : "0")
+                .httpOnly(true).secure(browser.secure()).sameSite("Lax")
+                .path(BrowserAuthSettings.PATH).maxAge(remaining).build();
+    }
+    private static boolean remembered(HttpServletRequest request) {
+        String value = null;
+        if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) {
+            if ("remember_login".equals(cookie.getName())) {
+                if (value != null) throw invalid();
+                value = cookie.getValue();
+            }
+        }
+        return "1".equals(value);
     }
     static String refreshCookie(HttpServletRequest request) {
         String credential = null;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { SiteHeader, SiteFooter } from "../../components/site-shell";
+import { PublicLayout } from "../../components/site-shell";
 import { PasswordField } from "./password-field";
 import { authMutation, safeMessage, validPassword } from "./browser-api";
 import { useSession } from "./session-provider";
@@ -29,7 +29,7 @@ export function PasswordRecovery({ reset = false }: { reset?: boolean }) {
     } catch (error) { setMessage(safeMessage(error)); }
     finally { inFlight.current = false; setBusy(false); }
   }
-  return <div className="auth-page"><SiteHeader />
+  return <div className="auth-page"><PublicLayout>
     <nav className="auth-breadcrumb" aria-label="Đường dẫn"><Link href="/">Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">{title}</span></nav>
     <main><section className="account-workspace auth-panel"><h1>{title}</h1>
       <p role="status" aria-live="polite">{message}</p>
@@ -42,5 +42,5 @@ export function PasswordRecovery({ reset = false }: { reset?: boolean }) {
       </form>
       {!reset && <p><Link href="/reset-password">{sent ? "Nhập mã và đặt lại mật khẩu" : "Tôi đã có mã đặt lại mật khẩu"}</Link></p>}
       <p className="auth-switch"><Link href="/login">Quay lại đăng nhập</Link></p>
-    </section></main><SiteFooter /></div>;
+    </section></main></PublicLayout></div>;
 }

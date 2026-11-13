@@ -85,13 +85,13 @@ export function AdminCategories({ session, busy, run }: {
     {!result && !busy && <p>Chọn tải lại danh sách để xem dữ liệu danh mục.</p>}
     {result && <>
       {result.items.length === 0 && <p>Không có danh mục trên trang này.</p>}
-      <ul className={styles.list}>{result.items.map(item => <li key={item.id}>
-        <div><strong>{item.name}</strong><p>{item.active ? "Đang hoạt động" : "Ngừng hoạt động"}</p></div>
-        <div className={styles.actions}>
+      <div className={styles.tableScroll}><table><caption>Danh sách danh mục</caption><thead><tr><th>Tên danh mục</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{result.items.map(item => <tr key={item.id}>
+        <td><strong>{item.name}</strong></td><td>{item.active ? "Đang hoạt động" : "Ngừng hoạt động"}</td>
+        <td><div className={styles.actions}>
           <button className="ui-button ui-button-secondary" disabled={busy || blocked} onClick={() => { setEditing(item.id); setName(item.name); setNotice(""); }}>Đổi tên</button>
           <button className="ui-button ui-button-secondary" disabled={busy || blocked} onClick={() => mutate(item.id, { active: !item.active })}>{item.active ? "Ngừng hoạt động" : "Kích hoạt"}</button>
-        </div>
-      </li>)}</ul>
+        </div></td>
+      </tr>)}</tbody></table></div>
       <nav className={styles.toolbar} aria-label="Phân trang danh mục">
         <button className="ui-button ui-button-secondary" disabled={busy || result.page === 0} onClick={() => refresh(result.page - 1)}>Trang trước</button>
         <span>Trang {result.page + 1}</span>

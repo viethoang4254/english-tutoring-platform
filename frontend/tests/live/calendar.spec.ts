@@ -102,7 +102,7 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     await expect(calendar.getByLabel('Lịch tuần',{exact:true})).toBeVisible();
     await expect(calendar.getByText('CI Calendar A',{exact:true}).first()).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    const nav=page.locator('#dashboard-navigation');await nav.evaluate(e=>e.dataset.calendarTest='mounted');
+    const nav=page.locator('[data-dashboard-layout] > aside nav');await nav.evaluate(e=>e.dataset.calendarTest='mounted');
     stage('calendar-navigation');
     await calendar.getByRole('link',{name:'Xem và quản lý buổi học'}).first().click();
     await expect(page).toHaveURL(`http://127.0.0.1:3000/teacher/courses/${seeded.ownerCourse}?section=sessions`);

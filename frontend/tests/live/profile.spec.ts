@@ -36,8 +36,8 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
     await page.getByRole('button', {name: 'Đăng nhập', exact: true}).click();
     if (!teacher) {
       await expect(page).toHaveURL(/\/student\/dashboard$/);
-      await page.locator('.header-account-menu summary').click();
-      await page.getByRole('link', {name: 'Tài khoản của tôi', exact: true}).click();
+      await page.locator('[data-dashboard-account] summary').click();
+      await page.getByRole('link', {name: 'Hồ sơ và bảo mật', exact: true}).click();
     }
     await accountPanel(page, 'Hồ sơ cá nhân');
     await expect(page.getByRole('button', {name: 'Chỉnh sửa thông tin'})).toBeVisible();

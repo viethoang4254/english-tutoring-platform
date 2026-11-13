@@ -8,10 +8,15 @@ import { type PublicCourseDetail, courseDate, tuitionLabel } from './public-cour
 import styles from './discovery.module.css';
 import { CourseRegistration } from './course-registration';
 
+const links=[["tong-quan","Tổng quan"],["lo-trinh","Lộ trình"],["chi-tiet","Chi tiết"],["dang-ky","Đăng ký"]];
+
 export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;basePath?:string}) {
   const [section,setSection]=useState("tong-quan");
   useEffect(()=>{
-    const sync=()=>setSection(window.location.hash.slice(1)||"tong-quan");
+    const sync=()=>{
+      const hash=window.location.hash.slice(1);
+      setSection(links.some(([id])=>id===hash)?hash:"tong-quan");
+    };
     sync();window.addEventListener("hashchange",sync);return ()=>window.removeEventListener("hashchange",sync);
   },[]);
   const [attempt, setAttempt] = useState(0);
@@ -27,10 +32,14 @@ export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;b
     });
     return () => controller.abort();
   }, [courseId,key]);
+  useEffect(() => {
+    if (result?.key !== key || !result.data) return;
+    const target = window.location.hash.slice(1);
+    if (links.some(([id]) => id === target)) document.getElementById(target)?.scrollIntoView();
+  }, [key, result]);
   if (result?.key !== key) return <p role="status">Đang tải khóa học…</p>;
   if (!result.data) return <section className={styles.empty}><h1>{result.missing ? 'Không tìm thấy khóa học' : 'Chưa thể tải khóa học'}</h1><p role="alert">{result.missing ? 'Khóa học không tồn tại hoặc chưa được công khai.' : 'Vui lòng kiểm tra kết nối và thử lại.'}</p>{!result.missing && <button className="ui-button ui-button-primary" onClick={() => setAttempt(value => value + 1)}>Thử lại</button>} <Link href={basePath}>← Khám phá khóa học khác</Link></section>;
   const {course,rules,outline} = result.data;
-  const links=[["tong-quan","Tổng quan"],["lo-trinh","Lộ trình"],["chi-tiet","Chi tiết"],["dang-ky","Đăng ký"]];
   return <div className={styles.courseSpread}>
     <div className={styles.courseBody}>
       <header className={styles.introBand}><span className={styles.tag}>{course.category.name}</span>

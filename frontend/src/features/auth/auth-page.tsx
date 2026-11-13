@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "./session-provider";
 import Link from "next/link";
-import { SiteHeader, SiteFooter } from "../../components/site-shell";
+import { PublicLayout } from "../../components/site-shell";
 import { AccountWorkspace } from "./account-workspace";
 
 export function AuthPage({ view, registered = false, reset = false }: { view: "login" | "student" | "register" | "verify"; registered?: boolean; reset?: boolean }) {
@@ -18,11 +18,11 @@ export function AuthPage({ view, registered = false, reset = false }: { view: "l
   if (redirectStudent) return <main role="status">Đang mở bảng học tập…</main>;
   const title = view === "login" ? "Đăng nhập" : view === "student" ? "Đăng ký học viên" : view === "register" ? "Đăng ký gia sư" : "Xác minh email";
   return <div className="auth-page">
-    <SiteHeader />
+    <PublicLayout>
     <nav className="auth-breadcrumb" aria-label="Đường dẫn"><Link href="/">Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">{title}</span></nav>
     <main>
       <AccountWorkspace dedicatedLogin={view === "login"} initialView={view} initialMessage={reset ? "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại." : registered && view === "login" ? "Đăng ký thành công. Bạn có thể đăng nhập bằng email và mật khẩu ngay bây giờ." : registered ? "Tài khoản đã được tạo. Nhập mã xác minh được gửi qua email. Bạn chưa đăng nhập." : ""} />
     </main>
-    <SiteFooter />
+    </PublicLayout>
   </div>;
 }

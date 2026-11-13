@@ -17,52 +17,44 @@ async function signIn(page:Page,role="TEACHER",status="APPROVED") {
   await page.getByLabel("Email",{exact:true}).fill("fixture@example.invalid");
   await page.getByLabel("Mật khẩu",{exact:true}).fill("fixture-password");
   await page.getByRole("button",{name:"Đăng nhập",exact:true}).click();
-  if(role==="STUDENT"){await page.locator(".header-account-menu summary").click();await page.locator(".header-account-menu a[href=\"/account\"]").click();}
-  await expect(page.getByRole("heading",{level:1,name:"Tài khoản & hồ sơ đăng ký"})).toBeVisible();
+  await expect(page.locator("[data-dashboard-layout]")).toBeVisible();
   return ()=>eligibilityReads;
 }
-async function navigate(page:Page,label:string) {
-  const toggle=page.locator('button[aria-controls="dashboard-navigation"]');
-  if(await toggle.isVisible()&&await toggle.getAttribute("aria-expanded")==="false")await toggle.click();
-  await page.getByRole("navigation",{name:"Điều hướng Dashboard"}).getByRole("link",{name:label,exact:true}).click();
-  await expect(page.getByRole("heading",{level:1,name:label,exact:true})).toBeVisible();
+async function menu(page:Page){const toggle=page.locator("[data-dashboard-toggle]");if(await toggle.isVisible()&&await toggle.getAttribute("aria-expanded")==="false")await toggle.click();}
+async function navigate(page:Page,label:string,nav="Điều hướng Dashboard"){
+ await menu(page);await page.getByRole("navigation",{name:nav,exact:true}).getByRole("link",{name:label,exact:true}).click();
+ await expect(page.getByRole("heading",{level:1,name:label,exact:true})).toBeVisible();
 }
-test("one persistent vertical sidebar and header across Account and Teacher routes",async({page},info)=>{
-  const reads=await signIn(page);
-  const nav=page.locator("#dashboard-navigation");
-  await expect(nav.locator("a,button")).toHaveText(["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản","Đăng xuất"]);
-  await page.evaluate(()=>{document.querySelector("#dashboard-navigation")?.setAttribute("data-persistent","yes");document.querySelector("header")?.setAttribute("data-persistent","yes");});
-  const initialReads=reads();
-  for(const label of ["Tổng quan","Khóa học của tôi","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"])await navigate(page,label);
-  await expect(nav).toHaveAttribute("data-persistent","yes");
-  await expect(page.locator("header").first()).toHaveAttribute("data-persistent","yes");
-  expect(reads()).toBe(initialReads);
-  await expect(page.getByRole("status").filter({hasText:"Đang kiểm tra quyền"})).toHaveCount(0);
-  await page.goBack();await expect(page.getByRole("heading",{level:1,name:"Tài khoản & hồ sơ đăng ký"})).toBeVisible();
-  await page.goForward();await expect(page.getByRole("heading",{level:1,name:"Cài đặt tài khoản"})).toBeVisible();
-  const toggle=page.locator('button[aria-controls="dashboard-navigation"]');
-  if(await toggle.isVisible()){await toggle.click();await nav.getByRole("link").first().focus();await page.keyboard.press("Escape");await expect(toggle).toBeFocused();await expect(toggle).toHaveAttribute("aria-expanded","false");}
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:info.outputPath("unified-dashboard.png"),fullPage:true});
-  await page.reload();await expect(page).toHaveURL(/\/login\?next=/);
+test("Teacher dashboard excludes public shell and retains navigation and history",async({page},info)=>{
+ const reads=await signIn(page);await expect(page.getByRole("contentinfo")).toHaveCount(0);await expect(page.getByRole("navigation",{name:"Điều hướng chính",exact:true})).toHaveCount(0);
+ await expect(page.locator('aside nav a[href="/teacher/courses"]')).toHaveCount(1);
+ const initialReads=reads();
+ for(const name of ["Quản lý khóa học","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Cài đặt tài khoản"])await navigate(page,name);
+ expect(reads()).toBe(initialReads);
+ await page.goBack();await expect(page.getByRole("heading",{level:1,name:"Hồ sơ gia sư"})).toBeVisible();
+ await page.goForward();await expect(page.getByRole("heading",{level:1,name:"Cài đặt tài khoản"})).toBeVisible();
+ const toggle=page.locator("[data-dashboard-toggle]");if(await toggle.isVisible()){await toggle.click();await expect(page.getByRole("dialog")).toBeVisible();await page.keyboard.press("Escape");await expect(toggle).toBeFocused();await expect(toggle).toHaveAttribute("aria-expanded","false");}
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath("unified-dashboard.png"),fullPage:true});
+ await page.reload();await expect(page).toHaveURL(/\/login\?next=/);
 });
-for(const status of ["PENDING","REJECTED"])test(`${status} Teacher retains account panels without management links`,async({page})=>{
-  await signIn(page,"TEACHER",status);
-  await expect(page.locator('#dashboard-navigation a[href="/teacher/courses"]')).toHaveCount(0);
-  await navigate(page,"Cài đặt tài khoản");await expect(page.locator("#change-password summary")).toBeVisible();
-  await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
+for(const status of ["PENDING","REJECTED"])test(`${status} Teacher retains onboarding without teaching links`,async({page})=>{
+ await signIn(page,"TEACHER",status);await menu(page);
+ await expect(page.getByRole("navigation",{name:"Điều hướng Dashboard",exact:true}).getByRole("link",{name:"Quản lý khóa học"})).toHaveCount(0);
+ await page.getByRole("navigation",{name:"Điều hướng Dashboard",exact:true}).getByRole("link",{name:"Trạng thái hồ sơ đăng ký"}).click();
+ await expect(page.getByRole("heading",{level:1,name:"Trạng thái hồ sơ đăng ký"})).toBeVisible();
+ await navigate(page,"Cài đặt tài khoản");await expect(page.locator("#change-password summary")).toBeVisible();
+ await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
 });
 test("logout clears session and anonymous Teacher routes remain protected",async({page})=>{
-  await signIn(page);const toggle=page.locator('button[aria-controls="dashboard-navigation"]');
-  if(await toggle.isVisible())await toggle.click();
-  await page.getByRole("navigation",{name:"Điều hướng Dashboard"}).getByRole("button",{name:"Đăng xuất"}).click();
-  await expect(page).toHaveURL(/\/account$/);
-  await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
+ await signIn(page);await menu(page);await page.getByRole("button",{name:"Đăng xuất",exact:true}).filter({visible:true}).click();
+ await expect(page).toHaveURL(/\/account$/);await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
 });
-
-test("Student sees only shared account and Enrollment navigation",async({page})=>{
- await signIn(page,"STUDENT");
- await expect(page.locator("#dashboard-navigation a")).toHaveText(["Tổng quan","Đăng ký của tôi","Tài khoản & hồ sơ đăng ký","Cài đặt tài khoản"]);
- await navigate(page,"Cài đặt tài khoản");
- await expect(page.locator("#change-password summary")).toBeVisible();
+test("Student has its own shell for enrollment and profile, without Teacher menus",async({page})=>{
+ await signIn(page,"STUDENT");await menu(page);
+ const nav=page.getByRole("navigation",{name:"Điều hướng học viên",exact:true});
+ await expect(nav.getByRole("link")).toHaveText(["Tổng quan","Khóa học của tôi","Khám phá khóa học","Lịch học","Hồ sơ và cài đặt"]);
+ await nav.getByRole("link",{name:"Khóa học của tôi",exact:true}).click();await expect(page).toHaveURL(/\/student\/enrollments$/);
+ await expect(page.getByRole("heading",{level:1,name:"Khóa học của tôi"})).toBeVisible();await expect(page.getByRole("contentinfo")).toHaveCount(0);
+ await navigate(page,"Hồ sơ và cài đặt","Điều hướng học viên");await expect(page.locator("#change-password summary")).toBeVisible();
 });

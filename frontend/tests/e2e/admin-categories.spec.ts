@@ -1,3 +1,4 @@
+import { captureReview } from "../support/ui-review";
 import { test, expect, type Page } from "@playwright/test";
 
 async function open(page: Page) {
@@ -13,8 +14,8 @@ async function open(page: Page) {
   await page.getByLabel("Mật khẩu", { exact: true }).fill("fixture-password");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
-  if (page.viewportSize()!.width < 900) await page.getByRole("button", { name: "Điều hướng quản trị", exact: true }).click();
-  await page.getByRole("button", { name: "Quản lý danh mục", exact: true }).click();
+  if (page.viewportSize()!.width < 900) await page.locator("[data-dashboard-toggle]").click();
+  await page.getByRole("link", { name: "Quản lý danh mục", exact: true }).click();
 }
 const item = { id: "9007199254740993", name: "Giao tiếp", active: true, createdAt: "2026-10-22T00:00:00Z", updatedAt: "2026-10-22T00:00:00Z" };
 
@@ -35,6 +36,7 @@ test("Category create rename status pagination filter and responsive layout", as
   });
   await page.getByRole("button", { name: "Tải lại danh sách" }).click();
   await expect(page.getByText("Giao tiếp", { exact: true })).toBeVisible();
+  await captureReview(page, info, "admin-categories");
   await page.getByRole("button", { name: "Trang sau" }).click();
   await expect(page.getByText("Không có danh mục trên trang này.")).toBeVisible();
   await page.getByRole("button", { name: "Trang trước" }).click();

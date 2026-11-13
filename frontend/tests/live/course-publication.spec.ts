@@ -54,7 +54,11 @@ test('owner publishes a draft visible across public and Student catalogs', async
     await page.getByLabel('Mật khẩu',{exact:true}).fill(owner.password);
     await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
     await expect(page).toHaveURL(/\/teacher$/);
-    await page.evaluate(path=>(window as unknown as {next:{router:{push:(p:string)=>void}}}).next.router.push(path),editorPath);
+    const toggle=page.locator("[data-dashboard-toggle]");
+    if(await toggle.isVisible())await toggle.click();
+    await page.getByRole("navigation",{name:"Điều hướng Dashboard",exact:true}).getByRole("link",{name:"Quản lý khóa học",exact:true}).click();
+    await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
+    await page.getByRole("listitem").filter({hasText:title}).getByRole("button",{name:"Xem chi tiết",exact:true}).click();
     await expect(page).toHaveURL(url=>url.pathname===editorPath);
   }
   await page.goto('/login');

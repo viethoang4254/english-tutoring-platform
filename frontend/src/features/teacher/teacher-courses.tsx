@@ -17,7 +17,7 @@ export type Course = { id: string; name: string; status: string; category: Categ
   plannedStartDate: string; timezone: string; sessionCount: number;
   discount?: { percent: string; startAt: string; endAt: string } | null };
 type Page<T> = { items: T[]; page: number; size: number; hasNext: boolean };
-const states: Record<string,string> = { DRAFT:"Bản nháp", PUBLISHED:"Đã công bố", COMPLETED:"Hoàn thành", CANCELLED:"Đã hủy", ARCHIVED:"Lưu trữ" };
+export const states: Record<string,string> = { DRAFT:"Bản nháp", PUBLISHED:"Đã công bố", COMPLETED:"Hoàn thành", CANCELLED:"Đã hủy", ARCHIVED:"Lưu trữ" };
 const root = "/teacher/courses";
 function valid(c: Course | undefined): c is Course {
   return !!c && typeof c.id === "string" && /^[1-9][0-9]*$/.test(c.id) && typeof c.name === "string" &&

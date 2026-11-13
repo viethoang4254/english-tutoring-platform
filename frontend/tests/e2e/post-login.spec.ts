@@ -21,20 +21,13 @@ for (const entry of ['/login', '/']) test(`Student login from ${entry} establish
  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  await expect(page).toHaveURL(/\/student\/dashboard$/);
  await expect(page.getByRole('heading',{name:/Xin chào,/})).toBeVisible();
- // Client navigation preserves the in-memory session; full reload deliberately does not.
- for(const label of ['Đăng nhập','Đăng ký học viên']) {
-  await page.getByRole('contentinfo').getByRole('link',{name:label,exact:true}).click();
-  await expect(page).toHaveURL(/\/student\/dashboard$/);
-  await expect(page.getByRole('heading',{name:/Xin chào,/})).toBeVisible();
- }
- await page.getByRole('contentinfo').getByRole('link',{name:'Trang chủ',exact:true}).click();
- await expect(page).toHaveURL(/\/#trang-chu$/);
- await page.locator('.header-account-menu summary').click();
- await page.getByRole('link',{name:'Bảng học tập',exact:true}).click();
- await expect(page).toHaveURL(/\/student\/dashboard$/);
- await page.locator('.header-account-menu summary').click();
- await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
- await expect(page).toHaveURL(/\/login\?next=\/student\/dashboard$/);
+ await expect(page.getByRole('contentinfo')).toHaveCount(0);
+ await page.locator('[data-dashboard-account] summary').click();
+ await page.getByRole('link',{name:'Hồ sơ và bảo mật',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Hồ sơ và cài đặt',exact:true})).toBeVisible();
+ await page.locator('[data-dashboard-account] summary').click();
+ await page.locator('[data-dashboard-account]').getByRole('button',{name:'Đăng xuất',exact:true}).click();
+ await expect(page).toHaveURL(/\/login(?:\?|$)/);
  await expect(page.getByLabel('Email',{exact:true})).toBeVisible();
  expect(refreshes).toBe(0);
 });

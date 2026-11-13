@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, useEffect, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { rememberLogin, restoreRememberedSession } from "./remember-session";
 import type { Session } from "./browser-api";
 
 const Context = createContext<{
@@ -13,8 +14,16 @@ const Context = createContext<{
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const queryClient = useQueryClient();
-  const clearSession = useCallback(() => { setSession(null); queryClient.clear(); }, [queryClient]);
-  return <Context.Provider value={{ session, setSession, clearSession }}>{children}</Context.Provider>;
+  const [restoring, setRestoring] = useState(true);
+  useEffect(() => {
+    let active = true;
+    restoreRememberedSession().then(value => {
+      if (active) { setSession(value); setRestoring(false); }
+    });
+    return () => { active = false; };
+  }, []);
+  const clearSession = useCallback(() => { rememberLogin(false); setSession(null); queryClient.clear(); }, [queryClient]);
+  return <Context.Provider value={{ session, setSession, clearSession }}>{restoring ? <p role="status">Đang kiểm tra phiên đăng nhập…</p> : children}</Context.Provider>;
 }
 
 export function useSession() {

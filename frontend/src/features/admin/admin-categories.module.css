@@ -1,9 +1,13 @@
-.panel { background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: clamp(16px, 3vw, 32px); color: #0f172a; }
+.panel { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius:var(--ui-radius); padding: clamp(16px, 3vw, 32px); color: var(--ui-ink); }
 .toolbar, .actions { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-block: 16px; }
 .toolbar label { display: grid; gap: 8px; flex: 1 1 220px; }
-.toolbar input, .toolbar select { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid #94a3b8; border-radius: 8px; font: inherit; }
+.toolbar input, .toolbar select { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid var(--ui-muted); border-radius: 8px; font: inherit; }
 .list { list-style: none; padding: 0; }
-.list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid #e2e8f0; padding-block: 16px; overflow-wrap: anywhere; }
+.list li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--ui-border); padding-block: 16px; overflow-wrap: anywhere; }
 .list li > div { min-width: 0; }
 .panel button:disabled { opacity: .55; cursor: not-allowed; }
 .panel button { min-height: 44px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+
+.tableScroll{overflow-x:auto;max-width:100%}.tableScroll table{width:100%;font-size:14px}.tableScroll caption{text-align:left;padding:16px 0;font-weight:600}.tableScroll td{vertical-align:top;overflow-wrap:anywhere}.actions{display:flex;flex-wrap:wrap;gap:8px}@media(max-width:600px){.tableScroll th,.tableScroll td{padding:10px 6px}.actions button{padding:8px;font-size:13px}.toolbar{align-items:stretch}.toolbar label{min-width:0;flex:1 1 180px}}
+
+.toolbar{padding-bottom:14px;border-bottom:1px solid var(--ui-border);gap:10px}.toolbar label{flex:0 1 320px;font-size:14px}.tableScroll td,.tableScroll th{padding:12px 10px;text-align:left}.tableScroll td{vertical-align:middle}.tableScroll tr:hover td{background:var(--ui-bg)}.actions button{font-size:13px;min-height:40px;padding:7px 12px}.tableScroll caption{font-size:18px}.actions{gap:6px}@media(max-width:600px){.toolbar label{flex:1 1 170px}.tableScroll td,.tableScroll th{padding:10px 6px}.actions button{min-height:44px}}

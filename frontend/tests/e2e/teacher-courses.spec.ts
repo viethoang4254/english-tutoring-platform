@@ -77,10 +77,10 @@ test("expired authentication removes course workspace without refresh retry",asy
   try {
     const preHydration=await withoutJs.newPage();
     await preHydration.goto("/account");
-    const login=preHydration.locator("form").filter({has:preHydration.getByLabel("Mật khẩu",{exact:true})});
-    await expect(login).toHaveAttribute("method","post");
-    await expect(login.getByLabel("Mật khẩu",{exact:true})).toBeDisabled();
-    await expect(login.getByRole("button",{name:"Đăng nhập",exact:true})).toBeDisabled();
+    // Authentication bootstrap renders no credential form until JavaScript is ready.
+    await expect(preHydration.locator('input[name="password"]')).toHaveCount(0);
+    await expect(preHydration.locator('form')).toHaveCount(0);
+    await expect(preHydration).toHaveURL(/\/account$/);
   } finally { await withoutJs.close(); }
   await open(page);let calls=0;
   await page.route("**/api/v1/teacher/courses**",r=>{calls++;return r.fulfill({status:401,json:{code:"AUTHENTICATION_REQUIRED",message:"Denied"}});});

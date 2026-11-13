@@ -5,11 +5,13 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
   await page.clock.setFixedTime(new Date("2026-10-18T03:00:00Z"));
   const calls: string[] = [];
   let current: Enrollment = { ...row };
+  let remembered = false;
   await page.route("**/api/v1/**", async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     calls.push(`${request.method()} ${path}`);
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "fixture" } });
-    if (path.endsWith("/login")) return route.fulfill({ json: { accessToken: "fixture", tokenType: "Bearer" } });
+    if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({ json: { accessToken: "fixture", tokenType: "Bearer" } }); }
+    if (path.endsWith("/login")) { remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({ json: { accessToken: "fixture", tokenType: "Bearer" } }); }
     if (path.endsWith("/users/me")) return route.fulfill({ json: { id: "1", role: options.role ?? "STUDENT", emailVerified: false } });
     if (options.role === "TEACHER" && path === "/api/v1/teacher/onboarding" && request.method() === "GET") {
       expect(request.headers().authorization).toBe("Bearer fixture");
@@ -42,18 +44,19 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
   await page.goto("/account");
   await page.getByLabel("Email", { exact: true }).fill("fixture@example.invalid");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("fixture-password");
+  await page.getByLabel("Ghi nhớ đăng nhập").check();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.locator(".header-account-menu summary")).toBeVisible();
+  await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
   if (!options.role) {
     await expect(page).toHaveURL(/\/student\/dashboard$/);
     await expect(page.getByRole("heading",{name:/Xin chào,/})).toBeVisible();
-    await expect(page.locator("#student-navigation")).toBeAttached();
-    const toggle = page.locator('button[aria-controls="student-navigation"]');
+    await expect(page.locator("[data-dashboard-layout]")).toBeVisible();
+    const toggle = page.locator('[data-dashboard-toggle]');
     if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
-    await page.locator("#student-navigation").getByRole("link", { name: "Đăng ký của tôi", exact: true }).click();
+    await page.getByRole("navigation",{name:"Điều hướng học viên",exact:true}).getByRole("link", { name: "Khóa học của tôi", exact: true }).click();
     await expect(page).toHaveURL(/\/student\/enrollments$/);
   } else {
-    await expect(page.locator("#dashboard-navigation")).toBeAttached();
+    await expect(page.locator("[data-dashboard-layout]")).toBeAttached();
   }
   return calls;
 }
@@ -94,7 +97,7 @@ test("expired detail renews explicitly and preserves dashboard on desktop/mobile
   await page.getByRole("button",{name:"Tải lại đăng ký"}).click();
   await page.getByRole("button",{name:"Mở khóa học"}).click();
   await expect(page.getByRole("link",{name:"Vào lớp qua Google Meet"})).toHaveAttribute("href","https://meet.google.com/abc-defg-hij");
-  await expect(page.locator("#dashboard-navigation")).toBeAttached();
+  await expect(page.locator("[data-dashboard-layout]")).toBeAttached();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test("cancellation requires confirmation and never activates", async ({ page }) => {
@@ -132,7 +135,7 @@ test("empty enrollments are not sample courses", async ({ page }) => {
 });
 
 async function navigate(page: Page, path: string) {
-  await page.evaluate(target => (window as unknown as { next: { router: { push: (p: string) => void } } }).next.router.push(target), path);
+  await page.goto(path);
 }
 test("pagination returns correct next and previous page data", async ({ page }) => {
   await setup(page, { paginated: true });

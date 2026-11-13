@@ -1,3 +1,4 @@
+import { captureReview } from "../support/ui-review";
 import { expect, test } from '@playwright/test';
 import type { PublicCourse, PublicCourseDetail } from '../../src/features/course/public-courses';
 
@@ -20,6 +21,10 @@ test('catalog search, category filters, details and responsive public data are s
   if(path === `/api/v1/public/courses/${second.id}`)return route.fulfill({json:{...detail,course:{...second,hasCover:true}}});
   forbidden.push(path);return route.abort();
  });
+ await page.goto('/');
+ await expect(page.getByRole('heading',{name:first.name,exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:/Theo dõi đăng ký khóa học/})).toBeVisible();
+ await captureReview(page, info, 'landing');
  await page.goto('/courses');
  await expect(page.getByRole('banner')).toBeVisible();
  await expect(page.getByRole('heading',{name:/Tìm khóa học/})).toBeVisible();
@@ -57,6 +62,7 @@ test('catalog search, category filters, details and responsive public data are s
  await expect(page.getByText('Thống nhất thời gian.',{exact:true})).toBeHidden();
  await page.getByText('1. Cuộc họp',{exact:true}).click();
  await expect(page.getByText('Thống nhất thời gian.',{exact:true})).toBeVisible();
+ await captureReview(page, info, 'course-detail');
  await page.screenshot({path:`test-results/course-detail-${info.project.name}.png`,fullPage:true});
  await page.getByRole('link',{name:'← Khám phá khóa học khác'}).click();
  await expect(page).toHaveURL(/\/courses$/);expect(forbidden).toEqual([]);

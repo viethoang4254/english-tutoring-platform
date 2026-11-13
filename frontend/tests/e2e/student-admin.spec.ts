@@ -11,6 +11,7 @@ async function backend(page: Page, role = "ADMIN", verified = true) {
     calls.push({ path: path + url.search, method: request.method(), body: request.postData() ? request.postDataJSON() : null, authorization: request.headers().authorization, csrf: request.headers()["x-xsrf-token"] });
     if (path.endsWith("/csrf")) await route.fulfill({ json: { token: "csrf-test" } });
     else if (path.endsWith("/login")) await route.fulfill({ json: { accessToken: "test-token", tokenType: "Bearer" } });
+    else if (path.endsWith("/users/me/profile")) await route.fulfill({json:{id:"3",fullName:"Học viên",email:"account@example.test"}});
     else if (path.endsWith("/users/me")) await route.fulfill({ json: { id: "3", role, emailVerified: verified } });
     else if (path.endsWith("/register/student")) await route.fulfill({ status: 201, json: { verificationRequired: false } });
     else if (path.endsWith("/pending")) await route.fulfill({ json: { items: [ { id: applicationId, teacherId: detail.teacherId, status: "PENDING", submittedAt: detail.submittedAt } ], page: Number(url.searchParams.get("page")), size: 20, hasNext: false } });
@@ -24,10 +25,7 @@ async function login(page: Page) {
   await page.goto("/account"); await page.getByLabel("Email", { exact: true }).fill("account@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
-  await expect(page.locator(".header-account-menu summary")).toBeVisible();
-  // This suite exercises the preserved account interface after role-based login navigation.
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (path: string) => void } } }).next.router.push("/account"));
-  await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
+  await expect(page.getByLabel("Mật khẩu",{exact:true})).toHaveCount(0);
 }
 async function openDetail(page: Page) {
   await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
@@ -52,7 +50,7 @@ test("Student registers with exactly five fields then immediately signs in", asy
   await expect(page).toHaveURL(/\/login\?registered=1$/);
   expect(calls.some(c => c.path.includes("verification"))).toBe(false);
   await login(page);
-  await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading", {name:/Xin chào,/})).toBeVisible();
 });
 
 test("Student password and blank name validation prevent requests", async ({ page }) => {
@@ -110,7 +108,7 @@ test("queue pagination and empty results use approved fixed-size query", async (
 
 for (const [role, verified] of [["STUDENT", true], ["TEACHER", true], ["ADMIN", false]] as const)
   test(`${role} verified=${verified} cannot see review controls`, async ({ page }) => {
-    const calls = await backend(page, role, verified); await login(page); await expect(page.getByRole("heading", {name:"Tài khoản & hồ sơ đăng ký",exact:true})).toBeVisible();
+    const calls = await backend(page, role, verified); await login(page); await expect(page.getByRole("heading",{name:role==="ADMIN"?"Không có quyền truy cập":role==="STUDENT"?/Xin chào,/:/Trạng thái hồ sơ đăng ký/})).toBeVisible();
     await expect(page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" })).toHaveCount(0);
     expect(calls.some(c => c.path.includes("/admin/"))).toBe(false);
   });

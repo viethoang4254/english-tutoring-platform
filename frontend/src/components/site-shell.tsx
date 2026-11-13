@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { AccountControl } from "../features/auth/account-control";
 import styles from "../app/landing.module.css";
@@ -40,3 +41,5 @@ export function SiteFooter() {
       </div><div className={styles.footerBottom}>Nền tảng gia sư tiếng Anh<span>Kết nối để cùng tiến bộ.</span></div>
     </div></footer>;
 }
+
+export function PublicLayout({children,home=false}:{children:ReactNode;home?:boolean}) { return <><SiteHeader home={home}/>{children}<SiteFooter/></>; }

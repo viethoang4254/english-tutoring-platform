@@ -7,7 +7,7 @@ export type Onboarding = {
   submittedAt: string; reviewedAt: string | null; rejectionReason: string | null;
 };
 
-export async function authMutation<T>(path: string, body?: Record<string, string>, accessToken?: string): Promise<T | undefined> {
+export async function authMutation<T>(path: string, body?: Record<string, string | boolean>, accessToken?: string): Promise<T | undefined> {
   const csrf = await apiRequest<{ token: string }>("/auth/csrf", { credentials: "include", cache: "no-store" });
   if (!csrf?.token) throw new Error("Invalid CSRF response");
   return apiRequest<T>(path, {
@@ -25,7 +25,7 @@ export function authorized<T>(token: string, path: string, body?: Record<string,
   });
 }
 
-export async function signIn(body?: Record<string, string>): Promise<Session> {
+export async function signIn(body?: Record<string, string | boolean>): Promise<Session> {
   const result = await authMutation<{ accessToken: string; tokenType: string }>(body ? "/auth/login" : "/auth/refresh", body);
   if (!result?.accessToken || result.tokenType !== "Bearer") throw new Error("Invalid authentication response");
   const account = await authorized<Account>(result.accessToken, "/users/me");
@@ -67,4 +67,20 @@ export function validPassword(password: string) {
     } else if (code >= 0xdc00 && code <= 0xdfff) return false;
   }
   return Array.from(password).length >= 8 && Array.from(password).length <= 64 && new TextEncoder().encode(password).length <= 72;
+}
+
+// Login errors must not describe a rejected password as an expired session.
+export function loginMessage(error: unknown): string {
+  if (error instanceof TypeError) return "Không thể kết nối đến máy chủ. Vui lòng thử lại.";
+  if (!(error instanceof ApiRequestError)) return "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.";
+  if (error.status === 401) return "Email hoặc mật khẩu không đúng.";
+  if (error.status >= 500) return "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.";
+  return safeMessage(error);
+}
+export function loginValidation(email: string, password: string): string {
+  if (!email.trim()) return "Vui lòng nhập email.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Email không hợp lệ.";
+  if (!password) return "Vui lòng nhập mật khẩu.";
+  if (!validPassword(password)) return "Email hoặc mật khẩu không đúng.";
+  return "";
 }

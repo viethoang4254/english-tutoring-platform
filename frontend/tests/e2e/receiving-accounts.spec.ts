@@ -6,6 +6,7 @@ const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4n
 const pageOf=<T,>(items:T[])=>({items,page:0,size:20,hasNext:false});
 
 async function login(page:Page,role:"ADMIN"|"TEACHER"|"STUDENT",bank:(route:Route,path:string)=>Promise<void>,onboarding="APPROVED"){
+  let remembered = false;
   await page.route("**/api/v1/**",async route=>{
     const path=new URL(route.request().url()).pathname.replace("/api/v1","");
     if(path.includes("/payment-accounts")){
@@ -13,7 +14,8 @@ async function login(page:Page,role:"ADMIN"|"TEACHER"|"STUDENT",bank:(route:Rout
       return bank(route,path);
     }
     if(path==="/auth/csrf")return route.fulfill({json:{token:"csrf-fixture"}});
-    if(path==="/auth/login")return route.fulfill({json:{accessToken:"fixture",tokenType:"Bearer"}});
+    if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({json:{accessToken:"fixture",tokenType:"Bearer"}}); }
+    if(path==="/auth/login"){ remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({json:{accessToken:"fixture",tokenType:"Bearer"}}); }
     if(path==="/users/me")return route.fulfill({json:{id:"1",role,emailVerified:true}});
     if(path==="/teacher/onboarding")return route.fulfill({json:{applicationId:"1",status:onboarding}});
     if(path==="/users/me/profile")return route.fulfill({json:{id:"1",fullName:"Fixture",email:"fixture@example.invalid"}});
@@ -21,14 +23,15 @@ async function login(page:Page,role:"ADMIN"|"TEACHER"|"STUDENT",bank:(route:Rout
   });
   await page.goto("/login");await page.getByLabel("Email",{exact:true}).fill("fixture@example.invalid");
   await page.getByLabel("Mật khẩu",{exact:true}).fill("fixture-password");
+  await page.getByLabel("Ghi nhớ đăng nhập").check();
   await page.getByRole("button",{name:"Đăng nhập",exact:true}).click();
   await expect(page).toHaveURL(role==="ADMIN"?/\/admin\/dashboard$/:role==="STUDENT"?/\/student\/dashboard$/:/\/teacher$/);
 }
 async function adminQueue(page:Page){
-  const toggle=page.locator('button[aria-controls="admin-navigation"]');
+  const toggle=page.locator('[data-dashboard-toggle]');
   await toggle.waitFor({state:"attached"});
   if(await toggle.isVisible() && await toggle.getAttribute("aria-expanded")==="false")await toggle.click();
-  await page.getByRole("button",{name:"Xét duyệt tài khoản nhận tiền",exact:true}).click();
+  await page.getByRole("link",{name:"Xét duyệt tài khoản nhận tiền",exact:true}).click();
 }
 const denied=(route:Route,status:number)=>route.fulfill({status,json:{code:status===409?"RECEIVING_ACCOUNT_ALREADY_REVIEWED":"ACCESS_DENIED",message:"Fixture"}});
 async function fill(page:Page){
@@ -131,9 +134,9 @@ test("Direct anonymous review URLs require login before private reads",async({pa
 test("Pending Teacher cannot open receiving management from navigation",async({page})=>{
   let reads=0;
   await login(page,"TEACHER",r=>{reads++;return denied(r,403);},"PENDING");
-  await page.evaluate(()=>(window as unknown as {next:{router:{push:(path:string)=>void}}}).next.router.push("/teacher/payment-accounts"));
+  await page.goto("/teacher/payment-accounts");
   await expect(page.getByRole("heading",{name:"Chưa thể mở không gian gia sư"})).toBeVisible();
-  await expect(page.locator("#dashboard-navigation").getByRole("link",{name:"Tài khoản nhận tiền"})).toHaveCount(0);
+  await expect(page.locator("[data-dashboard-layout] nav").getByRole("link",{name:"Tài khoản nhận tiền"})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Gửi hồ sơ"})).toHaveCount(0);
   expect(reads).toBe(0);
 });
@@ -243,7 +246,7 @@ for(const role of ["STUDENT","TEACHER"] as const)test(`${role} cannot open Admin
   let reads=0;
   await login(page,role,route=>{reads++;return denied(route,403);});
   // Client navigation preserves the authenticated session; a full reload would only test anonymous access.
-  await page.evaluate(()=>(window as unknown as {next:{router:{push:(path:string)=>void}}}).next.router.push("/admin/dashboard?section=receiving&id=9"));
+  await page.goto("/admin/dashboard?section=receiving&id=9");
   await expect(page).toHaveURL(/\/admin\/dashboard\?section=receiving&id=9$/);
   await expect(page.getByRole("heading",{name:"Không có quyền truy cập",exact:true})).toBeVisible();
   await expect(page.getByRole("button",{name:"Phê duyệt",exact:true})).toHaveCount(0);

@@ -39,7 +39,7 @@ class AuthenticationHttpTests extends AuthenticationHttpTestSupport {
         assertEquals(refresh,cookie.getValue());
         assertTrue(cookie.isHttpOnly()); assertFalse(cookie.getSecure());
         assertNull(cookie.getDomain()); assertEquals("/api/v1/auth",cookie.getPath());
-        assertEquals(604800,cookie.getMaxAge()); assertTrue(header.contains("SameSite=Lax"));
+        assertEquals(-1,cookie.getMaxAge()); assertTrue(header.contains("SameSite=Lax"));
         assertFalse(response.getContentAsString().contains(refresh));
         verify(workflows).login("person@example.invalid"," test password ");
         assertNull(response.getCookie("JSESSIONID"));
@@ -205,7 +205,7 @@ class AuthenticationHttpTests extends AuthenticationHttpTestSupport {
     @Test void cookieLifetimeUsesRemainingExpiryRatherThanFreshSevenDays() throws Exception {
         when(clock.instant()).thenReturn(now.plusMillis(123750));
         var response=mvc.perform(csrf(postAuth("login"),bootstrap())
-                .contentType(MediaType.APPLICATION_JSON).content(LOGIN))
+                .contentType(MediaType.APPLICATION_JSON).content(LOGIN.replace("}",",\"rememberMe\":true}")))
                 .andExpect(status().isOk()).andReturn().getResponse();
         assertEquals(604676,MockCookie.parse(refreshHeader(response.getHeaders("Set-Cookie"))).getMaxAge());
     }
@@ -220,6 +220,31 @@ class AuthenticationHttpTests extends AuthenticationHttpTestSupport {
                 .header("Access-Control-Request-Headers","authorization"))
                 .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin",origin()));
         verifyNoInteractions(workflows,accounts,decoder);
+    }
+
+    @Test void rememberMeControlsCookiePersistenceAndSurvivesRotation() throws Exception {
+        for(boolean remember : List.of(false,true)) {
+            var response=mvc.perform(csrf(postAuth("login"),bootstrap()).contentType(MediaType.APPLICATION_JSON)
+                    .content(LOGIN.replace("}",",\"rememberMe\":"+remember+"}")))
+                    .andExpect(status().isOk()).andReturn().getResponse();
+            var refreshCookie=MockCookie.parse(refreshHeader(response.getHeaders("Set-Cookie")));
+            assertEquals(remember?604800:-1,refreshCookie.getMaxAge());
+            var flag=MockCookie.parse(response.getHeaders("Set-Cookie").stream().filter(h->h.startsWith("remember_login=")).findFirst().orElseThrow());
+            assertTrue(flag.isHttpOnly());assertEquals("/api/v1/auth",flag.getPath());
+            assertEquals(remember?"1":"0",flag.getValue());
+            assertEquals(refreshCookie.getMaxAge(),flag.getMaxAge());
+            var rotated=mvc.perform(csrf(postAuth("refresh"),bootstrap()).cookie(new Cookie("refresh_token",refresh),flag))
+                    .andExpect(status().isOk()).andReturn().getResponse();
+            assertEquals(remember?604800:-1,MockCookie.parse(refreshHeader(rotated.getHeaders("Set-Cookie"))).getMaxAge());
+        }
+        var logout=mvc.perform(csrf(postAuth("logout"),bootstrap()).cookie(new Cookie("refresh_token",refresh)))
+                .andExpect(status().isNoContent()).andReturn().getResponse();
+        assertTrue(logout.getHeaders("Set-Cookie").stream().filter(h->h.startsWith("remember_login=")).allMatch(h->MockCookie.parse(h).getMaxAge()==0));
+    }
+    @Test void duplicateRememberCookiesCannotRotateSession() throws Exception {
+        mvc.perform(csrf(postAuth("refresh"),bootstrap()).cookie(new Cookie("refresh_token",refresh),
+                new Cookie("remember_login","1"),new Cookie("remember_login","0"))).andExpect(status().isBadRequest());
+        verifyNoInteractions(workflows);
     }
 
 }

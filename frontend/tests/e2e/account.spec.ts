@@ -40,7 +40,7 @@ for (const state of ["PENDING", "APPROVED", "REJECTED"]) test(`Teacher sees ${st
   if (state === "REJECTED") await expect(page.getByText(/Please describe your experience/)).toBeVisible();
   else await expect(page.getByRole("button", { name: "Gửi lại hồ sơ", exact: true })).toHaveCount(0);
   expect(calls.find(c => c.path.endsWith("/login"))?.csrf).toBe("csrf-test");
-  expect(calls.find(c => c.path.endsWith("/login"))?.body).toEqual({ email: "teacher@example.test", password: " password " });
+  expect(calls.find(c => c.path.endsWith("/login"))?.body).toEqual({ email: "teacher@example.test", password: " password ", rememberMe: false });
   expect(calls.find(c => c.path.endsWith("/onboarding"))?.authorization).toBe("Bearer memory-only-test-token");
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -78,7 +78,7 @@ test("reload does not silently recover and logout clears the local session", asy
   await expect(page.getByRole("button", { name: "Tiếp tục đăng nhập" })).toHaveCount(0);
   await login(page);
   await expect(page.getByText("Chờ xét duyệt", { exact: true })).toBeVisible();
-  const toggle = page.locator('button[aria-controls="dashboard-navigation"]'); if(await toggle.isVisible())await toggle.click();
+  const toggle = page.locator('[data-dashboard-toggle]'); if(await toggle.isVisible())await toggle.click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("kết thúc phiên đăng nhập hiện tại");
@@ -88,7 +88,7 @@ test("reload does not silently recover and logout clears the local session", asy
 test("failed logout clears local data but does not claim server success", async ({ page }) => {
   await backend(page, "PENDING"); await login(page);
   await page.route("**/auth/logout", route => route.fulfill({ status: 503, json: { code: "AUTHENTICATION_UNAVAILABLE", message: "PRIVATE" } }));
-  const toggle = page.locator('button[aria-controls="dashboard-navigation"]'); if(await toggle.isVisible())await toggle.click();
+  const toggle = page.locator('[data-dashboard-toggle]'); if(await toggle.isVisible())await toggle.click();
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("chưa xác nhận được việc đăng xuất trên máy chủ");
   await expect(page.getByRole("button", { name: "Đăng nhập", exact: true })).toBeVisible();

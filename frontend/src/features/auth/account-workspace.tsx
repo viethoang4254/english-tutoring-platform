@@ -8,11 +8,13 @@ import { useRouter } from "next/navigation";
 import { useSession } from "./session-provider";
 import { PasswordField } from "./password-field";
 import { ApiRequestError } from "../../lib/api";
-import { authMutation, authorized, safeMessage, signIn, validPassword, type Onboarding, type Session } from "./browser-api";
+import { authMutation, authorized, safeMessage, loginMessage, loginValidation, signIn, validPassword, type Onboarding, type Session } from "./browser-api";
 import { roleLabels, statusLabels, formatDate } from "../../lib/vi";
 import { AdminApplications } from "../teacher/admin-applications";
 
 import dashboard from "../admin/admin-dashboard.module.css";
+import { rememberLogin } from "./remember-session";
+import authStyle from "./auth-form.module.css";
 import layout from "./account-layout.module.css";
 
 type Panel = "overview" | "profile" | "teacher" | "password" | "reviews";
@@ -45,13 +47,13 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
   function clearSession() {
     clearSharedSession(); setStatus(null); setReady(false); setPanel("overview");
   }
-  async function run(work: () => Promise<void>) {
+  async function run(work: () => Promise<void>, login = false) {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true); setMessage("");
     try { await work(); }
     catch (error) {
       if (error instanceof ApiRequestError && error.status === 401) clearSession();
-      setMessage(safeMessage(error));
+      setMessage(login ? loginMessage(error) : safeMessage(error));
     } finally { inFlight.current = false; setBusy(false); }
   }
   async function loadStatus(current: Session) {
@@ -60,9 +62,10 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     if (!latest || !/^[1-9][0-9]*$/.test(latest.applicationId) || !["PENDING", "APPROVED", "REJECTED"].includes(latest.status)) throw new Error("Invalid status response");
     setStatus(latest); setReady(true);
   }
-  async function authenticate(body?: Record<string, string>) {
+  async function authenticate(body?: Record<string, string | boolean>) {
     clearSession();
     const current = await signIn(body);
+    rememberLogin(body?.rememberMe === true);
     setSession(current);
     onAuthenticated?.();
     if (stayOnPage) return;
@@ -101,7 +104,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
   const activePanel = dashboardPanel ?? (embeddedPanel === "teacher" ? "teacher" : navigation.some(([key]) => key === panel) ? panel : "overview");
   function selectPanel(next: Panel) { setPanel(next); setMenuOpen(false); panelHeading.current?.focus(); }
 
-  return <div className={`account-workspace auth-panel ${session && !modal ? layout.workspace : ""} ${modal ? "auth-modal-panel" : ""}`} onInvalid={event => {
+  return <div className={`account-workspace auth-panel ${!session ? authStyle.form : ""} ${!session && view === "login" ? authStyle.login : ""} ${session && !modal ? layout.workspace : ""} ${modal ? "auth-modal-panel" : ""}`} onInvalid={event => {
     const field = event.target;
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
       field.setCustomValidity(field.validity.valueMissing ? "Vui lòng điền thông tin này." :
@@ -126,10 +129,16 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
     {!session ? <>
       {view === "login" && <section>
         <h2>Đăng nhập</h2>
-        <form method="post" onSubmit={event => { const [form, data] = values(event); void run(async () => { validate(data); await authenticate(data); form.reset(); }); }}>
+        <p className={authStyle.intro}>Tiếp tục hành trình học tiếng Anh của bạn.</p>
+        <form method="post" noValidate onSubmit={event => {
+          const [form, data] = values(event);
+          const error = loginValidation(data.email ?? "", data.password ?? "");
+          if (error) { setMessage(error); return; }
+          void run(async () => { await authenticate({email:data.email.trim(), password:data.password, rememberMe:data.rememberMe === "on"}); form.reset(); }, true);
+        }}>
           <fieldset disabled={!hydrated || busy}><label>Email<input name="email" type="email" autoComplete="username" required /></label>
             <PasswordField />
-            <Link className="recovery-note" href="/forgot-password">Quên mật khẩu?</Link>
+            <div className={authStyle.options}><label><input type="checkbox" name="rememberMe" />Ghi nhớ đăng nhập</label><Link className="recovery-note" href="/forgot-password">Quên mật khẩu?</Link></div>
             <button className="auth-primary" type="submit">{busy ? "Đang đăng nhập…" : "Đăng nhập"}</button></fieldset>
         </form>
         <p className="auth-switch">Bạn chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link></p>
