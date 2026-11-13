@@ -92,7 +92,11 @@ for (const status of [401, 403, 503]) test(`Category handles HTTP ${status}`, as
   await page.getByRole("button", { name: "Tải lại danh sách" }).click();
   if (status === 401) await expect(page).toHaveURL(/\/login\?next=\/admin\/dashboard$/);
   else {
-    await expect(page.getByRole("alert")).toBeVisible();
+    const alert = page.getByRole("main").getByRole("alert");
+    await expect(alert).toBeVisible();
+    await expect(alert).toHaveText(status === 403
+      ? "Tài khoản hiện tại không được phép thực hiện thao tác này."
+      : "Dịch vụ tạm thời không khả dụng hoặc chưa xác nhận được kết quả.");
     await expect(page.getByRole("button", { name: "Tạo danh mục" })).toBeDisabled();
   }
 });
