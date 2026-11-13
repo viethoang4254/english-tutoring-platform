@@ -11,6 +11,7 @@ import org.springframework.mock.web.MockCookie;
 @SpringBootTest(properties={
         "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
         "spring.flyway.enabled=false",
+        "app.security.browser.local-http=false",
         "app.security.browser.allowed-origins=https://web.example.test"})
 class AuthenticationHttpsTests extends AuthenticationHttpTestSupport {
     String origin(){return "https://web.example.test";}
