@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { Enrollment } from "../../src/features/enrollment/enrollment";
 const row: Enrollment = { id: "9007199254740993", courseId: "42", courseTitle: "Khóa học thực", status: "PENDING", enrolledAt: null, seatReservedUntil: "2026-10-18T02:59:00Z", reservationExpired: true, cancelledAt: null, cancellationReason: null, createdAt: "2026-10-18T02:00:00Z", updatedAt: "2026-10-18T02:00:00Z" };
-async function setup(page: Page, options: { role?: string; failure?: number; mutation?: string; empty?: boolean; paginated?: boolean; renewalGate?: Promise<void> } = {}) {
+async function setup(page: Page, options: { role?: string; rememberMe?: boolean; failure?: number; mutation?: string; empty?: boolean; paginated?: boolean; renewalGate?: Promise<void> } = {}) {
   await page.clock.setFixedTime(new Date("2026-10-18T03:00:00Z"));
   const calls: string[] = [];
   let current: Enrollment = { ...row };
@@ -44,7 +44,7 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
   await page.goto("/account");
   await page.getByLabel("Email", { exact: true }).fill("fixture@example.invalid");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("fixture-password");
-  await page.getByLabel("Ghi nhớ đăng nhập").check();
+  await page.getByLabel("Ghi nhớ đăng nhập").setChecked(options.rememberMe ?? true);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
   if (!options.role) {
@@ -54,7 +54,7 @@ async function setup(page: Page, options: { role?: string; failure?: number; mut
     const toggle = page.locator('[data-dashboard-toggle]');
     if (await toggle.isVisible() && await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
     await page.getByRole("navigation",{name:"Điều hướng học viên",exact:true}).getByRole("link", { name: "Khóa học của tôi", exact: true }).click();
-    await expect(page).toHaveURL(/\/student\/enrollments$/);
+    if (options.failure !== 401) await expect(page).toHaveURL(/\/student\/enrollments$/);
   } else {
     await expect(page.locator("[data-dashboard-layout]")).toBeAttached();
   }
@@ -122,8 +122,12 @@ for (const mutation of ["COURSE_FULL", "network"]) test(`mutation ${mutation} re
   await expect(page.getByRole("button", { name: "Gia hạn giữ chỗ", exact: true })).toBeVisible();
 });
 for (const failure of [401, 403, 404]) test(`private reads deny ${failure} without content disclosure`, async ({ page }) => {
-  await setup(page, { failure });
-  if (failure === 401) await expect(page.getByText("Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.")).toBeVisible();
+  const calls = await setup(page, { failure });
+  if (failure === 401) {
+    await expect(page).toHaveURL(/\/login\?next=%2Fstudent%2Fenrollments$/);
+    await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+    expect(calls).toContain("GET /api/v1/student/enrollments");
+  }
   else await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(page.getByText("Khóa học thực", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Gia hạn giữ chỗ", exact: true })).toHaveCount(0);
@@ -191,7 +195,7 @@ test("anonymous direct entry requires login without protected API requests", asy
   expect(calls.some(call => call.includes("/student/enrollments"))).toBe(false);
 });
 test("refresh clears in-memory session and hides Enrollment content", async ({ page }) => {
-  const calls = await setup(page);
+  const calls = await setup(page, { rememberMe: false });
   await expect(page.getByRole("heading", { name: row.courseTitle, exact: true })).toBeVisible();
   const before = calls.filter(call => call.includes("/student/enrollments")).length;
   await page.reload();
@@ -199,6 +203,7 @@ test("refresh clears in-memory session and hides Enrollment content", async ({ p
   await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page.getByText(row.courseTitle, { exact: true })).toHaveCount(0);
   expect(calls.filter(call => call.includes("/student/enrollments"))).toHaveLength(before);
+  expect(calls).not.toContain("POST /api/v1/auth/refresh");
 });
 test("cancellation dialog supports keyboard Escape and restores focus", async ({ page }) => {
   const calls = await setup(page);
