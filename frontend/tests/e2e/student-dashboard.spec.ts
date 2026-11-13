@@ -41,7 +41,7 @@ test('calendar arithmetic handles leap years, year boundaries and Vietnam dates'
   expect(dayKey('2026-10-17T18:00:00Z')).toBe('2026-10-18');
 });
 
-test('calendar selection, navigation and preview states are responsive', async ({page}, info) => {
+test('@ui-review calendar selection, navigation and preview states are responsive', async ({page}, info) => {
   await signIn(page);
   await expect(page.getByRole('heading',{name:/Xin chào, Nguyễn Minh Anh/})).toBeVisible();
   await expect(page.getByText('Bản xem trước · Dữ liệu minh họa')).toBeVisible();

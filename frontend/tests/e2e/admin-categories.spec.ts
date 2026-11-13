@@ -19,7 +19,7 @@ async function open(page: Page) {
 }
 const item = { id: "9007199254740993", name: "Giao tiếp", active: true, createdAt: "2026-10-22T00:00:00Z", updatedAt: "2026-10-22T00:00:00Z" };
 
-test("Category create rename status pagination filter and responsive layout", async ({ page }, info) => {
+test("@ui-review Category create rename status pagination filter and responsive layout", async ({ page }, info) => {
   await open(page);
   let current = { ...item };
   const writes: unknown[] = [];

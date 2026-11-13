@@ -12,7 +12,7 @@ const stages = new Set(['registration', 'onboarding-review', 'snapshot-before', 
 function safeLocation(location: TestCase['location'] | undefined): string {
   if (!location || !Number.isSafeInteger(location.line) || location.line < 1) return 'unavailable';
   for (const file of ['tests/e2e/receiving-accounts.spec.ts', 'tests/e2e/course-registration.spec.ts', 'tests/e2e/student-enrollments.spec.ts', 'tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',
-    'tests/live/calendar.spec.ts', 'tests/live/course-publication.spec.ts', 'tests/support/live-fixtures.ts', 'tests/e2e/teacher-calendar.spec.ts',
+    'tests/live/calendar.spec.ts', 'tests/live/course-publication.spec.ts', 'tests/support/live-fixtures.ts', 'tests/support/teacher-navigation.ts', 'tests/e2e/teacher-calendar.spec.ts',
     'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
     'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts',
     'tests/e2e/admin-categories.spec.ts', 'tests/e2e/admin-dashboard.spec.ts', 'tests/e2e/course-discovery.spec.ts',
@@ -25,6 +25,7 @@ function safeLocation(location: TestCase['location'] | undefined): string {
 // Assertion diagnostics, request bodies and browser output can contain credentials.
 export default class SafeReporter implements Reporter {
   private counts = {passed: 0, failed: 0, errors: 0, skipped: 0};
+  private failures: {project:string; status:string; declaration:string; failure:string}[] = [];
   private failureLocations = new WeakMap<TestResult, string>();
   onStepEnd(_test: TestCase, result: TestResult, step: TestStep) {
     const location = safeLocation(step.location);
@@ -40,6 +41,7 @@ export default class SafeReporter implements Reporter {
     const stage = test.annotations.filter(a => a.type === 'task009-stage' && stages.has(a.description ?? '')).at(-1)?.description ?? 'unavailable';
     const failure = result.errors.map(error => safeLocation(error.location)).find(location => location !== 'unavailable')
       ?? this.failureLocations.get(result) ?? 'unavailable';
+    if (result.status !== "passed" && result.status !== "skipped") this.failures.push({project:test.parent.project()?.name ?? "unknown", status:result.status, declaration:safeLocation(test.location), failure});
     console.log(`${result.status}: declaration=${safeLocation(test.location)} stage=${stage} failure=${failure}`);
   }
   onError() { this.counts.errors++; }
@@ -51,7 +53,7 @@ export default class SafeReporter implements Reporter {
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
     const directory = path.join(process.env.RUNNER_TEMP!, 'task009', 'reports');
     mkdirSync(directory, {recursive:true});
-    writeFileSync(path.join(directory, `browser-${Date.now()}.json`), JSON.stringify({status:result.status,...this.counts}));
+    writeFileSync(path.join(directory, `browser-${Date.now()}.json`), JSON.stringify({status:result.status,...this.counts, failures:this.failures}));
     const expected = Number(process.env.TASK009_EXPECTED_TESTS);
     return {status: result.status === 'passed' && expected > 0 && this.counts.passed === expected &&
       !this.counts.failed && !this.counts.errors && !this.counts.skipped ? 'passed' : 'failed'};

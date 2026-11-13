@@ -111,21 +111,6 @@ jobs:
         working-directory: frontend
         env:
           TASK009_EXPECTED_TESTS: '108'
-          TASK009_UI_IMAGES: ${{ runner.temp }}/ui-review
-      - name: Verify ten full-page screenshots
-        run: |
-          for page in teacher-dashboard landing student-dashboard admin-categories course-detail; do
-            for viewport in desktop mobile; do
-              test -s "$RUNNER_TEMP/ui-review/$page-$viewport.png"
-            done
-          done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: ${{ !cancelled() }}
-        with:
-          name: ui-review-screenshots
-          path: ${{ runner.temp }}/ui-review/*.png
-          retention-days: 7
-          if-no-files-found: warn
       - run: python ci/task009/run.py resources
       - name: Receiving account submission and review (30 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/receiving-accounts.spec.ts
@@ -151,5 +136,46 @@ jobs:
         with:
           name: browser-acceptance-counts
           path: ${{ runner.temp }}/task009/reports/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  ui-review-screenshots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:8081
+      NODE_OPTIONS: --max-old-space-size=1536
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '24'
+      - run: npm install --global npm@11.19.0
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: Capture synthetic desktop and mobile review pages
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @ui-review
+        env:
+          TASK009_EXPECTED_TESTS: '8'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/ui-review
+      - name: Verify ten full-page screenshots
+        run: |
+          for page in teacher-dashboard landing student-dashboard admin-categories course-detail; do
+            for viewport in desktop mobile; do
+              test -s "$RUNNER_TEMP/ui-review/$page-$viewport.png"
+            done
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() }}
+        with:
+          name: ui-review-screenshots
+          path: ${{ runner.temp }}/ui-review/*.png
           retention-days: 7
           if-no-files-found: warn

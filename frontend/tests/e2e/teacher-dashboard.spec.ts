@@ -37,7 +37,7 @@ async function login(page: Page, role = "TEACHER", status = "APPROVED", accountS
   return calls;
 }
 
-test("approved Teacher without verified email can open profile, settings and course navigation", async ({ page }, info) => {
+test("@ui-review approved Teacher without verified email can open profile, settings and course navigation", async ({ page }, info) => {
   await page.clock.setFixedTime(new Date("2026-11-13T01:00:00Z"));
   await login(page, "TEACHER", "APPROVED", undefined, false); await openTeacher(page);
   await expect(page.getByText(/14\/11\/2026/)).toBeVisible();

@@ -26,8 +26,9 @@ async function navigate(page:Page,label:string,nav="Điều hướng Dashboard")
  await expect(page.getByRole("heading",{level:1,name:label,exact:true})).toBeVisible();
 }
 test("Teacher dashboard excludes public shell and retains navigation and history",async({page},info)=>{
- const reads=await signIn(page);await expect(page.getByRole("contentinfo")).toHaveCount(0);await expect(page.getByRole("navigation",{name:"Điều hướng chính",exact:true})).toHaveCount(0);
+ const reads=await signIn(page);await navigate(page,"Tổng quan");await expect(page.getByRole("contentinfo")).toHaveCount(0);await expect(page.getByRole("navigation",{name:"Điều hướng chính",exact:true})).toHaveCount(0);
  await expect(page.locator('aside nav a[href="/teacher/courses"]')).toHaveCount(1);
+ await expect(page.getByRole("heading",{name:"Lịch dạy trong 7 ngày tới",exact:true})).toBeVisible();
  const initialReads=reads();
  for(const name of ["Quản lý khóa học","Lịch dạy","Buổi học","Tài khoản nhận tiền","Hồ sơ gia sư","Cài đặt tài khoản"])await navigate(page,name);
  expect(reads()).toBe(initialReads);

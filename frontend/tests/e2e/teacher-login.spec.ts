@@ -31,8 +31,11 @@ for (const status of ['APPROVED', 'PENDING', 'REJECTED']) test(`Teacher dedicate
 for(const remember of [false,true]) test(`Login persistence and logout remember=${remember}`,async({page})=>{
  let refreshes=0,logouts=0;
  await page.route('**/api/v1/**',r=>{
-  const path=new URL(r.request().url()).pathname;
-  expect(new URL(r.request().url()).search).toBe('');
+  const url=new URL(r.request().url());
+  const path=url.pathname;
+  if(path.startsWith('/api/v1/auth/')) expect(url.search).toBe('');
+  expect(url.href).not.toContain('fixture-password');
+  expect(url.searchParams.has('password')).toBe(false);
   if(path.endsWith('/csrf'))return r.fulfill({json:{token:'fixture'}});
   if(path.endsWith('/login')){
    expect(r.request().method()).toBe('POST');expect(r.request().postDataJSON().rememberMe).toBe(remember);

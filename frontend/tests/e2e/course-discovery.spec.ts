@@ -11,7 +11,7 @@ const second: PublicCourse = {...first,id:'9007199254740994',name:'Tiếng Anh t
 const detail: PublicCourseDetail = {course:second,outline:{introduction:"Luyện giao tiếp trong các cuộc họp trực tuyến, từ lời chào đầu tiên đến lúc thống nhất kế hoạch với đồng nghiệp.",objectives:"Trình bày ý kiến và đặt câu hỏi làm rõ trong cuộc họp.",audience:"Người đi làm thường xuyên trao đổi với đồng nghiệp quốc tế.",requirements:"Có thể giới thiệu bản thân và hiểu câu hỏi đơn giản.",outcomes:"Tóm tắt quyết định và xác nhận các bước tiếp theo bằng tiếng Anh.",stages:[{title:"Cuộc họp",topics:[{title:"Đặt lịch",description:"Thống nhất thời gian."},{title:"Trao đổi ý kiến",description:"Đề xuất phương án và phản hồi ý kiến của đồng nghiệp."}]},{title:"Trình bày kế hoạch",topics:[{title:"Giới thiệu đề xuất",description:"Sắp xếp ý chính thành bài trình bày ngắn."}]}]},rules:[{id:'31',dayOfWeek:2,startTime:'09:00',endTime:'10:30'},{id:'32',dayOfWeek:7,startTime:'14:00',endTime:'15:00'}]};
 const coursePage = (items: PublicCourse[],page=0,hasNext=false) => ({items,page,size:20,hasNext});
 
-test('catalog search, category filters, details and responsive public data are safe',async({page},info)=>{
+test('@ui-review catalog search, category filters, details and responsive public data are safe',async({page},info)=>{
  const forbidden: string[]=[];
  await page.route('**/api/v1/**',route=>{
   const request=route.request();const path=new URL(request.url()).pathname;
