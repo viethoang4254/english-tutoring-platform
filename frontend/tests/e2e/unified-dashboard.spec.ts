@@ -52,7 +52,10 @@ test("logout clears session and anonymous Teacher routes remain protected",async
  await expect(page).toHaveURL(/\/account$/);await page.goto("/teacher/courses");await expect(page).toHaveURL(/\/login\?next=/);
 });
 test("Student has its own shell for enrollment and profile, without Teacher menus",async({page})=>{
- await signIn(page,"STUDENT");await menu(page);
+ await signIn(page,"STUDENT");
+ await expect(page).toHaveURL(/\/student\/dashboard$/);
+ await expect(page.getByRole("heading",{level:1,name:"Tổng quan",exact:true})).toBeVisible();
+ await menu(page);
  const nav=page.getByRole("navigation",{name:"Điều hướng học viên",exact:true});
  await expect(nav.getByRole("link")).toHaveText(["Tổng quan","Khóa học của tôi","Khám phá khóa học","Lịch học","Hồ sơ và cài đặt"]);
  await nav.getByRole("link",{name:"Khóa học của tôi",exact:true}).click();await expect(page).toHaveURL(/\/student\/enrollments$/);
