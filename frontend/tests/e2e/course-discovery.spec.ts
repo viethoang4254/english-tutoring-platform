@@ -12,12 +12,28 @@ const detail: PublicCourseDetail = {course:second,outline:{introduction:"Luyện
 const coursePage = (items: PublicCourse[],page=0,hasNext=false) => ({items,page,size:20,hasNext});
 
 test('@ui-review catalog search, category filters, details and responsive public data are safe',async({page},info)=>{
+ // Synthetic book cover so the review exercises a visible, decoded image.
+ const cover = await page.evaluate(() => {
+   const canvas = document.createElement('canvas');
+   canvas.width = 320; canvas.height = 180;
+   const ctx = canvas.getContext('2d')!;
+   ctx.fillStyle = '#125642'; ctx.fillRect(0, 0, 320, 180);
+   ctx.fillStyle = '#f7f7f4';
+   for (const side of [-1, 1]) {
+     ctx.beginPath(); ctx.moveTo(160 + side * 3, 60);
+     ctx.quadraticCurveTo(160 + side * 30, 42, 160 + side * 65, 48);
+     ctx.lineTo(160 + side * 65, 122);
+     ctx.quadraticCurveTo(160 + side * 30, 116, 160 + side * 3, 136);
+     ctx.closePath(); ctx.fill();
+   }
+   return canvas.toDataURL('image/png').split(',')[1];
+ });
  const forbidden: string[]=[];
  await page.route('**/api/v1/**',route=>{
   const request=route.request();const path=new URL(request.url()).pathname;
   expect(request.method()).toBe('GET');expect(request.headers()['authorization']).toBeUndefined();
   if(path === '/api/v1/public/courses')return route.fulfill({json:coursePage([first,{...second,hasCover:true}])});
-  if(path === `/api/v1/public/courses/${second.id}/cover`)return route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXkAAAAASUVORK5CYII=','base64')});
+  if(path === `/api/v1/public/courses/${second.id}/cover`)return route.fulfill({contentType:'image/png',body:Buffer.from(cover,'base64')});
   if(path === `/api/v1/public/courses/${second.id}`)return route.fulfill({json:{...detail,course:{...second,hasCover:true}}});
   forbidden.push(path);return route.abort();
  });
@@ -32,7 +48,7 @@ test('@ui-review catalog search, category filters, details and responsive public
  await expect(page.getByText('Gia sư An',{exact:true})).toBeVisible();
  await expect(page.getByText(`Mã khóa học: ${first.id}`,{exact:true})).toBeVisible();
  await expect(page.getByText('1.800.000 ₫',{exact:true})).toBeVisible();
- await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(1);
+ await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(320);
  await page.getByLabel('Tìm khóa học',{exact:true}).fill('hang ngay');
  await expect(page.getByRole('status')).toHaveText('1 khóa học trên trang 1');
  await page.getByRole('combobox',{name:'Danh mục',exact:true}).selectOption('12');
@@ -47,7 +63,7 @@ test('@ui-review catalog search, category filters, details and responsive public
  await expect(page).toHaveURL(new RegExp(`/courses/${second.id}$`));
  await page.reload();
  await expect(page.getByRole('heading',{name:second.name,exact:true})).toBeVisible();
- await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(1);
+ await expect.poll(()=>page.getByAltText(`Ảnh bìa: ${second.name}`).evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBe(320);
  await expect(page.getByText('2.000.001 ₫',{exact:true})).toBeVisible();
  await expect(page.getByText(`Mã khóa học: ${second.id}`,{exact:true})).toBeVisible();
  await expect(page.getByText('Thứ 3 · 09:00–10:30',{exact:true})).toBeVisible();

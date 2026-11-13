@@ -112,4 +112,15 @@
 .card h2,.card h3{line-height:1.3}.registrationCard{box-shadow:var(--ui-shadow);border-top-color:var(--ui-accent)}
 @media(max-width:600px){.filters{grid-template-columns:minmax(0,1fr)}.sectionTabs{grid-template-columns:repeat(2,minmax(0,1fr))}.panel,.enroll{padding:20px}.facts dl div{flex-wrap:wrap}}
 
-.filters{padding:16px 20px;gap:16px;align-items:end}.filters input,.filters select{border-radius:var(--ui-radius-sm)}.grid{gap:20px}.cardBody{padding:clamp(18px,2vw,26px)}.courseCover{aspect-ratio:16/9;background:var(--ui-dark-surface);border-left:6px solid var(--ui-accent);justify-content:space-between}.courseCover svg{color:var(--ui-highlight)}.courseCover::after{display:block;right:-18%;top:-48%;border:1rem double var(--ui-accent);box-shadow:none}.courseCover span{color:var(--ui-on-dark);font-size:13px}.coverImage{margin-bottom:1rem}.grid>.card:only-child{grid-column:1/-1}@media(min-width:761px){.grid>.card:only-child{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr)}.grid>.card:only-child>:first-child{width:100%;height:100%;margin:0;object-fit:cover;border-radius:0}.grid>.card:only-child .cardBottom{margin-top:16px}}@media(max-width:600px){.filters{padding:14px}}
+.filters{padding:16px 20px;gap:16px;align-items:end}.filters input,.filters select{border-radius:var(--ui-radius-sm)}.grid{gap:20px}.cardBody{padding:clamp(18px,2vw,26px)}.courseCover{aspect-ratio:16/9;background:var(--ui-dark-surface);border-left:6px solid var(--ui-accent);justify-content:space-between}.courseCover svg{color:var(--ui-highlight)}.courseCover::after{display:block;right:-18%;top:-48%;border:1rem double var(--ui-accent);box-shadow:none}.courseCover span{color:var(--ui-on-dark);font-size:13px}.coverImage{margin-bottom:1rem}.grid>.card:only-child{grid-column:1/-1}@media(min-width:761px){.grid>.card:only-child{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr)}.grid>.card:only-child>.coverImage{width:100%;height:100%;margin:0;object-fit:cover;border-radius:0}.grid>.card:only-child .cardBottom{margin-top:16px}}@media(max-width:600px){.filters{padding:14px}}
+
+.coverFallback {
+  display:flex; align-items:center; gap:10px; padding:12px 18px;
+  background:var(--ui-accent-soft); color:var(--ui-accent-hover); font-weight:600;
+  overflow-wrap:anywhere;
+}
+.coverFallback svg { width:24px; height:24px; flex:none; }
+.registrationCard .coverFallback { border-radius:var(--ui-radius-sm); margin-bottom:1rem; }
+@media(min-width:761px) {
+  .grid>.card:only-child:has(>.coverFallback) { display:block; }
+}
