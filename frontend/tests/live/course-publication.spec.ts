@@ -150,9 +150,13 @@ test('owner publishes a draft visible across public and Student catalogs', async
   await page.getByLabel('Mật khẩu',{exact:true}).fill(student.password);
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
   await expect(page).toHaveURL(/\/student\/dashboard$/);
-  const toggle=page.locator('button[aria-controls="student-navigation"]');
-  if(await toggle.isVisible())await toggle.click();
-  await page.locator('#student-navigation').getByRole('link',{name:'Khám phá khóa học'}).click();
+  await expect(page.getByRole('heading',{level:1,name:'Tổng quan',exact:true})).toBeVisible();
+  const toggle=page.locator('[data-dashboard-toggle]');
+  if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
+  const catalogLink=page.getByRole('navigation',{name:'Điều hướng học viên',exact:true}).getByRole('link',{name:'Khám phá khóa học',exact:true});
+  await expect(catalogLink).toBeVisible();
+  await catalogLink.click();
+  await expect(page).toHaveURL(/\/student\/dashboard\/courses$/);
   await expectPublishedCover();
   await page.getByRole('link',{name:title,exact:true}).click();
   await expect(page).toHaveURL(new RegExp('/student/dashboard/courses/'+id+'$'));
