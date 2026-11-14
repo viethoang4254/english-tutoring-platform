@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { teacherPanel } from '../support/teacher-navigation';
 import { randomUUID } from 'node:crypto';
 import { api, fixture, mutation, register } from '../support/live-fixtures';
 
@@ -54,9 +55,7 @@ test('owner publishes a draft visible across public and Student catalogs', async
     await page.getByLabel('Mật khẩu',{exact:true}).fill(owner.password);
     await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
     await expect(page).toHaveURL(/\/teacher$/);
-    const toggle=page.locator("[data-dashboard-toggle]");
-    if(await toggle.isVisible())await toggle.click();
-    await page.getByRole("navigation",{name:"Điều hướng Dashboard",exact:true}).getByRole("link",{name:"Quản lý khóa học",exact:true}).click();
+    await teacherPanel(page,"Quản lý khóa học");
     await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
     await page.getByRole("listitem").filter({hasText:title}).getByRole("button",{name:"Xem chi tiết",exact:true}).click();
     await expect(page).toHaveURL(url=>url.pathname===editorPath);
@@ -190,7 +189,7 @@ test('owner publishes a draft visible across public and Student catalogs', async
     await expect(page.getByRole('button',{name:'Mở khóa học',exact:true})).toHaveCount(0);
     const confirm=course+'/payments/'+payment.id+'/confirm-manually';
     const evidence={bankBin:payment.bankBin,accountNumber:payment.accountNumber,bankTransactionReference:'CI-'+randomUUID(),receivedAt:payment.createdAt,
-      observedAmount:payment.finalAmount,currency:'VND',transferDescription:payment.transferReference,transferReference:payment.transferReference,attested:true};
+      observedAmount:Number(payment.finalAmount),currency:'VND',transferDescription:payment.transferReference,transferReference:payment.transferReference,attested:true};
     expect((await request.post(confirm,{headers:student.headers,data:evidence})).status()).toBe(403);
     expect((await request.post(confirm,{headers:other.headers,data:evidence})).status()).toBe(404);
     expect((await request.post(confirm,{headers:owner.headers,data:evidence})).status()).toBe(200);
