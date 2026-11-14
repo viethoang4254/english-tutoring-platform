@@ -9,3 +9,14 @@
 .dialog::backdrop { background: #17203688; }
 .workspace button, .workspace a { overflow-wrap: anywhere; }
 @media (max-width: 600px) { .card { padding: 1rem; } .actions > * { flex: 1 1 auto; } }
+
+.transfer { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: 1.25rem; margin-block: 1rem; align-items: start; }
+.transfer section { min-width: 0; }
+.transfer h4, .success h4 { margin: 0; font-size: 1.125rem; }
+.amount { font-weight: 700; font-size: 1.25rem; }
+.qrPanel { padding: 1rem; border: 1px solid var(--ui-border); border-radius: .5rem; text-align: center; }
+.qrPanel h4 { margin-bottom: .75rem; }
+.qrPanel img { display: block; max-width: 100%; height: auto; margin: .75rem auto 0; }
+.success { display: flex; gap: .75rem; align-items: flex-start; margin-block: 1rem; }
+.success p { margin: .25rem 0 0; }
+.check { display: grid; place-items: center; flex: 0 0 2rem; height: 2rem; border-radius: 50%; background: var(--ui-accent); color: var(--ui-inverse); font-weight: 700; }

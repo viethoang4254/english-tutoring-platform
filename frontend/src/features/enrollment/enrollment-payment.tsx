@@ -75,11 +75,14 @@ export function EnrollmentPayment({session,row,expired,now,onRefresh}:{session:S
     {error&&<p role="alert">{error}</p>}
     {busy&&<p role="status">Đang tải thanh toán…</p>}
     {payment&&<><p>Trạng thái thanh toán: <strong>{statuses[payment.status]}</strong></p>
-      <p>Hết hạn thanh toán: <time dateTime={payment.expiresAt}>{new Intl.DateTimeFormat("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",dateStyle:"medium",timeStyle:"short"}).format(new Date(payment.expiresAt))}</time> (giờ Việt Nam)</p>
+      {payment.status!=="CONFIRMED"&&<p>Hết hạn thanh toán: <time dateTime={payment.expiresAt}>{new Intl.DateTimeFormat("vi-VN",{timeZone:"Asia/Ho_Chi_Minh",dateStyle:"medium",timeStyle:"short"}).format(new Date(payment.expiresAt))}</time> (giờ Việt Nam)</p>}
       {payment.status==="PENDING"&&<p>Đang chờ gia sư kiểm tra giao dịch. Quét mã hoặc thông báo đã chuyển tiền không kích hoạt đăng ký.</p>}
       {payment.status==="EXPIRED"&&<p>Yêu cầu đã hết hạn. Nếu đã chuyển tiền, liên hệ gia sư để kiểm tra trước khi tạo yêu cầu mới.</p>}
       {payment.status==="CANCELLED"&&<p>Yêu cầu thanh toán đã hủy. Không chuyển tiền theo mã cũ.</p>}
-      {payment.status==="CONFIRMED"&&row.status==="ACTIVE"&&<p role="status">Thanh toán đã được xác nhận. Đăng ký đang hoạt động.</p>}
+      {payment.status==="CONFIRMED"&&row.status==="ACTIVE"&&<div className={styles.success}>
+        <span aria-hidden="true" className={styles.check}>✓</span>
+        <div><h4>Đăng ký khóa học thành công</h4><p role="status">Thanh toán đã được xác nhận. Đăng ký đang hoạt động.</p></div>
+      </div>}
     </>}
     {copied&&<p role="status">{copied}</p>}
     {validQr&&payment&&!acknowledged&&<div>
@@ -89,19 +92,22 @@ export function EnrollmentPayment({session,row,expired,now,onRefresh}:{session:S
         setAccepted({id:payment.id,amount:payment.finalAmount});
       }}>Xác nhận số tiền thanh toán</button>
     </div>}
-    {validQr&&payment&&acknowledged&&<><p>Số tiền: {tuitionLabel(payment.finalAmount)}</p><p>{payment.bankName} · {payment.accountNumber} · {payment.accountHolderName}</p>
+    {validQr&&payment&&acknowledged&&<div className={styles.transfer}><section><h4>Thông tin chuyển khoản</h4><p className={styles.amount}>Số tiền: {tuitionLabel(payment.finalAmount)}</p><p>{payment.bankName} · {payment.accountNumber} · {payment.accountHolderName}</p>
       <p>Nội dung chuyển khoản: {payment.transferReference}</p>
       <div className={styles.actions}>
         <button onClick={()=>void copy("số tài khoản",payment.accountNumber)}>Sao chép số tài khoản</button>
         <button onClick={()=>void copy("số tiền",payment.finalAmount)}>Sao chép số tiền</button>
         <button onClick={()=>void copy("nội dung chuyển khoản",payment.transferReference)}>Sao chép nội dung</button>
       </div>
-      <PrivateQr key={payment.id} token={session.accessToken} path={`/student/payments/${payment.id}/qr-image`} handle={handle} label="VietQR thanh toán khóa học"/>
-      <p>Chuyển đúng số tiền và nội dung. Gia sư xác nhận sau khi kiểm tra giao dịch.</p></>}
+      <p>Chuyển đúng số tiền và nội dung. Gia sư xác nhận sau khi kiểm tra giao dịch.</p></section>
+      <section className={styles.qrPanel}><h4>Mã VietQR</h4><PrivateQr key={payment.id} token={session.accessToken} path={`/student/payments/${payment.id}/qr-image`} handle={handle} label="VietQR thanh toán khóa học"/>
+      </section></div>}
     {payable&&!error&&(!payment||payment.status==="EXPIRED"||payment.status==="CANCELLED")&&<button disabled={busy} onClick={()=>void act(false)}>Tạo yêu cầu thanh toán</button>}
-    <button disabled={busy} onClick={()=>{setBusy(true);setError("");setPayment(null);setMeet("");onRefresh();}}>Tải lại thanh toán</button>
     {payment?.status==="CONFIRMED"&&row.status!=="ACTIVE"&&<p>Tải lại đăng ký để xem quyền vào lớp.</p>}
-    {row.status==="ACTIVE"&&<button disabled={busy} onClick={()=>void act(true)}>Mở khóa học</button>}
+    <div className={styles.actions}>
+    {row.status==="ACTIVE"&&<button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void act(true)}>Mở khóa học</button>}
+    <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>{setBusy(true);setError("");setPayment(null);setMeet("");onRefresh();}}>Tải lại thanh toán</button>
+    </div>
     {meet&&<a href={meet} target="_blank" rel="noopener noreferrer">Vào lớp qua Google Meet</a>}
   </section>;
 }

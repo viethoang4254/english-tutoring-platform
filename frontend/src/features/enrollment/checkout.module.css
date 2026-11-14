@@ -3,6 +3,8 @@
 .columns {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:1.5rem;align-items:start;}
 .panel {padding:1.5rem;border:1px solid var(--ui-border);background:var(--ui-surface);border-radius:.5rem;min-width:0;}
 .panel h2 {margin-top:0;}
+.panel .courseName {font-size:clamp(1.4rem,2.5vw,2rem);line-height:1.2;overflow-wrap:anywhere;}
+.back {justify-self:start;}
 .panel dl {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:.8rem;}
 .panel dd {margin:0;overflow-wrap:anywhere;}
 .panel dt {color:var(--ui-muted);}

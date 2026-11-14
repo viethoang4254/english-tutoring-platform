@@ -72,7 +72,7 @@ function Confirmation({courseId,student,token}:{courseId:string;student:string;t
       <Link href={existing?`/student/enrollments?id=${existing.id}`:"/student/enrollments"}>Kiểm tra đăng ký và khôi phục thanh toán</Link></div>}
     {!data&&!error&&<p role="status">Đang tải thông tin đăng ký…</p>}
     {data&&<div className={styles.columns}>
-      <article className={styles.panel}><h2>{data.course.name}</h2>
+      <article className={styles.panel}><h2 className={styles.courseName}>{data.course.name}</h2>
         <dl><dt>Danh mục</dt><dd>{data.course.category.name}</dd><dt>Gia sư</dt><dd>{data.course.teacher.fullName}</dd>
         <dt>Số buổi học</dt><dd>{data.course.sessionCount}</dd><dt>Ngày bắt đầu dự kiến</dt><dd>{courseDate(data.course.plannedStartDate)}</dd>
         <dt>Múi giờ</dt><dd>{data.course.timezone==="Asia/Ho_Chi_Minh"?"Giờ Việt Nam (UTC+7)":data.course.timezone}</dd>
@@ -94,6 +94,6 @@ function Confirmation({courseId,student,token}:{courseId:string;student:string;t
         {existing&&!changed&&<Link href={`/student/enrollments?id=${existing.id}`}>Xem đăng ký hiện có</Link>}
       </aside>
     </div>}
-    <Link className="ui-button ui-button-secondary" href={back}>Quay lại khóa học</Link>
+    <Link className={`ui-button ui-button-secondary ${styles.back}`} href={back}>Quay lại khóa học</Link>
   </section>;
 }
