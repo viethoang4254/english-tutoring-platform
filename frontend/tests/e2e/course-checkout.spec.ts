@@ -23,6 +23,7 @@ test("@checkout-review confirmation, protected VietQR and confirmed state",async
   for(const label of ["Sao chép số tài khoản","Sao chép số tiền","Sao chép nội dung"])await page.getByRole("button",{name:label,exact:true}).click();
   await expect.poll(()=>copied).toEqual([payment.accountNumber,payment.finalAmount,payment.transferReference]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.getByRole("heading",{name:quote.course.name,exact:true})).toBeVisible();
   await captureReview(page,info,"vietqr-payment");
   fixture.confirmPayment();await page.getByRole("button",{name:"Tải lại thanh toán",exact:true}).click();
   await expect(page.getByText("Thanh toán đã được xác nhận. Đăng ký đang hoạt động.")).toBeVisible();

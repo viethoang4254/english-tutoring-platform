@@ -5,7 +5,7 @@ import type {Checkout} from "../../src/features/enrollment/course-checkout";
 import type {Enrollment} from "../../src/features/enrollment/enrollment";
 export const courseId="9007199254740993", enrollmentId="9007199254740994";
 export const checkoutPath=`/student/dashboard/courses/${courseId}/checkout`;
-export const row:Enrollment={id:enrollmentId,courseId,courseTitle:"Khóa học đăng ký",status:"PENDING",enrolledAt:null,seatReservedUntil:"2030-01-01T00:15:00Z",reservationExpired:false,cancelledAt:null,cancellationReason:null,createdAt:"2030-01-01T00:00:00Z",updatedAt:"2030-01-01T00:00:00Z"};
+export const row:Enrollment={id:enrollmentId,courseId,courseTitle:"Tiếng Anh trong công việc",status:"PENDING",enrolledAt:null,seatReservedUntil:"2030-01-01T00:15:00Z",reservationExpired:false,cancelledAt:null,cancellationReason:null,createdAt:"2030-01-01T00:00:00Z",updatedAt:"2030-01-01T00:00:00Z"};
 export const quote:Checkout={course:{id:courseId,name:row.courseTitle,description:"Thông tin công khai",tuition:{amount:"2000000.00",currency:"VND"},category:{id:"11",name:"Giao tiếp"},teacher:{id:"21",fullName:"Gia sư An"},plannedStartDate:"2030-01-08",timezone:"Asia/Ho_Chi_Minh",sessionCount:12},
   rules:[{id:"1",dayOfWeek:2,startTime:"19:00:00",endTime:"20:30:00"}],
   price:{originalAmount:"2000000.00",discountPercent:"10",exactDiscountAmount:"200000",roundingAdjustment:"0",finalAmount:"1800000",currency:"VND"},
