@@ -44,6 +44,10 @@ public class EnrollmentRepository {
             """).setParameter("student",student).setParameter("enrollment",enrollment).getResultList();
         return rows.stream().findFirst().map(String.class::cast);
     }
+    public Optional<EnrollmentDto> readForCourse(long actor,long course,Instant now) {
+        var rows=em.createNativeQuery(SELECT+" AND e.course_id=:course").setParameter("actor",actor).setParameter("course",course).getResultList();
+        return rows.isEmpty()?Optional.empty():Optional.of(dto(rows.get(0),now));
+    }
     public Optional<EnrollmentDto> forCourse(long actor,long course,Instant now) {
         var rows=em.createNativeQuery(SELECT+" AND e.course_id=:course FOR UPDATE OF e").setParameter("actor",actor).setParameter("course",course).getResultList();
         return rows.isEmpty()?Optional.empty():Optional.of(dto(rows.get(0),now));

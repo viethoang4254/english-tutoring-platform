@@ -1,0 +1,13 @@
+.checkout {display:grid;gap:1.5rem;min-width:0;max-width:72rem;margin:auto;}
+.checkout h1 {margin:.25rem 0;font-size:clamp(1.6rem,3vw,2.25rem);}
+.columns {display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:1.5rem;align-items:start;}
+.panel {padding:1.5rem;border:1px solid var(--ui-border);background:var(--ui-surface);border-radius:.5rem;min-width:0;}
+.panel h2 {margin-top:0;}
+.panel dl {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:.8rem;}
+.panel dd {margin:0;overflow-wrap:anywhere;}
+.panel dt {color:var(--ui-muted);}
+.panel ul {padding-left:1rem;margin:0;}
+.panel p {line-height:1.6;}
+.panel a {display:block;margin-top:1rem;}
+.amount {font-size:1.4rem;font-weight:700;}
+@media(max-width:700px) {.columns{grid-template-columns:minmax(0,1fr);}.panel{padding:1rem;}.panel dl{grid-template-columns:minmax(0,1fr);gap:.35rem;}.panel dd{margin-bottom:.6rem;}.checkout button{max-width:100%;white-space:normal;}}

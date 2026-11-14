@@ -78,6 +78,7 @@ test("expired detail renews explicitly and preserves dashboard on desktop/mobile
     return route.fulfill({status:201,json:payment});
   });
   await page.getByRole("button",{name:"Tạo yêu cầu thanh toán"}).click();
+  await page.getByRole("button",{name:"Xác nhận số tiền thanh toán"}).click();
   await expect(page.getByText(/Nội dung chuyển khoản: ELPFIXTURE/)).toBeVisible();
   expect(creates).toBe(1);
   await page.route("**/student/payments/7/qr-image",route=>{

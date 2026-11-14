@@ -80,7 +80,7 @@ export function StudentEnrollments({ session, enrollmentId }: { session: Session
             <p>Hạn giữ chỗ: {row.seatReservedUntil ? <time dateTime={row.seatReservedUntil}>{time.format(new Date(row.seatReservedUntil))}</time> : "Không còn thời hạn hợp lệ"}</p>
             <p>{expired ? "Giữ chỗ đã hết hạn." : now > 0 ? `Còn ${Math.floor(seconds / 60)} phút ${seconds % 60} giây` : "Đang tính thời gian còn lại…"}</p>
           </>}
-          {enrollmentId && <EnrollmentPayment key={row.id} session={session} row={row} expired={expired} now={now} />}
+          {enrollmentId && <EnrollmentPayment key={row.id} session={session} row={row} expired={expired} now={now} onRefresh={()=>setAttempt(value=>value+1)} />}
           {row.cancelledAt && <p>Đã hủy lúc: <time dateTime={row.cancelledAt}>{time.format(new Date(row.cancelledAt))}</time></p>}
           {row.cancellationReason && <p>Lý do: {row.cancellationReason}</p>}
           <div className={styles.actions}>

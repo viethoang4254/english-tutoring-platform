@@ -86,6 +86,31 @@ class PaymentPersistenceTests {
         var failure=assertThrows(SQLException.class,()->sql("INSERT INTO payments(enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,final_amount,currency,status,expires_at,created_at,updated_at) VALUES (100,100,'INVALID-LEGACY','VIETQR',100,0,101,'VND','EXPIRED',now()+interval '1 hour',now(),now())"));
         assertEquals("23514",failure.getSQLState());assertEquals(legacyBefore,legacy());
     }
+    @Test void checkoutPreviewIsReadOnlyAndRetainsPendingSnapshot()throws Exception {
+        var checkout=context.getBean(CheckoutService.class);
+        String before=text("SELECT jsonb_agg(to_jsonb(e) ORDER BY id)::text FROM enrollments e");
+        String beforePayments=text("SELECT jsonb_agg(to_jsonb(p) ORDER BY id)::text FROM payments p");
+        var preview=checkout.get(3,200);assertTrue(preview.available());assertEquals("101",preview.price().finalAmount());
+        assertNull(preview.enrollment());assertNull(preview.paymentId());
+        assertEquals(before,text("SELECT jsonb_agg(to_jsonb(e) ORDER BY id)::text FROM enrollments e"));
+        assertEquals(beforePayments,text("SELECT jsonb_agg(to_jsonb(p) ORDER BY id)::text FROM payments p"));
+        long e=reserve();var payment=payments.create(3,e).payment();
+        sql("UPDATE courses SET tuition=999 WHERE id=200");
+        var recovered=checkout.get(3,200);assertTrue(recovered.available());
+        assertEquals(payment.finalAmount(),recovered.price().finalAmount());assertEquals(payment.id(),recovered.paymentId());
+        assertNull(checkout.get(4,200).paymentId());assertFalse(checkout.get(4,200).available());
+        CLOCK.now=payment.expiresAt();assertEquals("ENROLLMENT_RENEWAL_REQUIRED",checkout.get(3,200).blockedReason());
+        assertEquals("PENDING",text("SELECT status FROM payments WHERE id="+payment.id().value()));
+        assertEquals("PENDING",text("SELECT status FROM enrollments WHERE id="+e));assertEquals(legacyBefore,legacy());
+    }
+    @Test void checkoutRepricesBeforeCreationWithoutChangingPreviewOrActivating()throws Exception {
+        var checkout=context.getBean(CheckoutService.class);var preview=checkout.get(3,200);
+        sql("UPDATE courses SET tuition=200 WHERE id=200");
+        var payment=payments.create(3,reserve()).payment();assertEquals("101",preview.price().finalAmount());assertEquals("200",payment.finalAmount());
+        assertEquals("PENDING",payment.status());assertEquals("PENDING",enrollments.get(3,payment.enrollmentId().value()).status());
+        sql("UPDATE courses SET status='CANCELLED' WHERE id=200");
+        assertEquals(EnrollmentFailure.Reason.COURSE_NOT_FOUND,assertThrows(EnrollmentFailure.class,()->checkout.get(3,200)).reason());
+    }
     @Test void validCreationRetriesSnapshotsAndNoActivation()throws Exception {
         long e=reserve();var first=payments.create(3,e);assertTrue(first.created());var p=first.payment();
         assertEquals("101",p.finalAmount());assertEquals("0.5",p.roundingAdjustment());assertEquals("00123456",p.accountNumber());

@@ -5,6 +5,15 @@ import static com.englishlearning.features.payment.service.PaymentFailure.Reason
 
 public record PaymentMoney(BigDecimal original, BigDecimal percent, BigDecimal discount,
                            BigDecimal rounding, BigDecimal payable) {
+    public static String decimal(BigDecimal value) {
+        return value == null ? null : value.stripTrailingZeros().toPlainString();
+    }
+    public static PaymentMoney at(com.englishlearning.features.payment.repository.PaymentRepository.Price price, java.time.Instant now) {
+        if(!"VND".equals(price.currency()))throw invalid();
+        var percent=price.percent()!=null && price.start()!=null && price.end()!=null
+            && !now.isBefore(price.start()) && now.isBefore(price.end())?price.percent():BigDecimal.ZERO;
+        return calculate(price.tuition(),percent);
+    }
     public static PaymentMoney calculate(BigDecimal tuition, BigDecimal percent) {
         try {
             if(tuition==null || tuition.signum()<=0 || tuition.compareTo(new BigDecimal("9999999999999.99"))>0

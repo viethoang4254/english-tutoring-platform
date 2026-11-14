@@ -7,7 +7,6 @@ import com.englishlearning.features.paymentaccount.service.*;
 import com.englishlearning.features.teacher.service.*;
 import com.englishlearning.features.user.service.*;
 import com.englishlearning.features.user.entity.User.Role;
-import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
@@ -60,10 +59,7 @@ public class PaymentService {
         var destination=rows.destination(context.teacher()).orElseThrow(()->fail(RECEIVING_ACCOUNT_UNAVAILABLE));
         try { banks.require(destination.bin()); } catch(ReceivingFailure ex) { throw fail(RECEIVING_ACCOUNT_UNAVAILABLE); }
         var price=rows.price(context.course());
-        if(!"VND".equals(price.currency()))throw fail(PAYMENT_AMOUNT_INVALID);
-        BigDecimal percent=price.percent()!=null && price.start()!=null && price.end()!=null
-            && !now.isBefore(price.start()) && now.isBefore(price.end())?price.percent():BigDecimal.ZERO;
-        var money=PaymentMoney.calculate(price.tuition(),percent);
+        var money=PaymentMoney.at(price,now);
         byte[] entropy=new byte[11];random.nextBytes(entropy);
         String reference="ELP"+HexFormat.of().withUpperCase().formatHex(entropy);
         String payload=VietQr.payload(destination.bin(),destination.number(),money.payable().toPlainString(),reference);

@@ -1,4 +1,5 @@
 "use client";
+import { checkoutReturnPath } from "../enrollment/checkout-path";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "./session-provider";
@@ -6,13 +7,14 @@ import Link from "next/link";
 import { PublicLayout } from "../../components/site-shell";
 import { AccountWorkspace } from "./account-workspace";
 
-export function AuthPage({ view, registered = false, reset = false }: { view: "login" | "student" | "register" | "verify"; registered?: boolean; reset?: boolean }) {
+export function AuthPage({ view, registered = false, reset = false, returnTo }: { view: "login" | "student" | "register" | "verify"; registered?: boolean; reset?: boolean; returnTo?: string }) {
   const { session } = useSession();
   const router = useRouter();
+  const destination = checkoutReturnPath(returnTo) ?? "/student/dashboard";
   const redirectStudent = session?.account.role === "STUDENT" && (view === "login" || view === "student");
   const redirectAdmin = session?.account.role === "ADMIN" && view === "login";
   const redirectTeacher = session?.account.role === "TEACHER" && view === "login";
-  useEffect(() => { if (redirectStudent) router.replace("/student/dashboard"); else if (redirectAdmin) router.replace("/admin/dashboard"); else if (redirectTeacher) router.replace("/teacher"); }, [redirectStudent, redirectAdmin, redirectTeacher, router]);
+  useEffect(() => { if (redirectStudent) router.replace(destination); else if (redirectAdmin) router.replace("/admin/dashboard"); else if (redirectTeacher) router.replace("/teacher"); }, [redirectStudent, redirectAdmin, redirectTeacher, router, destination]);
   if (redirectTeacher) return <main role="status">Đang mở Dashboard…</main>;
   if (redirectAdmin) return <main role="status">Đang mở trang quản trị…</main>;
   if (redirectStudent) return <main role="status">Đang mở bảng học tập…</main>;
@@ -21,7 +23,7 @@ export function AuthPage({ view, registered = false, reset = false }: { view: "l
     <PublicLayout>
     <nav className="auth-breadcrumb" aria-label="Đường dẫn"><Link href="/">Trang chủ</Link><span aria-hidden="true">›</span><span aria-current="page">{title}</span></nav>
     <main>
-      <AccountWorkspace dedicatedLogin={view === "login"} initialView={view} initialMessage={reset ? "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại." : registered && view === "login" ? "Đăng ký thành công. Bạn có thể đăng nhập bằng email và mật khẩu ngay bây giờ." : registered ? "Tài khoản đã được tạo. Nhập mã xác minh được gửi qua email. Bạn chưa đăng nhập." : ""} />
+      <AccountWorkspace stayOnPage={view === "login"} dedicatedLogin={view === "login"} initialView={view} initialMessage={reset ? "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại." : registered && view === "login" ? "Đăng ký thành công. Bạn có thể đăng nhập bằng email và mật khẩu ngay bây giờ." : registered ? "Tài khoản đã được tạo. Nhập mã xác minh được gửi qua email. Bạn chưa đăng nhập." : ""} />
     </main>
     </PublicLayout>
   </div>;

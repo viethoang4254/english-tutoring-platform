@@ -29,8 +29,9 @@ public class PaymentRepository {
             .setParameter("id",course).getSingleResult();
         return new Price((BigDecimal)r[0],(String)r[1],(BigDecimal)r[2],instant(r[3]),instant(r[4]));
     }
-    public Optional<Destination> destination(long teacher) {
-        var rows=em.createNativeQuery("SELECT id,bank_bin,bank_name,account_number,account_holder_name FROM teacher_payment_accounts WHERE teacher_id=:teacher AND review_status='APPROVED' AND status='ACTIVE' AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL FOR UPDATE")
+    public Optional<Destination> destination(long teacher) { return destination(teacher,true); }
+    public Optional<Destination> destination(long teacher,boolean lock) {
+        var rows=em.createNativeQuery("SELECT id,bank_bin,bank_name,account_number,account_holder_name FROM teacher_payment_accounts WHERE teacher_id=:teacher AND review_status='APPROVED' AND status='ACTIVE' AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL"+(lock?" FOR UPDATE":""))
             .setParameter("teacher",teacher).getResultList();
         if(rows.isEmpty())return Optional.empty();Object[] r=(Object[])rows.get(0);
         return Optional.of(new Destination(number(r[0]),(String)r[1],(String)r[2],(String)r[3],(String)r[4]));
@@ -66,7 +67,7 @@ public class PaymentRepository {
         return new PaymentDto(new ApiId(number(r[0])),new ApiId(number(r[1])),(String)r[2],(String)r[3],money(r[4]),money(r[5]),money(r[6]),money(r[7]),money(r[8]),
             (String)r[9],new ApiId(number(r[10])),(String)r[11],(String)r[12],(String)r[13],(String)r[14],(String)r[15],instant(r[16]),instant(r[17]));
     }
-    private static String money(Object value) {return value==null?null:((BigDecimal)value).stripTrailingZeros().toPlainString();}
+    private static String money(Object value) {return PaymentMoney.decimal((BigDecimal)value);}
     public record ReconciliationContext(long student,long enrollment) {}
     public Optional<ReconciliationContext> teacherContext(long teacher,long course,long payment) {
         var found=em.createNativeQuery("SELECT e.student_id,e.id FROM payments p JOIN enrollments e ON e.id=p.enrollment_id JOIN courses c ON c.id=e.course_id WHERE p.id=:id AND c.id=:course AND c.teacher_id=:teacher")

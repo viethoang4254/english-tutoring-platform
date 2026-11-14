@@ -9,7 +9,7 @@ import org.springframework.http.*;
 import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes=EnrollmentController.class)
+@RestControllerAdvice(assignableTypes={EnrollmentController.class,CheckoutController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class EnrollmentExceptionHandler {
     @ExceptionHandler(EnrollmentFailure.class)
@@ -21,6 +21,10 @@ public class EnrollmentExceptionHandler {
             default -> 409;
         };
         return error(status,failure.reason().name());
+    }
+    @ExceptionHandler(com.englishlearning.features.payment.service.PaymentFailure.class)
+    ResponseEntity<ApiError> price(com.englishlearning.features.payment.service.PaymentFailure failure) {
+        return error(409,failure.reason().name());
     }
     @ExceptionHandler({DataAccessException.class,TransactionException.class})
     ResponseEntity<ApiError> unavailable(Exception failure) { return error(503,"ENROLLMENT_UNAVAILABLE"); }

@@ -66,6 +66,7 @@ class FeatureReportChecks(unittest.TestCase):
             feature.main()
         self.assertIn("ReconciliationHttpTests", tests.call_args.args[1])
         self.assertIn("PaymentHttpTests", tests.call_args.args[1])
+        self.assertIn("CheckoutHttpTests", tests.call_args.args[1])
         payment = next(c for c in groups.call_args_list if c.args[0] == "payment-persistence")
         self.assertEqual(payment.args[3], ["task022c_payments", "task022d_reconciliation"])
         self.assertEqual(payment.args[4], ["PaymentPersistenceTests", "ReconciliationPersistenceTests"])

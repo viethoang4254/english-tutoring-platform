@@ -1,5 +1,6 @@
 "use client";
 
+import { checkoutReturnPath } from "../enrollment/checkout-path";
 import { AccountWorkspace } from "../auth/account-workspace";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,16 +26,19 @@ export function StudentDashboard({children}:PanelProps) {
   const { session,setSession } = useSession();
   const router = useRouter();
   const embedded=children!=null;
+  const pathname=usePathname();
+  const checkout=checkoutReturnPath(pathname);
   const restoration=useRef<ReturnType<typeof signIn>|null>(null);
   const [needsLogin,setNeedsLogin]=useState(false);
   useEffect(() => {
     if (session) {restoration.current=null;return;}
+    if (checkout) {router.replace(`/login?next=${encodeURIComponent(checkout)}`);return;}
     if (!embedded) {router.replace("/login?next=/student/dashboard");return;}
     let active=true;
     restoration.current??=signIn();
     restoration.current.then(current=>{if(active)setSession(current);}).catch(()=>{if(active)setNeedsLogin(true);});
     return ()=>{active=false;};
-  }, [session,router,embedded,setSession]);
+  }, [session,router,embedded,setSession,checkout]);
   if (!session) return <main className={styles.gate}>{embedded&&needsLogin
     ? <AccountWorkspace dedicatedLogin stayOnPage />
     : <p role="status">Đang kiểm tra phiên đăng nhập…</p>}</main>;
