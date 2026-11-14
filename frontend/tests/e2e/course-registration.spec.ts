@@ -30,7 +30,7 @@ for(const [responseStatus,code,message] of [
 ] as const)test(`reservation handles ${code} without granting access`,async({page})=>{
   const {calls}=await setupCheckout(page,{responseStatus,code});await signInCheckout(page);await confirm(page).click();
   if(responseStatus===401){await expect(page).toHaveURL(/\/login\?next=/);await expect(page.getByLabel("Email",{exact:true})).toBeVisible();}
-  else{await expect(page.getByRole("alert")).toContainText(message);await expect(confirm(page)).toBeDisabled();}
+  else{await expect(page.getByRole("region", { name: "Xác nhận đăng ký", exact: true }).getByRole("alert")).toContainText(message);await expect(confirm(page)).toBeDisabled();}
   expect(calls.filter(c=>c.endsWith("/enrollment"))).toHaveLength(1);expect(calls.filter(c=>c.endsWith("/payments"))).toHaveLength(0);
   await expect(page.getByText("private diagnostic")).toHaveCount(0);await expect(page.locator('a[href*="meet.google"]')).toHaveCount(0);
 });
@@ -46,7 +46,7 @@ test("pending submission prevents repeated mutations",async({page})=>{
 });
 test("uncertain network outcome allows explicit idempotent retry only",async({page})=>{
   const {calls}=await setupCheckout(page,{network:true,responseStatus:200});await signInCheckout(page);await confirm(page).click();
-  await expect(page.getByRole("alert")).toContainText("Chưa xác nhận được kết quả.");expect(calls.filter(c=>c.endsWith("/enrollment"))).toHaveLength(1);
+  await expect(page.getByRole("region", { name: "Xác nhận đăng ký", exact: true }).getByRole("alert")).toContainText("Chưa xác nhận được kết quả.");expect(calls.filter(c=>c.endsWith("/enrollment"))).toHaveLength(1);
   await page.getByRole("button",{name:"Tải lại thông tin"}).click();await expect(confirm(page)).toBeEnabled();await confirm(page).click();
   await expect(page).toHaveURL(`/student/enrollments?id=${enrollmentId}`);expect(calls.filter(c=>c.endsWith("/enrollment"))).toHaveLength(2);
 });
