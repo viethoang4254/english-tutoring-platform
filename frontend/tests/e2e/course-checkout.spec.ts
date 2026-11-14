@@ -32,7 +32,8 @@ test("@checkout-review confirmation, protected VietQR and confirmed state",async
 });
 test("changed price requires acknowledgment before any transfer instruction",async({page})=>{
   const {calls}=await setupCheckout(page,{priceChanged:true});await signInCheckout(page);await confirm(page).click();
-  await expect(page.getByRole("alert")).toContainText("Học phí đã thay đổi.");await expect(page.getByRole("alert")).toContainText("1.900.000 ₫");
+  const alert=page.getByRole("region",{name:"Xác nhận đăng ký",exact:true}).getByRole("alert");
+  await expect(alert).toContainText("Học phí đã thay đổi.");await expect(alert).toContainText("1.900.000 ₫");
   await expect(page).toHaveURL(checkoutPath);await expect(page.getByRole("img",{name:"VietQR thanh toán khóa học"})).toHaveCount(0);
   expect(calls.some(c=>c.includes("qr-image"))).toBe(false);
   await page.getByRole("button",{name:"Tôi đồng ý với số tiền mới"}).click();
@@ -47,7 +48,7 @@ test("existing pending payment recovers the same payment identifier",async({page
 });
 test("uncertain payment result preserves reservation and recovers without another creation",async({page})=>{
   const {calls}=await setupCheckout(page,{paymentFailure:true});await signInCheckout(page);await confirm(page).click();
-  await expect(page.getByRole("alert")).toContainText("Chưa xác nhận được kết quả.");
+  await expect(page.getByRole("region",{name:"Xác nhận đăng ký",exact:true}).getByRole("alert")).toContainText("Chưa xác nhận được kết quả.");
   await page.getByRole("link",{name:"Kiểm tra đăng ký và khôi phục thanh toán"}).click();
   await expect(page.getByText(`Nội dung chuyển khoản: ${payment.transferReference}`,{exact:true})).toBeVisible();
   expect(calls.filter(c=>c.endsWith("/payments"))).toHaveLength(1);expect(calls.filter(c=>c.endsWith("/enrollment"))).toHaveLength(1);
@@ -102,7 +103,7 @@ test("unsafe login return path is ignored and credentials never enter the URL",a
 test("denied payment recovery never renders bank details or QR",async({page})=>{
   await setupCheckout(page,{existingPayment:true});await signInCheckout(page);
   await page.route("**/api/v1/student/payments/7",route=>route.fulfill({status:404,json:{code:"PAYMENT_NOT_FOUND",message:"private diagnostic"}}));
-  await page.getByRole("link",{name:"Xem đăng ký hiện có"}).click();await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("link",{name:"Xem đăng ký hiện có"}).click();await expect(page.getByRole("region",{name:"Thanh toán khóa học",exact:true}).getByRole("alert")).toBeVisible();
   await expect(page.getByText(payment.accountNumber,{exact:false})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"VietQR thanh toán khóa học"})).toHaveCount(0);
   await expect(page.getByText("private diagnostic")).toHaveCount(0);
