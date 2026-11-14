@@ -11,7 +11,7 @@ const stages = new Set(['registration', 'onboarding-review', 'snapshot-before', 
   'calendar-http-500', 'calendar-http-503', 'calendar-http-other']);
 function safeLocation(location: TestCase['location'] | undefined): string {
   if (!location || !Number.isSafeInteger(location.line) || location.line < 1) return 'unavailable';
-  for (const file of ['tests/e2e/course-checkout.spec.ts', 'tests/support/course-checkout.ts', 'tests/e2e/receiving-accounts.spec.ts', 'tests/e2e/course-registration.spec.ts', 'tests/e2e/student-enrollments.spec.ts', 'tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts',
+  for (const file of ['tests/e2e/course-checkout.spec.ts', 'tests/support/course-checkout.ts', 'tests/e2e/receiving-accounts.spec.ts', 'tests/e2e/course-registration.spec.ts', 'tests/e2e/student-enrollments.spec.ts', 'tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts', 'tests/support/account-navigation.ts',
     'tests/live/calendar.spec.ts', 'tests/live/course-publication.spec.ts', 'tests/support/live-fixtures.ts', 'tests/support/teacher-navigation.ts', 'tests/e2e/teacher-calendar.spec.ts',
     'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
     'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts',
@@ -25,8 +25,19 @@ function safeLocation(location: TestCase['location'] | undefined): string {
 // Assertion diagnostics, request bodies and browser output can contain credentials.
 export default class SafeReporter implements Reporter {
   private counts = {passed: 0, failed: 0, errors: 0, skipped: 0};
-  private failures: {project:string; status:string; declaration:string; failure:string}[] = [];
+  private failures: {project:string; status:string; declaration:string; failure:string; scenario?:string; stage?:string; lastStep?:string}[] = [];
   private failureLocations = new WeakMap<TestResult, string>();
+  private profileProgress = new WeakMap<TestResult, {stage?:string; lastStep?:string}>();
+  onStepBegin(test: TestCase, result: TestResult, step: TestStep) {
+    if (!safeLocation(test.location).startsWith('tests/e2e/student-profile.spec.ts:')) return;
+    const progress = this.profileProgress.get(result) ?? {};
+    if (step.category === 'test.step' && /^profile-(login|navigation|discard|validation|submit|result)$/.test(step.title)) {
+      progress.stage = step.title;
+    }
+    const location = safeLocation(step.location);
+    if (location !== 'unavailable') progress.lastStep = location;
+    this.profileProgress.set(result, progress);
+  }
   onStepEnd(_test: TestCase, result: TestResult, step: TestStep) {
     const location = safeLocation(step.location);
     if (step.error && location !== 'unavailable' && !this.failureLocations.has(result)) {
@@ -38,10 +49,13 @@ export default class SafeReporter implements Reporter {
     else if (result.status === 'skipped') this.counts.skipped++;
     else if (result.status === 'failed') this.counts.failed++;
     else this.counts.errors++;
-    const stage = test.annotations.filter(a => a.type === 'task009-stage' && stages.has(a.description ?? '')).at(-1)?.description ?? 'unavailable';
+    const stage = this.profileProgress.get(result)?.stage ?? test.annotations.filter(a => a.type === 'task009-stage' && stages.has(a.description ?? '')).at(-1)?.description ?? 'unavailable';
     const failure = result.errors.map(error => safeLocation(error.location)).find(location => location !== 'unavailable')
       ?? this.failureLocations.get(result) ?? 'unavailable';
-    if (result.status !== "passed" && result.status !== "skipped") this.failures.push({project:test.parent.project()?.name ?? "unknown", status:result.status, declaration:safeLocation(test.location), failure});
+    if (result.status !== "passed" && result.status !== "skipped") this.failures.push({project:test.parent.project()?.name ?? "unknown", status:result.status, declaration:safeLocation(test.location), failure,
+      ...(safeLocation(test.location).startsWith('tests/e2e/student-profile.spec.ts:') &&
+        /^(STUDENT|TEACHER) profile save (200|400|401|403|500|503) is safe and does not retry$/.test(test.title)
+        ? {scenario:test.title,...this.profileProgress.get(result)} : {})});
     console.log(`${result.status}: declaration=${safeLocation(test.location)} stage=${stage} failure=${failure}`);
   }
   onError() { this.counts.errors++; }

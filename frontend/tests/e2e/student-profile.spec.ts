@@ -6,12 +6,25 @@ for(const role of ['STUDENT','TEACHER']) for(const status of [200,400,401,403,50
  if(path.endsWith('/csrf'))await route.fulfill({json:{token:'csrf'}});else if(path.endsWith('/login'))await route.fulfill({json:{accessToken:'access',tokenType:'Bearer'}});else if(path.endsWith('/users/me'))await route.fulfill({json:{id:'1',role,emailVerified:role==='TEACHER'}});
  else if(path.endsWith('/teacher/onboarding'))await route.fulfill({json:{applicationId:'7',status:'PENDING',submittedAt:'2026-10-16T00:00:00Z',reviewedAt:null,rejectionReason:null}});
  else if(path.endsWith('/profile')){expect(r.headers().authorization).toBe('Bearer access');if(r.method()==='PATCH'){writes.push(r.postDataJSON());await new Promise(resolve=>setTimeout(resolve,100));if(status===200){profile={...profile,...r.postDataJSON(),phone:'+84912345678'};await route.fulfill({json:profile});}else await route.fulfill({status,json:{code:status===503?'PROFILE_UNAVAILABLE':'INVALID_REQUEST',message:'PRIVATE'}});}else{lookup++;await route.fulfill({json:profile});}}else await route.fulfill({status:204});});
- await page.goto('/account');await expect(page.getByRole('contentinfo')).toHaveCount(0);await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
- if(role==='STUDENT'){await expect(page).toHaveURL(/\/student\/dashboard$/);await page.locator('[data-dashboard-account] summary').click();await page.getByRole('link',{name:'Hồ sơ và bảo mật',exact:true}).click();}
- await accountPanel(page,'Hồ sơ cá nhân');
- await expect(page.getByText('Chưa có tên người dùng')).toBeVisible();await expect(page.getByText('Chưa cung cấp',{exact:false})).toBeVisible();const initialLookups=lookup;await page.getByRole('button',{name:'Chỉnh sửa thông tin'}).click();await page.getByLabel('Họ và tên',{exact:true}).fill('Discard');await page.getByRole('button',{name:'Hủy',exact:true}).click();expect(writes).toHaveLength(0);
- await page.getByRole('button',{name:'Chỉnh sửa thông tin'}).click();await page.getByLabel('Số điện thoại',{exact:true}).fill('bad');await page.getByRole('button',{name:'Lưu thay đổi'}).click();await expect(page.getByText('Số điện thoại không hợp lệ. Ví dụ: 0912345678.')).toBeVisible();expect(writes).toHaveLength(0);
- await page.getByLabel('Họ và tên',{exact:true}).fill(' New name ');await page.getByLabel('Số điện thoại',{exact:true}).fill('0912345678');await page.getByRole('button',{name:'Lưu thay đổi'}).evaluate((b:HTMLButtonElement)=>{b.click();b.click();});await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toEqual({fullName:' New name ',phone:'0912345678'});
- if(status===200)await expect(page.getByText('Đã cập nhật thông tin cá nhân.')).toBeVisible();else if(status===401)await expect(page.getByRole('button',{name:'Đăng nhập',exact:true})).toBeVisible();else if(status>=500){await expect(page.getByRole('button',{name:'Lưu thay đổi'})).toBeDisabled();await page.getByRole('button',{name:'Tải lại hồ sơ'}).click();await expect(page.getByRole('button',{name:'Chỉnh sửa thông tin'})).toBeVisible();expect(lookup).toBe(initialLookups+1);}
- await expect(page.getByText('PRIVATE')).toHaveCount(0);expect(writes).toHaveLength(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ let initialLookups=0;
+ await test.step('profile-login',async()=>{
+  await page.goto('/account');await expect(page.getByRole('contentinfo')).toHaveCount(0);await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+ });
+ await test.step('profile-navigation',async()=>{
+  if(role==='STUDENT'){await expect(page).toHaveURL(/\/student\/dashboard$/);await page.locator('[data-dashboard-account] summary').click();await page.getByRole('link',{name:'Hồ sơ và bảo mật',exact:true}).click();}
+  await accountPanel(page,'Hồ sơ cá nhân');
+ });
+ await test.step('profile-discard',async()=>{
+  await expect(page.getByText('Chưa có tên người dùng')).toBeVisible();await expect(page.getByText('Chưa cung cấp',{exact:false})).toBeVisible();initialLookups=lookup;await page.getByRole('button',{name:'Chỉnh sửa thông tin'}).click();await page.getByLabel('Họ và tên',{exact:true}).fill('Discard');await page.getByRole('button',{name:'Hủy',exact:true}).click();expect(writes).toHaveLength(0);
+ });
+ await test.step('profile-validation',async()=>{
+  await page.getByRole('button',{name:'Chỉnh sửa thông tin'}).click();await page.getByLabel('Số điện thoại',{exact:true}).fill('bad');await page.getByRole('button',{name:'Lưu thay đổi'}).click();await expect(page.getByText('Số điện thoại không hợp lệ. Ví dụ: 0912345678.')).toBeVisible();expect(writes).toHaveLength(0);
+ });
+ await test.step('profile-submit',async()=>{
+  await page.getByLabel('Họ và tên',{exact:true}).fill(' New name ');await page.getByLabel('Số điện thoại',{exact:true}).fill('0912345678');await page.getByRole('button',{name:'Lưu thay đổi'}).evaluate((b:HTMLButtonElement)=>{b.click();b.click();});await expect.poll(()=>writes.length).toBe(1);expect(writes[0]).toEqual({fullName:' New name ',phone:'0912345678'});
+ });
+ await test.step('profile-result',async()=>{
+  if(status===200)await expect(page.getByText('Đã cập nhật thông tin cá nhân.')).toBeVisible();else if(status===401)await expect(page.getByRole('button',{name:'Đăng nhập',exact:true})).toBeVisible();else if(status>=500){await expect(page.getByRole('button',{name:'Lưu thay đổi'})).toBeDisabled();await page.getByRole('button',{name:'Tải lại hồ sơ'}).click();await expect(page.getByRole('button',{name:'Chỉnh sửa thông tin'})).toBeVisible();expect(lookup).toBe(initialLookups+1);}
+  await expect(page.getByText('PRIVATE')).toHaveCount(0);expect(writes).toHaveLength(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ });
 });
