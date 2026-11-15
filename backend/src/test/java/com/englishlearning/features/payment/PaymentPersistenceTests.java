@@ -80,6 +80,53 @@ class PaymentPersistenceTests {
         sql("INSERT INTO teacher_payment_accounts(id,teacher_id,bank_code,bank_bin,bank_name,account_number,account_holder_name,provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at) VALUES ("+id+",1,'VCB','970436','Bank','"+number+"','Teacher','VIETQR','INACTIVE','PENDING','"+key+".png',repeat('a',64),100,'"+key+"',repeat('b',64),now(),now())");
     }
     long reserve(){return enrollments.create(3,200).enrollment().id().value();}
+    @Test void sessionMeetingRechecksPaidOwnershipStatusAndRescheduling() {
+        long e=reserve();var payment=payments.create(3,e).payment();
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            long session=jdbc.queryForObject("SELECT id FROM sessions WHERE course_id=200",Long.class);
+            String room="https://meet.google.com/abc-defg-hij";
+            jdbc.update("UPDATE courses SET meet_url=? WHERE id=200",room);
+            assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+            jdbc.update("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id=?",e);
+            for(String status:List.of("PENDING","EXPIRED","CANCELLED")) {
+                jdbc.update("UPDATE payments SET status=? WHERE id=?",status,payment.id().value());
+                assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+            }
+            jdbc.update("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id=?",payment.id().value());
+            assertEquals(room,enrollments.sessionMeeting(3,session));
+            assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(4,session));
+            for(String status:List.of("PENDING","COMPLETED","CANCELLED")) {
+                jdbc.update("UPDATE enrollments SET status=? WHERE id=?",status,e);
+                assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+            }
+            jdbc.update("UPDATE enrollments SET status='ACTIVE' WHERE id=?",e);
+            for(String status:List.of("DRAFT","COMPLETED","CANCELLED","ARCHIVED")) {
+                jdbc.update("UPDATE courses SET status=? WHERE id=200",status);
+                assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+            }
+            jdbc.update("UPDATE courses SET status='PUBLISHED' WHERE id=200");
+            jdbc.update("UPDATE sessions SET status='CANCELLED' WHERE id=?",session);
+            assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+            jdbc.update("UPDATE sessions SET status='SCHEDULED',scheduled_start_at=scheduled_start_at+interval '1 day',scheduled_end_at=scheduled_end_at+interval '1 day' WHERE id=?",session);
+            assertEquals(room,enrollments.sessionMeeting(3,session));
+            var courses=context.getBean(com.englishlearning.features.course.service.CourseService.class);
+            assertEquals(Map.of("meetUrl",room),courses.meeting(1,200));
+            assertTrue(context.getBean(com.englishlearning.features.course.repository.CourseRepository.class).ownedMeeting(2,200).isEmpty());
+            for(String value:Arrays.asList(null,"https://evil.test/abc-defg-hij")) {
+                jdbc.update("UPDATE courses SET meet_url=? WHERE id=200",value);
+                assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+                assertTrue(courses.meeting(1,200).isEmpty());
+            }
+            jdbc.update("UPDATE courses SET meet_url=? WHERE id=200",room);
+            jdbc.update("UPDATE users SET locked=true WHERE id=3");
+            // JDBC fixture edits must not reuse the first-level cached account entity.
+            var em=org.springframework.orm.jpa.EntityManagerFactoryUtils.getTransactionalEntityManager(context.getBean(jakarta.persistence.EntityManagerFactory.class));
+            assertNotNull(em);em.clear();
+            assertThrows(EnrollmentFailure.class,()->enrollments.sessionMeeting(3,session));
+        });
+    }
     @Test void studentCalendarEligibilityIsolationAndReadOnlyProjection() {
         long e=reserve();var payment=payments.create(3,e).payment();
         var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);

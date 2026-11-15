@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.*;
 public class EnrollmentController {
     private final EnrollmentService service;
     public EnrollmentController(EnrollmentService service) { this.service=service; }
+    @GetMapping("/student/sessions/{sessionId}/join")
+    public ResponseEntity<?> join(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String sessionId,HttpServletRequest request) throws IOException {
+        request(request,Set.of());
+        return ok(java.util.Map.of("meetUrl",service.sessionMeeting(actor.id(),id(sessionId))));
+    }
     @GetMapping("/student/calendar/sessions")
     public ResponseEntity<?> calendar(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request) throws IOException {
         request(request,Set.of("from","to","page","size"));

@@ -175,3 +175,10 @@
   .sessionCard > a { margin-left: auto; }
   .sectionHeading { flex-wrap: wrap; }
 }
+
+.sessionActions { display: grid; gap: 8px; flex-shrink: 0; width: 12rem; max-width: 100%; overflow-wrap: anywhere; }
+.sessionActions a, .sessionActions button { font-size: .8rem; white-space: normal; }
+.sessionActions button { width: 100%; }
+@media (max-width: 760px) {
+  .sessionActions { width: 100%; }
+}

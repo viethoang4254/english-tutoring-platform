@@ -146,6 +146,11 @@ public class CourseRepository {
                 ((Number)r[2]).intValue(),(String)r[3],instant(r[4]),instant(r[5]),(String)r[6],
                 (String)r[7],(String)r[8],instant(r[9]),instant(r[10]));
     }
+    public java.util.Optional<String> ownedMeeting(long actor,long id) {
+        List<?> rows=em.createNativeQuery("SELECT coalesce(meet_url,'') FROM public.courses WHERE id=:id AND teacher_id=:actor")
+                .setParameter("id",id).setParameter("actor",actor).getResultList();
+        return rows.stream().findFirst().map(String.class::cast);
+    }
     public boolean publishDraft(long actor, long id, String meetUrl, Instant now) {
         return em.createNativeQuery("""
             UPDATE public.courses c SET status='PUBLISHED', meet_url=:url, updated_at=:now

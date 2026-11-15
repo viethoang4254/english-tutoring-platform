@@ -185,6 +185,15 @@ test('owner publishes a draft visible across public and Student catalogs', async
       return body.items as {courseId:string;status:string;timezone:string;courseTitle:string}[];
     };
     expect(await studentCalendar(student.headers)).toEqual([]);
+    const ownedSessions=await request.get(course+'/sessions',{headers:owner.headers});
+    expect(ownedSessions.status()).toBe(200);
+    const sessionId=(await ownedSessions.json()).items[0].id;
+    const joinUrl=api+'/student/sessions/'+sessionId+'/join';
+    expect((await request.get(joinUrl,{headers:student.headers})).status()).toBe(403);
+    const meeting=await request.get(course+'/meeting',{headers:owner.headers});
+    expect(meeting.status()).toBe(200);expect(meeting.headers()['cache-control']).toBe('no-store');
+    expect(await meeting.json()).toEqual({meetUrl:'https://meet.google.com/abc-defg-hij'});
+    expect((await request.get(course+'/meeting',{headers:other.headers})).status()).toBe(404);
 
     const root=api+'/student/enrollments/'+payment.enrollmentId;
     expect((await request.get(root+'/course-access',{headers:student.headers})).status()).toBe(403);
@@ -212,6 +221,11 @@ test('owner publishes a draft visible across public and Student catalogs', async
     expect(calendar).toHaveLength(2);
     for(const session of calendar)expect(session).toMatchObject({courseId:id,courseTitle:title,status:'SCHEDULED',timezone:'Asia/Ho_Chi_Minh'});
     expect(await studentCalendar(secondStudent.headers)).toEqual([]);
+    const joined=await request.get(joinUrl,{headers:student.headers});
+    expect(joined.status()).toBe(200);expect(joined.headers()['cache-control']).toBe('no-store');
+    expect(await joined.json()).toEqual({meetUrl:'https://meet.google.com/abc-defg-hij'});
+    expect((await request.get(joinUrl,{headers:secondStudent.headers})).status()).toBe(403);
+    expect((await request.get(joinUrl,{headers:owner.headers})).status()).toBe(403);
 
   });
 });

@@ -80,6 +80,12 @@ public class CourseController {
         query(request, Set.of("page", "size", "status")); noBody(request);
         return ok(service.list(actor.id(), number(request, "page", 0), number(request, "size", 20), request.getParameter("status")));
     }
+    @GetMapping("/{courseId}/meeting")
+    public ResponseEntity<?> meeting(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String courseId,
+            HttpServletRequest request) throws IOException {
+        query(request,Set.of());noBody(request);
+        return ok(service.meeting(actor.id(),CourseInput.id(courseId)));
+    }
     @GetMapping("/{courseId}")
     public ResponseEntity<CourseDto> get(@AuthenticationPrincipal AccountPrincipal actor,
             @PathVariable String courseId, HttpServletRequest request) throws IOException {

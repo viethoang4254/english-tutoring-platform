@@ -1375,3 +1375,15 @@ for implementation paths, precise contracts, hosted tests/screenshots and C2–C
 Implementation and static review only; no local tests/builds/servers and no hosted
 Stage C1 run yet. HTTP and disposable persistence tests, 24 browser executions and four
 fixture screenshots are registered in TASK-009. No completion or CI success is claimed.
+
+
+## Stage C2 / TASK-042 — Protected Meet access — IN_PROGRESS
+
+Prepared on Stage C1 baseline c06d88de94e7d79ab872225903620af6e7bfb3d4
+(reported hosted acceptance and screenshot review passed by the user).
+Student session-specific Join and owning approved Teacher room readback reuse the
+existing course Meet URL. Calendar/public projections remain URL-free. No new
+meeting, OAuth, Calendar synchronization, schema or payment changes.
+See [STAGE_C2_MEETING_ACCESS.md](STAGE_C2_MEETING_ACCESS.md) for contracts, coverage,
+limitations and the exact implementation inventory. Static review only; Stage C2
+has not run in hosted CI. No local tests/builds/servers were run.

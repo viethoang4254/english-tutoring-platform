@@ -112,6 +112,12 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '108'
       - run: python ci/task009/run.py resources
+      - name: Protected meeting access (14 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/meeting-access.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '14'
+      - run: python ci/task009/run.py resources
       - name: Student Calendar acceptance (24 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/student-calendar.spec.ts
         working-directory: frontend
@@ -243,5 +249,32 @@ jobs:
         with:
           name: student-calendar-review-screenshots
           path: ${{ runner.temp }}/student-calendar-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Capture protected Meet actions with synthetic API fixtures
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @meeting-review
+        env:
+          TASK009_EXPECTED_TESTS: '4'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/meeting-review
+      - name: Verify four Meet access PNGs
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'meeting-review'
+          for page in ('student-meeting', 'teacher-meeting'):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() }}
+        with:
+          name: meeting-review-screenshots
+          path: ${{ runner.temp }}/meeting-review/*.png
           retention-days: 7
           if-no-files-found: error

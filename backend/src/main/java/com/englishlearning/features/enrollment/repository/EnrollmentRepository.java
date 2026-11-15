@@ -16,6 +16,10 @@ public class EnrollmentRepository {
     public record Course(long teacherId, String status, BigDecimal tuition, int capacity) {}
     public record RosterRow(ApiId enrollmentId, ApiId studentId, String studentDisplayName,
                             String status, Instant enrolledAt) {}
+    private static final String PAID_ENROLLMENT = """
+            e.student_id=:student AND e.status='ACTIVE' AND c.status='PUBLISHED'
+            AND EXISTS (SELECT 1 FROM public.payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
+            """;
     public List<StudentCalendarSessionDto> calendar(long student, Instant from, Instant to, int page, int size) {
         List<?> rows = em.createNativeQuery("""
             SELECT s.id,c.id,c.name,u.full_name,s.session_number,s.title,
@@ -23,12 +27,10 @@ public class EnrollmentRepository {
                    EXISTS (SELECT 1 FROM public.session_schedule_changes h WHERE h.session_id=s.id)
             FROM public.sessions s JOIN public.courses c ON c.id=s.course_id
             JOIN public.users u ON u.id=c.teacher_id
-            WHERE c.status='PUBLISHED' AND s.scheduled_start_at<:to AND s.scheduled_end_at>:from
+            WHERE s.scheduled_start_at<:to AND s.scheduled_end_at>:from
               AND EXISTS (SELECT 1 FROM public.enrollments e
-                  WHERE e.course_id=c.id AND e.student_id=:student AND e.status='ACTIVE'
-                    AND EXISTS (SELECT 1 FROM public.payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED'))
-            ORDER BY s.scheduled_start_at,s.id
-            """).setParameter("student",student).setParameter("from",from).setParameter("to",to)
+                  WHERE e.course_id=c.id AND
+            """ + PAID_ENROLLMENT + ") ORDER BY s.scheduled_start_at,s.id").setParameter("student",student).setParameter("from",from).setParameter("to",to)
                 .setFirstResult(page*size).setMaxResults(size+1).getResultList();
         return rows.stream().map(value -> {
             Object[] r=(Object[])value;
@@ -57,13 +59,19 @@ public class EnrollmentRepository {
         var rows=em.createNativeQuery(SELECT+" AND e.id=:id").setParameter("actor",actor).setParameter("id",id).getResultList();
         return rows.isEmpty()?Optional.empty():Optional.of(dto(rows.get(0),now));
     }
+    public Optional<String> sessionMeeting(long student,long session) {
+        List<?> rows=em.createNativeQuery("""
+            SELECT c.meet_url FROM public.sessions s JOIN public.courses c ON c.id=s.course_id
+            JOIN public.enrollments e ON e.course_id=c.id
+            WHERE s.id=:session AND s.status='SCHEDULED' AND c.meet_url IS NOT NULL AND
+            """ + PAID_ENROLLMENT).setParameter("session",session).setParameter("student",student).getResultList();
+        return rows.stream().findFirst().map(String.class::cast);
+    }
     public Optional<String> accessibleMeetUrl(long student,long enrollment) {
         List<?> rows=em.createNativeQuery("""
             SELECT c.meet_url FROM public.enrollments e JOIN public.courses c ON c.id=e.course_id
-            WHERE e.student_id=:student AND e.id=:enrollment AND e.status='ACTIVE' AND c.status='PUBLISHED'
-              AND c.meet_url IS NOT NULL AND EXISTS (SELECT 1 FROM public.payments p
-                  WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
-            """).setParameter("student",student).setParameter("enrollment",enrollment).getResultList();
+            WHERE e.id=:enrollment AND c.meet_url IS NOT NULL AND
+            """ + PAID_ENROLLMENT).setParameter("student",student).setParameter("enrollment",enrollment).getResultList();
         return rows.stream().findFirst().map(String.class::cast);
     }
     public Optional<EnrollmentDto> readForCourse(long actor,long course,Instant now) {

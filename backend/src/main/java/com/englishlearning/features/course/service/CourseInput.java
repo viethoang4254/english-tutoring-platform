@@ -10,6 +10,9 @@ import static com.englishlearning.features.course.service.CourseFailure.invalid;
 public record CourseInput(long categoryId, String name, String description, BigDecimal tuition,
         int minStudents, int maxStudents, LocalDate plannedStartDate, String timezone,
         int sessionCount, CourseDto.Discount discount) {
+    public static boolean validMeetUrl(String url) {
+        return url != null && url.matches("https://meet[.]google[.]com/[a-z]{3}-[a-z]{4}-[a-z]{3}");
+    }
     private static final Set<String> REQUIRED = Set.of("categoryId", "name", "description", "tuition",
             "minStudents", "maxStudents", "plannedStartDate", "timezone", "sessionCount");
     private static final Set<String> ALLOWED = Set.of("categoryId", "name", "description", "tuition",

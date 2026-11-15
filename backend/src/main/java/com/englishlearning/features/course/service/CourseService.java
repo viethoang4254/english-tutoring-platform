@@ -119,6 +119,12 @@ public class CourseService {
         return new Page(rows.stream().limit(size).map(CourseDto::summary).toList(), page, size, rows.size() > size);
     }
     @Transactional(readOnly=true)
+    public java.util.Map<String,String> meeting(long actor,long id) {
+        eligible(actor);
+        String url=courses.ownedMeeting(actor,id).orElseThrow(() -> new CourseFailure(Reason.MISSING));
+        return CourseInput.validMeetUrl(url) ? java.util.Map.of("meetUrl",url) : java.util.Map.of();
+    }
+    @Transactional(readOnly=true)
     public CourseDto get(long actor, long id) { eligible(actor); return owned(actor, id, false); }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public CourseDto create(long actor, Map<String,Object> fields) {
@@ -171,7 +177,7 @@ public class CourseService {
         lockActor(actor);
         var course = owned(actor, id, true);
         if (!"DRAFT".equals(course.status())) throw new CourseFailure(Reason.NOT_DRAFT);
-        if (!(meetUrl instanceof String url) || !url.matches("https://meet[.]google[.]com/[a-z]{3}-[a-z]{4}-[a-z]{3}"))
+        if (!(meetUrl instanceof String url) || !CourseInput.validMeetUrl(url))
             throw new CourseFailure(Reason.MEET_URL_INVALID);
         if (new java.math.BigDecimal(course.tuition().amount()).signum() <= 0)
             throw new CourseFailure(Reason.PUBLICATION_TUITION);
