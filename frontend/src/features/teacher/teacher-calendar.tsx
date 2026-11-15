@@ -1,4 +1,5 @@
 "use client";
+import { GoogleConnection } from "../google-calendar/google-connection";
 import Link from "next/link";
 import {useEffect,useState} from "react";
 import {authorized,safeMessage,type Session} from "../auth/browser-api";
@@ -29,6 +30,7 @@ export function TeacherCalendar({session}:{session:Session}) {
  function move(delta:number){const next=view==="month"?new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+delta,1)):new Date(d.getTime()+delta*7*dayMs);setAnchor(dateKey(next));setPage(0);}
  const days=Array.from({length:Math.round((last.getTime()-first.getTime())/dayMs)},(_,i)=>dateKey(new Date(first.getTime()+i*dayMs)));
  return <section aria-label="Lịch dạy của tôi" className={styles.calendar}>
+ <GoogleConnection />
  <p>Lưới lịch theo giờ Việt Nam (Asia/Ho_Chi_Minh). Mỗi buổi học hiển thị giờ và múi giờ của khóa học.</p>
  <div className={styles.toolbar}><button onClick={()=>{setView("month");setPage(0);}} aria-pressed={view==="month"}>Tháng</button><button onClick={()=>{setView("week");setPage(0);}} aria-pressed={view==="week"}>Tuần</button><button onClick={()=>move(-1)} aria-label="Kỳ trước">←</button><button onClick={()=>{setAnchor(today());setPage(0);}}>Hôm nay</button><button onClick={()=>move(1)} aria-label="Kỳ sau">→</button><strong>{days[0]} – {days.at(-1)}</strong></div>
  {!data&&!error&&<p role="status">Đang tải lịch dạy…</p>}

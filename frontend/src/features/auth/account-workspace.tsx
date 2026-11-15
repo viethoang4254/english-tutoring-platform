@@ -1,4 +1,5 @@
 "use client";
+import { GoogleConnection } from "../google-calendar/google-connection";
 import { StudentProfile } from "../user/student-profile";
 
 import { ChangePassword } from "./change-password";
@@ -189,6 +190,7 @@ export function AccountWorkspace({ initialView = "login", modal = false, dedicat
       </aside>}
       <div className={dashboard.content}>
       {!embeddedPanel && <header className={dashboard.welcome}><p>KHÔNG GIAN TÀI KHOẢN</p><h2 ref={panelHeading} tabIndex={-1}>{navigation.find(([key]) => key === activePanel)?.[1]}</h2></header>}
+      {(session.account.role === "STUDENT" || teaching) && <GoogleConnection />}
       <section hidden={(!dashboardPanel && !!embeddedPanel) || activePanel !== "overview"} className={dashboard.card}><h3>Chào mừng bạn</h3><p>Chọn mục trong điều hướng để quản lý hồ sơ, khóa học và bảo mật tài khoản.</p>
       <p>Đã đăng nhập với vai trò {roleLabels[session.account.role]}.</p></section>
       {(session.account.role === "STUDENT" || session.account.role === "TEACHER") && <div hidden={embeddedPanel !== "settings" && activePanel !== "profile" && !(embeddedPanel === "dashboard" && (activePanel === "password" || activePanel === "teacher"))}><StudentProfile session={session} /></div>}

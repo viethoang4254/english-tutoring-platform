@@ -112,6 +112,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '108'
       - run: python ci/task009/run.py resources
+      - name: Google OAuth connection acceptance (32 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/google-calendar.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '32'
       - name: Protected meeting access (14 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/meeting-access.spec.ts
         working-directory: frontend
@@ -276,5 +281,32 @@ jobs:
         with:
           name: meeting-review-screenshots
           path: ${{ runner.temp }}/meeting-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Capture Google connection states with synthetic fixtures
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @google-review
+        env:
+          TASK009_EXPECTED_TESTS: '4'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/google-review
+      - name: Verify six Google connection PNGs
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'google-review'
+          for page in ('student-google-disconnected', 'student-google-connected', 'teacher-google-connected'):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() }}
+        with:
+          name: google-calendar-review-screenshots
+          path: ${{ runner.temp }}/google-review/*.png
           retention-days: 7
           if-no-files-found: error

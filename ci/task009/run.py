@@ -78,7 +78,7 @@ def port_diagnostics(group, port):
     # Best effort: never emit raw subprocess output, exceptions, arguments or environments.
     try:
         result = {'group': group if group in {'category-persistence', 'category-http', 'course-persistence',
-                  'enrollment-persistence', 'receiving-persistence', 'payment-persistence', 'profile-browser'} else 'unknown',
+                  'google-persistence', 'enrollment-persistence', 'receiving-persistence', 'payment-persistence', 'profile-browser'} else 'unknown',
                   'stage': 'port-availability', 'event': 'socket-diagnostics', 'port': port,
                   'ephemeral_range': None, 'reserved_ports': None, 'sockets': [], 'containers': []}
         try:
@@ -153,7 +153,7 @@ def prepare():
             "APP_SECURITY_JWT_PUBLICKEY": (directory / "jwt-public.pem").as_uri(),
             "APP_SECURITY_BROWSER_LOCALHTTP": "true", "APP_SECURITY_BROWSER_ALLOWEDORIGINS": "http://127.0.0.1:3000",
             "SERVER_ADDRESS": "127.0.0.1", "SERVER_PORT": "8081",
-            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "11",
+            "SPRING_FLYWAY_ENABLED": "true", "SPRING_FLYWAY_CLEANDISABLED": "true", "SPRING_FLYWAY_TARGET": "12",
             "SPRING_JPA_HIBERNATE_DDLAUTO": "validate", "SPRING_SQL_INIT_MODE": "never",
             "NEXT_PUBLIC_API_ORIGIN": "http://127.0.0.1:8081",
             "MAVEN_OPTS": "-Xms64m -Xmx256m -XX:MaxMetaspaceSize=192m"})
@@ -287,10 +287,10 @@ def start_backend():
         with urllib.request.urlopen("http://127.0.0.1:8081/api/v1/auth/csrf", timeout=3) as response:
             require(response.status == 200 and bool(json.load(response).get("token")), "Backend not ready")
     wait_for(ready)
-    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7,8,9,10,11", "Unexpected migration history")
-    require(sql("SELECT count(*) FROM flyway_schema_history") == "11", "Unexpected migration entry")
-    require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "26", "Unexpected table count")
-    print("Isolated backend ready; V1-V11 and 26 application tables verified")
+    require(sql("SELECT string_agg(version,',' ORDER BY installed_rank) FROM flyway_schema_history WHERE success") == "1,2,3,4,5,6,7,8,9,10,11,12", "Unexpected migration history")
+    require(sql("SELECT count(*) FROM flyway_schema_history") == "12", "Unexpected migration entry")
+    require(sql("SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'flyway_schema_history'") == "29", "Unexpected table count")
+    print("Isolated backend ready; V1-V12 and 29 application tables verified")
 
 
 def fixture():

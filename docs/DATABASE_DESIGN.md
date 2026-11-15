@@ -1899,3 +1899,13 @@ Student registration creates no verification credential, sends no email, returns
 verificationRequired=false and navigates to /login. Email-only login, username/phone
 validation and safe generic email/username conflict handling remain unchanged.
 V1/V2/V3 are immutable; V4 must precede the coordinated application rollout.
+
+## Approved Stage C3 additive persistence (V12 preparation only)
+
+The C3 user-approved personal OAuth direction supersedes older single-system-account assumptions for future Calendar integration. V12 adds `google_calendar_connections` (one row per local user, status, verified subject/email, granted scopes, AES-GCM refresh ciphertext/key ID, timestamps, version) and `google_calendar_oauth_intents` (hashed state/browser/nonce, encrypted PKCE verifier, user FK, ten-minute expiry, consumed timestamp and expected connection version).
+
+A partial unique index prevents the same Google subject being actively connected to different local users. Only one outstanding intent per user is retained. Consumed intents lose their verifier; expired intents are removed on subsequent initiation. Old connections retain no credentials after disconnect. Version increments fence stale callbacks/refreshes, and user-row locks serialize connection mutations.
+
+No existing migration or `session_calendar_events` change. Fresh disposable CI schemas now contain 29 application tables through V12. This file preparation does not authorize production execution. C4 event/calendar mapping design remains separate; the old single-calendar mapping cannot silently serve multiple personal calendars.
+
+A disconnect commits REVOCATION_PENDING, erases local credentials and retains the unique verified subject. Only the original transition may send a revocation request, outside the transaction. Only a positive acknowledgement releases the subject. A PostgreSQL sequence and subject release record require fresh consent after release. A timeout, process crash or uncertain acknowledgement leaves the claim blocked across restarts. There is no automatic retry, lease expiry or self-service override. To change Google subjects, disconnect successfully before starting new consent.

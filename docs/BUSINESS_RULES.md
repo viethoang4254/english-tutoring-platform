@@ -933,3 +933,13 @@ remain outside this bounded approval.
 TASK-016 eligibility decision (2026-10-29): authenticated, unlocked STUDENT accounts
 may enroll whether email is verified or unverified. Email verification remains intact
 for other workflows; Teacher eligibility is unchanged.
+
+## Stage C3 approved personal Calendar connection rules
+
+The user's Stage C3 authorization supersedes the older single organizational Calendar connection boundary for C3/C4 planning. An eligible unlocked Student or APPROVED unlocked Teacher may connect a personal Google identity; approval does not require Teacher email verification. Admin is not a connection actor. Google OAuth is not application login and cannot grant course access or change roles.
+
+One active connection per local user; conflicting active use of a Google subject is rejected rather than silently reassigned. Identity comes from a verified ID token, never an email query parameter. A missing refresh token may preserve the existing credential only for the same verified subject on a still-connected version. Switching Google accounts requires fresh offline credentials. Disconnect disables local access before attempting remote revocation; failure to revoke remotely never restores local access.
+
+C3 connection does not synchronize sessions or create a Meet URL. Existing ACTIVE Enrollment, CONFIRMED Payment, PUBLISHED Course and SCHEDULED Session requirements remain untouched.
+
+A disconnect commits REVOCATION_PENDING, erases local credentials and retains the unique verified subject. Only the original transition may send a revocation request, outside the transaction. Only a positive acknowledgement releases the subject. A PostgreSQL sequence and subject release record require fresh consent after release. A timeout, process crash or uncertain acknowledgement leaves the claim blocked across restarts. There is no automatic retry, lease expiry or self-service override. To change Google subjects, disconnect successfully before starting new consent.

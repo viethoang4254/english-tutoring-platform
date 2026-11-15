@@ -11,13 +11,13 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["AuthenticationHttpTests", "AuthenticationHttpsTests", "ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CheckoutHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["GoogleCryptoTests", "GoogleProviderTests", "GoogleServiceTests", "GoogleCalendarHttpTests", "AuthenticationHttpTests", "AuthenticationHttpsTests", "ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CheckoutHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "MeetingHttpTests", "StudentCalendarHttpTests", "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]
 
 
-GROUPS = {"feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence", "receiving-persistence", "payment-persistence"}
+GROUPS = {"google-persistence", "feature-unit-http", "category-persistence", "category-http", "course-persistence", "enrollment-persistence", "receiving-persistence", "payment-persistence"}
 STAGES = {"group", "memory-preflight", "port-availability", "postgres-create",
           "postgres-readiness", "database-create", "empty-database-verification",
           "test-environment", "report-preparation", "maven-execution", "test-report-collection",
@@ -242,6 +242,9 @@ def main():
     support.root()
     with stage("feature-unit-http", "group"):
         tests("feature-unit-http", UNIT)
+    with stage("google-persistence", "group"):
+        database_group("google-persistence", 15443, "task_c3_test", ["task_c3_google"],
+                       ["GooglePersistenceTests"], ["-DgooglePersistence=true"], "GOOGLE")
     with stage("category-persistence", "group"):
         database_group("category-persistence", 15436, "task034_test",
                        ["task034_categories", "task034_migration_clean", "task034_migration_conflict"],

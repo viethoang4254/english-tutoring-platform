@@ -1858,3 +1858,18 @@ Response: `{items,page,size,hasNext}` and no-store caching. Items: `id`, `course
 rescheduled derives from existing history. Missing/locked authentication: 401;
 non-Student: 403; infrastructure unavailable: sanitized 503.
 See [Stage C1](STAGE_C1_STUDENT_CALENDAR.md) for verification and remaining scope.
+
+## Stage C3 approved Google connection API
+
+This approved C3 scope supersedes the previous single-organization OAuth assumption for this integration. JWT login and protected Meet/Calendar session APIs remain unchanged. See [STAGE_C3_GOOGLE_OAUTH.md](STAGE_C3_GOOGLE_OAUTH.md) for protocol and deployment details.
+
+| Method/path (under `/api/v1`) | Contract |
+|---|---|
+| GET `/integrations/google-calendar` | Authenticated eligible Student/Teacher; safe `connection` object plus masked `csrfToken`. No credentials. |
+| POST `/integrations/google-calendar/connect` | Same eligibility plus dedicated cookie/header CSRF; empty body/query. Returns Google `authorizationUrl`, sets short-lived HttpOnly browser-binding cookie. |
+| GET `/integrations/google-calendar/callback` | No JWT required; single-use state/browser intent establishes the local user. Validates code/identity/scopes, then 303 to configured frontend `/account?googleCalendar=<fixed-result>`. |
+| DELETE `/integrations/google-calendar` | Owner from JWT, CSRF required; immediately removes local credentials, then attempts revocation. Returns `disconnected` and `remoteRevoked`. |
+
+Responses use no-store. Status values are UNAVAILABLE (configuration), DISCONNECTED, CONNECTED, RECONNECT_REQUIRED. `synchronizationAvailable` is always false in C3. Only verified Google email is displayed. No user-selected return URL, user ID, scopes, token or bank/Meet information is accepted or returned. Callback errors expose fixed codes only.
+
+A disconnect commits REVOCATION_PENDING, erases local credentials and retains the unique verified subject. Only the original transition may send a revocation request, outside the transaction. Only a positive acknowledgement releases the subject. A PostgreSQL sequence and subject release record require fresh consent after release. A timeout, process crash or uncertain acknowledgement leaves the claim blocked across restarts. There is no automatic retry, lease expiry or self-service override. To change Google subjects, disconnect successfully before starting new consent.

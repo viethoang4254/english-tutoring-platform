@@ -1387,3 +1387,11 @@ meeting, OAuth, Calendar synchronization, schema or payment changes.
 See [STAGE_C2_MEETING_ACCESS.md](STAGE_C2_MEETING_ACCESS.md) for contracts, coverage,
 limitations and the exact implementation inventory. Static review only; Stage C2
 has not run in hosted CI. No local tests/builds/servers were run.
+
+## Stage C3 / TASK-043 — personal Google OAuth connection — IN_PROGRESS
+
+Implementation prepared on `codex/calendar-google-integration` baseline `b9b0b1846b710f7e1fcead11a8c99359b8e6b8c7`; baseline hosted TASK-009 run 43713192854 succeeded. New C3 code is uncommitted and has **not** been compiled or executed. No runtime success or completion is claimed.
+
+Includes backend OAuth/CSRF/identity/encryption/owner persistence, V12 file-only migration, Student/Teacher connection UI and single-use callback session restoration. HTTP, provider, crypto, service and disposable PostgreSQL tests are registered. Six fixture screenshots and desktop/mobile acceptance are prepared alongside all prior artifacts. Exact contracts, limits and file inventory: [STAGE_C3_GOOGLE_OAUTH.md](STAGE_C3_GOOGLE_OAUTH.md).
+
+Pending: static code review, approved commit, hosted CI on exact commit, later controlled real-provider configuration/consent verification. No production changes, OAuth resources, real credentials, C4 sync or Meet creation.

@@ -22,6 +22,10 @@ final class BrowserSecurityFilters {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-XSRF-TOKEN", "Idempotency-Key"));
         var source = new UrlBasedCorsConfigurationSource();
+        var google=new CorsConfiguration(configuration);
+        google.setAllowedMethods(List.of("GET","POST","DELETE","OPTIONS"));
+        source.registerCorsConfiguration("/api/v1/integrations/google-calendar/**",google);
+        source.registerCorsConfiguration("/api/v1/integrations/google-calendar",google);
         source.registerCorsConfiguration("/**", configuration);
         var filter = new CorsFilter(source);
         filter.setCorsProcessor(new DefaultCorsProcessor() {

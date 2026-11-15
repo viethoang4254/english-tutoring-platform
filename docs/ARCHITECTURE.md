@@ -847,3 +847,11 @@ Exact API/UI contracts remain gated. This addition authorizes documentation and 
 preparation, not deployment or certificate application implementation.
 References: DM-CERT-001; BR-CERT-001, BR-CERT-002, BR-CERT-003; FR-CERT-001,
 FR-CERT-002, FR-CERT-003.
+
+## Stage C3 personal Google account connection
+
+The explicitly approved C3 direction replaces the former organization-only connection plan for this feature. `features/googlecalendar` contains HTTP contracts, service orchestration, JDBC persistence and the Google protocol adapter; a dedicated Spring Security chain preserves CSRF for mutations even with Bearer authentication. Existing JWT login remains the sole application login.
+
+Browser -> authenticated connect API -> Google consent -> browser-bound backend callback -> encrypted connection -> fixed frontend account route. Google identity never grants an application role. The frontend holds no Google tokens; one token-free, tab-local marker allows a single existing refresh-cookie restoration on return when Remember Me is unchecked.
+
+No Calendar/event creation, sync queue, worker or Google Meet creation. A server-only credential refresh method detects invalid grants and fences concurrent disconnects; it has no public API and is not invoked automatically. C4 must separately design personal-calendar/event mapping and synchronization.
