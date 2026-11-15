@@ -21,7 +21,7 @@ class StudentCalendarHttpTests extends AuthenticationHttpTestSupport {
     final String from="2030-01-01T00:00:00Z",to="2030-02-01T00:00:00Z";
     void account(Role role,boolean verified,boolean locked){
         when(decoder.decode("access")).thenReturn(Jwt.withTokenValue("access").header("alg","RS256").subject("1").build());
-        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,role,locked,verified,false,false)));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,role,locked,verified,role == Role.STUDENT,false)));
     }
     @Test void readOnlyDtoAndActorBoundPagination() throws Exception {
         account(Role.STUDENT,false,false);
