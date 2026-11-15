@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 public class EnrollmentController {
     private final EnrollmentService service;
     public EnrollmentController(EnrollmentService service) { this.service=service; }
+    @GetMapping("/student/calendar/sessions")
+    public ResponseEntity<?> calendar(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request) throws IOException {
+        request(request,Set.of("from","to","page","size"));
+        return ok(service.calendar(actor.id(),request.getParameter("from"),request.getParameter("to"),
+                number(request,"page",0),number(request,"size",20)));
+    }
     @PostMapping("/student/courses/{courseId}/enrollment")
     public ResponseEntity<?> create(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable String courseId,HttpServletRequest request) throws IOException {
         request(request,Set.of());var result=service.create(actor.id(),id(courseId));

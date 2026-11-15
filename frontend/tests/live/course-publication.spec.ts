@@ -177,6 +177,15 @@ test('owner publishes a draft visible across public and Student catalogs', async
     const response=await paid;expect(response.status()).toBe(201);const payment=await response.json();
     await expect(page).toHaveURL(new RegExp('/student/enrollments\\?id='+payment.enrollmentId+'$'));
     expect(payment.finalAmount).toBe(quote.price.finalAmount);expect(payment.status).toBe('PENDING');
+    const calendarQuery=new URLSearchParams({from:new Date().toISOString(),to:new Date(Date.now()+61*86400000).toISOString(),page:'0',size:'100'});
+    const studentCalendar=async(headers:Record<string,string>)=>{
+      const response=await request.get(api+'/student/calendar/sessions?'+calendarQuery,{headers});
+      expect(response.status()).toBe(200);const body=await response.json();
+      expect(JSON.stringify(body)).not.toContain('meet.google.com');
+      return body.items as {courseId:string;status:string;timezone:string;courseTitle:string}[];
+    };
+    expect(await studentCalendar(student.headers)).toEqual([]);
+
     const root=api+'/student/enrollments/'+payment.enrollmentId;
     expect((await request.get(root+'/course-access',{headers:student.headers})).status()).toBe(403);
     expect((await request.post(root+'/payments',{headers:student.headers})).status()).toBe(200);
@@ -199,5 +208,10 @@ test('owner publishes a draft visible across public and Student catalogs', async
     await page.getByRole('button',{name:'Mở khóa học',exact:true}).click();
     await expect(page.getByRole('link',{name:'Vào lớp qua Google Meet'})).toHaveAttribute('href','https://meet.google.com/abc-defg-hij');
     const active=await request.get(root,{headers:student.headers});expect((await active.json()).status).toBe('ACTIVE');
+    const calendar=await studentCalendar(student.headers);
+    expect(calendar).toHaveLength(2);
+    for(const session of calendar)expect(session).toMatchObject({courseId:id,courseTitle:title,status:'SCHEDULED',timezone:'Asia/Ho_Chi_Minh'});
+    expect(await studentCalendar(secondStudent.headers)).toEqual([]);
+
   });
 });

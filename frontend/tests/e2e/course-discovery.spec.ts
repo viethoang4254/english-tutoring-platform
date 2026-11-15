@@ -95,6 +95,7 @@ test('Student dashboard discovers courses from sidebar and empty enrollments wit
   if(path.endsWith('/login')||path.endsWith('/refresh'))return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}});
   if(path.endsWith('/users/me'))return route.fulfill({json:{id:'1',role:'STUDENT',emailVerified:false}});
   if(path.endsWith('/profile'))return route.fulfill({json:{fullName:'Học viên kiểm thử',email:'student@example.test'}});
+  if(path.endsWith('/student/calendar/sessions'))return route.fulfill({json:{items:[],page:0,size:100,hasNext:false}});
   return route.abort();
  });
  await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('password');await page.getByLabel('Ghi nhớ đăng nhập').check();await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
@@ -121,10 +122,11 @@ test('Student dashboard discovers courses from sidebar and empty enrollments wit
  await expect(page.getByRole('heading',{name:second.name,exact:true})).toBeVisible();
  if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
  await page.getByRole('navigation',{name:'Điều hướng học viên',exact:true}).getByRole('link',{name:'Lịch học',exact:true}).click();
- await page.getByLabel('Chế độ xem trước').selectOption('empty');
+ await expect(page.getByRole('heading',{name:'Lịch học của tôi',exact:true})).toBeVisible();
  await expect(page.getByText('Không có buổi học trong ngày này')).toBeVisible();
- await expect(page.getByRole('heading',{name:'Chưa có khóa học trong bản xem trước'})).toBeVisible();
- await page.locator('#khoa-hoc-da-dang-ky').getByRole('link',{name:'Khám phá khóa học',exact:true}).click();
+ await expect(page.getByText('Chưa có buổi học trong kỳ lịch này.',{exact:false})).toBeVisible();
+ if(await toggle.isVisible() && await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
+ await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Khám phá khóa học',exact:true}).click();
  await expect(page).toHaveURL(/\/student\/dashboard\/courses$/);
 });
 test('public list paginates forward and back using backend hasNext',async({page})=>{

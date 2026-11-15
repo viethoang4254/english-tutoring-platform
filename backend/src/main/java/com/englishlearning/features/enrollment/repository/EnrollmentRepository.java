@@ -2,6 +2,7 @@ package com.englishlearning.features.enrollment.repository;
 
 import com.englishlearning.common.api.ApiId;
 import com.englishlearning.features.enrollment.dto.EnrollmentDto;
+import com.englishlearning.features.enrollment.dto.StudentCalendarSessionDto;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.*;
@@ -15,6 +16,27 @@ public class EnrollmentRepository {
     public record Course(long teacherId, String status, BigDecimal tuition, int capacity) {}
     public record RosterRow(ApiId enrollmentId, ApiId studentId, String studentDisplayName,
                             String status, Instant enrolledAt) {}
+    public List<StudentCalendarSessionDto> calendar(long student, Instant from, Instant to, int page, int size) {
+        List<?> rows = em.createNativeQuery("""
+            SELECT s.id,c.id,c.name,u.full_name,s.session_number,s.title,
+                   s.scheduled_start_at,s.scheduled_end_at,c.timezone,s.status,
+                   EXISTS (SELECT 1 FROM public.session_schedule_changes h WHERE h.session_id=s.id)
+            FROM public.sessions s JOIN public.courses c ON c.id=s.course_id
+            JOIN public.users u ON u.id=c.teacher_id
+            WHERE c.status='PUBLISHED' AND s.scheduled_start_at<:to AND s.scheduled_end_at>:from
+              AND EXISTS (SELECT 1 FROM public.enrollments e
+                  WHERE e.course_id=c.id AND e.student_id=:student AND e.status='ACTIVE'
+                    AND EXISTS (SELECT 1 FROM public.payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED'))
+            ORDER BY s.scheduled_start_at,s.id
+            """).setParameter("student",student).setParameter("from",from).setParameter("to",to)
+                .setFirstResult(page*size).setMaxResults(size+1).getResultList();
+        return rows.stream().map(value -> {
+            Object[] r=(Object[])value;
+            return new StudentCalendarSessionDto(new ApiId(((Number)r[0]).longValue()),new ApiId(((Number)r[1]).longValue()),
+                    (String)r[2],(String)r[3],((Number)r[4]).intValue(),(String)r[5],instant(r[6]),instant(r[7]),
+                    (String)r[8],(String)r[9],(Boolean)r[10]);
+        }).toList();
+    }
     public Optional<Course> course(long id, boolean lock) {
         var rows = em.createNativeQuery("SELECT teacher_id,status,tuition,max_students FROM public.courses WHERE id=:id" + (lock ? " FOR UPDATE" : ""))
                 .setParameter("id", id).getResultList();

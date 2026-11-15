@@ -1362,3 +1362,16 @@ The owner can publish a prepared draft through the Teacher course detail form. T
 ## Detailed public course outline — IN_PROGRESS
 
 V11 prepared only. Owner draft GET/PUT outline, ordered stages and topics, and published detail presentation prepared. Course cover upload is IN_PROGRESS. The owning Teacher can upload or replace an image on a saved draft. Published courses serve the cover through Spring Boot. Configure a private course-covers bucket (5 MiB, image/png, no client policies) before deployment; live Storage acceptance remains pending. Isolated persistence and end-to-end acceptance pending; do not deploy the V11-dependent backend against V10.
+
+## Stage C1 / TASK-036 — Student Calendar projection — IN_PROGRESS
+
+Approved Stage C1 implements the read-only Student Calendar API and replaces the
+Student overview's synthetic calendar with authenticated session data. Access requires
+an unlocked STUDENT, own ACTIVE Enrollment, CONFIRMED Payment and PUBLISHED Course.
+No Meet/content exposure, OAuth, Google synchronization, migrations or payment changes.
+Teacher Calendar is preserved. See [STAGE_C1_STUDENT_CALENDAR.md](STAGE_C1_STUDENT_CALENDAR.md)
+for implementation paths, precise contracts, hosted tests/screenshots and C2–C5 limits.
+
+Implementation and static review only; no local tests/builds/servers and no hosted
+Stage C1 run yet. HTTP and disposable persistence tests, 24 browser executions and four
+fixture screenshots are registered in TASK-009. No completion or CI success is claimed.

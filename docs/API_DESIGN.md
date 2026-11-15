@@ -1838,3 +1838,23 @@ The approved Teacher manual reconciliation endpoints and evidence DTO are specif
 proposal for this bounded workflow. Only eligible owning Teachers may decide; Admin
 monitoring is not Payment-confirmation authority. Business conflicts return HTTP 409
 with a committed immutable FAILED attempt. Implementation remains pending CI acceptance.
+
+
+## Stage C1 approved addition — Student Calendar
+
+`GET /api/v1/student/calendar/sessions` is a read-only, JWT-authenticated STUDENT API.
+It projects only the caller's ACTIVE enrollments with a CONFIRMED payment in PUBLISHED
+courses. Locked accounts are denied. Includes SCHEDULED and CANCELLED sessions; excludes
+Meet URLs and protected content. This approved calendar projection does not approve
+other planned protected-content or Google integration endpoints.
+
+Required `from` and `to` use offset-bearing ISO timestamps with `from < to` and a maximum
+62-day elapsed range. Defaults: `page=0`, `size=20`; size 1–100, nonnegative page with
+32-bit-safe offset. Unknown/duplicate parameters and request bodies return 400.
+Overlap is `start < to && end > from`, ordered by Session start and ID, with no duplicates.
+Response: `{items,page,size,hasNext}` and no-store caching. Items: `id`, `courseId`,
+`courseTitle`, `teacherDisplayName`, `sessionNumber`, `title`, `startsAt`, `endsAt`,
+`timezone`, `status`, `rescheduled`. IDs are decimal strings; dates are UTC instants;
+rescheduled derives from existing history. Missing/locked authentication: 401;
+non-Student: 403; infrastructure unavailable: sanitized 503.
+See [Stage C1](STAGE_C1_STUDENT_CALENDAR.md) for verification and remaining scope.

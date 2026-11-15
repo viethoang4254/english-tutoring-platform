@@ -80,6 +80,69 @@ class PaymentPersistenceTests {
         sql("INSERT INTO teacher_payment_accounts(id,teacher_id,bank_code,bank_bin,bank_name,account_number,account_holder_name,provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at) VALUES ("+id+",1,'VCB','970436','Bank','"+number+"','Teacher','VIETQR','INACTIVE','PENDING','"+key+".png',repeat('a',64),100,'"+key+"',repeat('b',64),now(),now())");
     }
     long reserve(){return enrollments.create(3,200).enrollment().id().value();}
+    @Test void studentCalendarEligibilityIsolationAndReadOnlyProjection() {
+        long e=reserve();var payment=payments.create(3,e).payment();
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            String from=START.toString(),to=START.plusSeconds(86400).toString();
+            assertTrue(enrollments.calendar(3,from,to,0,100).items().isEmpty());
+            jdbc.update("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id=?",e);
+            for(String status:List.of("PENDING","EXPIRED","CANCELLED")) {
+                jdbc.update("UPDATE payments SET status=? WHERE id=?",status,payment.id().value());
+                assertTrue(enrollments.calendar(3,from,to,0,100).items().isEmpty());
+            }
+            jdbc.update("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id=?",payment.id().value());
+            var visible=enrollments.calendar(3,from,to,0,100).items();assertEquals(1,visible.size());
+            assertEquals("Payment fixture",visible.get(0).courseTitle());assertEquals("Teacher",visible.get(0).teacherDisplayName());
+            assertEquals("Asia/Ho_Chi_Minh",visible.get(0).timezone());assertFalse(visible.get(0).rescheduled());
+            assertTrue(enrollments.calendar(4,from,to,0,100).items().isEmpty());
+            for(String status:List.of("PENDING","COMPLETED","CANCELLED")) {
+                jdbc.update("UPDATE enrollments SET status=? WHERE id=?",status,e);
+                assertTrue(enrollments.calendar(3,from,to,0,100).items().isEmpty());
+            }
+            jdbc.update("UPDATE enrollments SET status='ACTIVE' WHERE id=?",e);
+            for(String status:List.of("DRAFT","CANCELLED","ARCHIVED","COMPLETED")) {
+                jdbc.update("UPDATE courses SET status=? WHERE id=200",status);
+                assertTrue(enrollments.calendar(3,from,to,0,100).items().isEmpty());
+            }
+            jdbc.update("UPDATE courses SET status='PUBLISHED' WHERE id=200");
+            String before=jdbc.queryForObject("SELECT jsonb_agg(to_jsonb(p) ORDER BY id)::text FROM payments p",String.class);
+            String enrollmentsBefore=jdbc.queryForObject("SELECT jsonb_agg(to_jsonb(e) ORDER BY id)::text FROM enrollments e",String.class);
+            assertEquals(visible,enrollments.calendar(3,from,to,0,100).items());
+            assertEquals(before,jdbc.queryForObject("SELECT jsonb_agg(to_jsonb(p) ORDER BY id)::text FROM payments p",String.class));
+            assertEquals(enrollmentsBefore,jdbc.queryForObject("SELECT jsonb_agg(to_jsonb(e) ORDER BY id)::text FROM enrollments e",String.class));
+        });
+    }
+    @Test void studentCalendarOverlapOrderingCancellationHistoryAndDst() {
+        long e=reserve();var payment=payments.create(3,e).payment();
+        var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            jdbc.update("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id=?",e);
+            jdbc.update("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id=?",payment.id().value());
+            jdbc.update("UPDATE courses SET timezone='America/New_York',session_count=3 WHERE id=200");
+            jdbc.update("UPDATE sessions SET scheduled_start_at='2030-03-10T01:30:00-05:00',scheduled_end_at='2030-03-10T03:30:00-04:00',status='CANCELLED' WHERE course_id=200");
+            for(int n:List.of(2,3))jdbc.update("INSERT INTO sessions(course_id,session_number,scheduled_start_at,scheduled_end_at,status,created_at,updated_at) VALUES (200,?,'2030-03-10T06:30:00Z','2030-03-10T07:30:00Z','SCHEDULED',now(),now())",n);
+            // Multiple history/payment rows must never duplicate a session in the calendar.
+            for(int n=0;n<2;n++)jdbc.update("INSERT INTO session_schedule_changes(session_id,old_start_at,old_end_at,new_start_at,new_end_at,changed_at) SELECT id,scheduled_start_at-interval '1 day',scheduled_end_at-interval '1 day',scheduled_start_at,scheduled_end_at,now() FROM sessions WHERE course_id=200 AND session_number=1");
+            jdbc.update("""
+                INSERT INTO payments(enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,discount_percent,final_amount,rounding_adjustment,currency,status,confirmed_at,expires_at,created_at,updated_at,bank_bin,bank_name,account_number,account_holder_name,qr_payload)
+                SELECT enrollment_id,teacher_payment_account_id,'ELP'||repeat('C',22),'VIETQR',original_amount,discount_amount,discount_percent,final_amount,rounding_adjustment,currency,'CONFIRMED',confirmed_at,expires_at,created_at,updated_at,bank_bin,bank_name,account_number,account_holder_name,qr_payload FROM payments WHERE id=?
+                """,payment.id().value());
+            String from="2030-03-10T06:45:00Z",to="2030-03-10T07:00:00Z";
+            var all=enrollments.calendar(3,from,to,0,100);assertEquals(3,all.items().size());
+            var ids=all.items().stream().map(item->item.id().value()).toList();assertEquals(ids.stream().sorted().toList(),ids);
+            var first=all.items().get(0);assertEquals("CANCELLED",first.status());assertTrue(first.rescheduled());
+            assertEquals(Instant.parse("2030-03-10T06:30:00Z"),first.startsAt());assertEquals(Instant.parse("2030-03-10T07:30:00Z"),first.endsAt());
+            assertEquals("America/New_York",first.timezone());
+            for(int page=0;page<3;page++) {var result=enrollments.calendar(3,from,to,page,1);assertEquals(List.of(all.items().get(page)),result.items());assertEquals(page<2,result.hasNext());}
+            assertTrue(enrollments.calendar(3,from,to,3,1).items().isEmpty());
+            assertTrue(enrollments.calendar(3,"2030-03-10T05:00:00Z","2030-03-10T06:30:00Z",0,100).items().isEmpty());
+            assertTrue(enrollments.calendar(3,"2030-03-10T07:30:00Z","2030-03-10T08:00:00Z",0,100).items().isEmpty());
+            assertEquals(3,enrollments.calendar(3,"2030-03-10T06:30:00Z","2030-03-10T07:30:00Z",0,100).items().size());
+        });
+    }
     @Test void v8HistoryAndLegacyIntegritySurviveV9()throws Exception {
         assertEquals(legacyBefore,legacy());assertEquals("LEGACY",text("SELECT monetary_policy FROM payments WHERE id=100"));
         assertEquals("PENDING",text("SELECT status FROM enrollments WHERE id=100"));

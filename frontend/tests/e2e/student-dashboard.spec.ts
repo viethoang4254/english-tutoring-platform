@@ -1,6 +1,7 @@
+import { calendarPage } from "../support/student-calendar";
 import { captureReview } from "../support/ui-review";
 import { expect, test, type Page } from '@playwright/test';
-import { monthDays, shiftMonth, dayKey } from '../../src/features/student/dashboard-preview';
+import { monthDays, shiftMonth, dayKey } from '../../src/features/student/calendar-dates';
 
 async function signIn(page: Page, role = 'STUDENT', profileStatus = 200) {
   await page.clock.setFixedTime(new Date('2026-10-18T03:00:00Z'));
@@ -13,6 +14,10 @@ async function signIn(page: Page, role = 'STUDENT', profileStatus = 200) {
     if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
     if (path.endsWith('/login')) { remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
     if (path.endsWith('/users/me')) return route.fulfill({json:{id:'1',role,emailVerified:true}});
+    if (path === '/api/v1/student/calendar/sessions') {
+      expect(request.headers().authorization).toBe('Bearer test-access');
+      return route.fulfill({json:calendarPage(new URL(request.url()))});
+    }
     if (path.endsWith('/profile')) {
       expect(request.headers().authorization).toBe('Bearer test-access');
       return route.fulfill({status:profileStatus,json:profileStatus === 200 ? {fullName:'Nguyễn Minh Anh',email:'student@example.test'} : {code:'UNAVAILABLE',message:'PRIVATE'}});
@@ -41,20 +46,21 @@ test('calendar arithmetic handles leap years, year boundaries and Vietnam dates'
   expect(dayKey('2026-10-17T18:00:00Z')).toBe('2026-10-18');
 });
 
-test('@ui-review calendar selection, navigation and preview states are responsive', async ({page}, info) => {
+test('@ui-review calendar selection, navigation and enrolled states are responsive', async ({page}, info) => {
   await signIn(page);
   await expect(page.getByRole('heading',{name:/Xin chào, Nguyễn Minh Anh/})).toBeVisible();
-  await expect(page.getByText('Bản xem trước · Dữ liệu minh họa')).toBeVisible();
+  await expect(page.getByText('Bản xem trước · Dữ liệu minh họa')).toHaveCount(0);
   const calendar = page.locator('#lich-hoc');
   await expect(calendar.getByRole('heading',{name:'Giới thiệu bản thân',exact:true})).toBeVisible();
-  await expect(calendar.getByRole('button',{name:'Vào lớp'})).toBeDisabled();
-  await expect(calendar.getByRole('heading',{name:'Lịch minh họa',exact:true})).toBeVisible();
+  await expect(calendar.getByRole('button',{name:'Vào lớp'})).toHaveCount(0);
+  await expect(calendar.getByRole('link',{name:'Xem khóa học'})).toHaveAttribute('href','/student/dashboard/courses/42');
+  await expect(calendar.getByRole('heading',{name:'Lịch học của tôi',exact:true})).toBeVisible();
   await captureReview(page, info, 'student-dashboard');
   await calendar.getByRole('button',{name:/20 tháng 10.*2 buổi học/}).click();
   await expect(calendar.getByRole('heading',{name:'Trao đổi trong cuộc họp'})).toBeVisible();
   await expect(calendar.getByRole('heading',{name:'Hội thoại theo tình huống'})).toBeVisible();
   await calendar.getByRole('button',{name:/23 tháng 10.*1 buổi học/}).click();
-  await expect(calendar.getByText('Đã hủy · minh họa')).toBeVisible();
+  await expect(calendar.locator('article').getByText('Đã hủy',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Tháng sau',exact:true}).click();
   await expect(calendar.getByRole('heading',{name:'tháng 11 năm 2026',exact:true})).toBeVisible();
   await expect(page.getByText('Không có buổi học trong ngày này')).toBeVisible();
@@ -63,9 +69,6 @@ test('@ui-review calendar selection, navigation and preview states are responsiv
   await expect(calendar.getByRole('button',{pressed:true})).toHaveAttribute('aria-current','date');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/dashboard-${info.project.name}.png`,fullPage:true});
-  await page.getByLabel('Chế độ xem trước').selectOption('empty');
-  await expect(page.getByText('Chưa có buổi học sắp tới.')).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Chưa có khóa học trong bản xem trước'})).toBeVisible();
   const toggle = page.locator('[data-dashboard-toggle]');
   await expect(toggle).toBeAttached();
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();

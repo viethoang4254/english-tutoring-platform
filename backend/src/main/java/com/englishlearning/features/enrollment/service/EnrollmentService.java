@@ -1,6 +1,7 @@
 package com.englishlearning.features.enrollment.service;
 
 import com.englishlearning.features.enrollment.dto.EnrollmentDto;
+import com.englishlearning.features.enrollment.dto.StudentCalendarSessionDto;
 import com.englishlearning.features.enrollment.repository.EnrollmentRepository;
 import com.englishlearning.features.teacher.service.*;
 import com.englishlearning.features.user.entity.User.Role;
@@ -25,6 +26,18 @@ public class EnrollmentService {
     }
     public record Created(EnrollmentDto enrollment,boolean created) {}
     public record Page<T>(List<T> items,int page,int size,boolean hasNext) {}
+    @Transactional(readOnly=true)
+    public Page<StudentCalendarSessionDto> calendar(long actor,String from,String to,int page,int size) {
+        student(actor,false);validatePage(page,size,null);
+        Instant start,end;
+        try {
+            var a=OffsetDateTime.parse(from);var b=OffsetDateTime.parse(to);
+            if(a.getYear()<1||a.getYear()>9999||b.getYear()<1||b.getYear()>9999)throw fail(INVALID_REQUEST);
+            start=a.toInstant();end=b.toInstant();
+        } catch(DateTimeException|NullPointerException error) { throw fail(INVALID_REQUEST); }
+        if(!start.isBefore(end)||Duration.between(start,end).compareTo(Duration.ofDays(62))>0)throw fail(INVALID_REQUEST);
+        return page(rows.calendar(actor,start,end,page,size),page,size);
+    }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public Created create(long actor,long course) {
         student(actor,true);

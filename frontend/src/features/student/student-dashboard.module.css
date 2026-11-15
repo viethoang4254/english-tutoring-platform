@@ -167,3 +167,11 @@
 .workspaceContent{--primary:var(--ui-accent);--muted:var(--ui-muted);--ink:var(--ui-ink);--border:var(--ui-border);min-width:0}.workspaceContent>section{margin-block:24px}.workspaceContent .welcome{padding-top:0}.workspaceContent .welcome h1{font-size:24px}
 
 .workspaceContent .upcoming{align-self:start;padding:20px}.workspaceContent .upcomingItem{align-items:start;border-bottom:1px solid var(--ui-border);padding-block:14px}.workspaceContent .dateBadge{font-variant-numeric:tabular-nums;color:var(--ui-accent-hover);background:var(--ui-accent-soft)}.workspaceContent .previewNotice{border-left:3px solid var(--ui-warning);background:var(--ui-warning-soft);color:var(--ui-ink)}@media(max-width:600px){.workspaceContent .upcoming,.workspaceContent .calendar{padding:14px}.workspaceContent .scheduleLayout{gap:14px}}
+
+/* Live session titles and course timezones must wrap without squeezing mobile actions. */
+.sessionInfo, .upcomingItem > div { overflow-wrap: anywhere; }
+.sessionCard > a { flex-shrink: 0; font-size: .8rem; }
+@media (max-width: 760px) {
+  .sessionCard > a { margin-left: auto; }
+  .sectionHeading { flex-wrap: wrap; }
+}
