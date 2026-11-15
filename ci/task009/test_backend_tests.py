@@ -45,6 +45,7 @@ class FeatureReportChecks(unittest.TestCase):
             feature.main()
         self.assertEqual(executed, [
             ("feature-unit-http", None),
+            ("google-persistence", 15443),
             ("category-persistence", 15436),
             ("category-http", 15438),
             ("course-persistence", 15437),
@@ -52,7 +53,7 @@ class FeatureReportChecks(unittest.TestCase):
             ("receiving-persistence", 15441),
             ("payment-persistence", 15442),
         ])
-        self.assertEqual(len({port for _, port in executed[1:]}), 6)
+        self.assertEqual(len({port for _, port in executed[1:]}), 7)
 
     def test_main_requires_runner_guard_before_tests(self):
         with patch.object(feature.support, "root", side_effect=RuntimeError("Not CI")), patch.object(feature, "tests") as tests:
