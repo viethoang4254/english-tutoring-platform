@@ -145,7 +145,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
       }}><label>Liên kết Google Meet<input name="meetUrl" type="url" required placeholder="https://meet.google.com/abc-defg-hij" /></label>
         <button className="ui-button ui-button-primary" disabled={busy||blocked}>Xuất bản khóa học</button>
       </form>}
-      {selected.status==="DRAFT"?<button className="ui-button ui-button-primary" disabled={busy||blocked} onClick={()=>void run(async()=>{await loadCategories();setEditing(true);})}>Chỉnh sửa bản nháp</button>:<p>Khóa học này chỉ được xem trong giao diện quản lý bản nháp.</p>}</article>}
+      {selected.status==="DRAFT"?<button className="ui-button ui-button-primary" disabled={busy||blocked} onClick={()=>void run(async()=>{await loadCategories();setEditing(true);})}>Chỉnh sửa bản nháp</button>:<p>Chỉ khóa học ở trạng thái bản nháp mới có thể chỉnh sửa thông tin tại đây.</p>}</article>}
     {editing&&(!courseId||selected?.id===courseId)&&<form key={selected?.id??"new"} onSubmit={submit}><h3>{selected?"Chỉnh sửa bản nháp":"Bản nháp mới"}</h3><fieldset disabled={busy||blocked}><legend>Thông tin bản nháp</legend>
 <section className={styles.formSection}><h4>1. Thông tin cơ bản</h4><div className={styles.grid}>
       <label>Danh mục<select name="categoryId" required defaultValue={selected?.category.id??""}><option value="">Chọn danh mục</option>{selected&&!categories.some(c=>c.id===selected.category.id)&&<option value={selected.category.id}>{selected.category.name} (giữ danh mục hiện tại)</option>}{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
