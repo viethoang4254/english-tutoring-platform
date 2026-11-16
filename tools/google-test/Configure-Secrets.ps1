@@ -8,7 +8,10 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not ([Environment]::OSVersion.Platform -eq 'Win32NT')) { throw 'Windows DPAPI is required.' }
 $Directory = [IO.Path]::GetFullPath($Directory)
-if (-not $Directory.StartsWith('E:\SupabaseSecrets\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Use the external TEST secret directory.' }
+$ciDirectory = if ($env:GITHUB_ACTIONS -ceq 'true' -and $env:TEST_RUNNER_KIND -ceq 'github-hosted' -and $env:RUNNER_TEMP) {
+    [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'google-private-ci'))
+}
+if ($Directory -ine $ciDirectory -and -not $Directory.StartsWith('E:\SupabaseSecrets\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Use the external TEST secret directory.' }
 if (Test-Path -LiteralPath $Directory) { throw 'Directory exists. Refusing to overwrite credentials or encryption keys.' }
 for ($parent = [IO.DirectoryInfo]::new($Directory).Parent; $parent; $parent = $parent.Parent) {
     if ($parent.Exists -and ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Secret directory ancestors must not be reparse points.' }
@@ -46,14 +49,22 @@ try { [IO.File]::WriteAllText((Join-Path $Directory 'token-key.base64'), [Conver
 finally { [Array]::Clear($bytes, 0, $bytes.Length) }
 
 # Independent application authentication material for this isolated instance.
-$node = (Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+$node = (Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Path
+$exeExists = [IO.File]::Exists($node)
+$cwdExists = [IO.Directory]::Exists($Directory)
+if (-not ($exeExists -and $cwdExists)) { throw "Node launch preflight: executableExists=$exeExists workingDirectoryExists=$cwdExists" }
 $info = [Diagnostics.ProcessStartInfo]::new($node, '-')
 $info.WorkingDirectory = $Directory
 $info.UseShellExecute = $false
 $info.RedirectStandardInput = $true
 $info.EnvironmentVariables.Clear()
 $info.EnvironmentVariables['SystemRoot'] = $env:SystemRoot
-$keygen = [Diagnostics.Process]::Start($info)
+try { $keygen = [Diagnostics.Process]::Start($info) }
+catch {
+    $cause = $_.Exception.GetBaseException()
+    $code = if ($cause -is [ComponentModel.Win32Exception]) { $cause.NativeErrorCode } else { 'unavailable' }
+    throw "Node launch failed: executableExists=$exeExists workingDirectoryExists=$cwdExists nativeErrorCode=$code"
+}
 $keygen.StandardInput.WriteLine(@'
 const fs = require('node:fs');
 const keys = require('node:crypto').generateKeyPairSync('rsa', {modulusLength: 2048});

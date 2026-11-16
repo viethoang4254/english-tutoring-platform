@@ -50,28 +50,24 @@ jobs:
             if ($errors.Count) { throw "PowerShell syntax invalid: $($_.Name)" }
           }
       - name: Exercise private TEST setup with disposable inputs
+        env:
+          TEST_RUNNER_KIND: ${{ runner.environment }}
         shell: powershell
         run: |
-          $scratch = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP 'google-private-ci')
-          $mapped = -not (Test-Path 'E:\')
-          if ($mapped) { subst.exe E: $scratch.FullName; if ($LASTEXITCODE) { throw 'Cannot map TEST drive' } }
-          $dir = "E:\SupabaseSecrets\ci-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
-          try {
-            function Read-Host { param($Prompt,[switch]$AsSecureString) ConvertTo-SecureString 'synthetic-ci-input' -AsPlainText -Force }
-            & ./tools/google-test/Configure-Secrets.ps1 -Directory $dir -KeyProtection AclOnly -Confirm:$false
-            foreach ($name in 'client-id','client-secret','database-password','reset-hmac') {
-              $value = Import-Clixml -LiteralPath "$dir/$name.dpapi.xml"
-              if ($value -isnot [Security.SecureString] -or !$value.Length) { throw 'DPAPI round trip failed' }
-            }
-            if ([Convert]::FromBase64String([IO.File]::ReadAllText("$dir/token-key.base64")).Length -ne 32) { throw 'Invalid AES key length' }
-            Push-Location $dir
-            try {
-              node -e "const c=require('crypto'),f=require('fs'),b=Buffer.from('ci');if(!c.verify('sha256',b,f.readFileSync('jwt-public.pem'),c.sign('sha256',b,f.readFileSync('jwt-private.pem'))))process.exit(1)"
-              if ($LASTEXITCODE) { throw 'TEST signing keys do not match' }
-            } finally { Pop-Location }
-          } finally {
-            if ($mapped) { subst.exe E: /D }
+          $dir = Join-Path $env:RUNNER_TEMP 'google-private-ci'
+          function Read-Host { param($Prompt,[switch]$AsSecureString) ConvertTo-SecureString 'synthetic-ci-input' -AsPlainText -Force }
+          & ./tools/google-test/Configure-Secrets.ps1 -Directory $dir -KeyProtection AclOnly -Confirm:$false
+          foreach ($name in 'client-id','client-secret','database-password','reset-hmac') {
+            $value = Import-Clixml -LiteralPath "$dir/$name.dpapi.xml"
+            if ($name -ne 'reset-hmac' -and [Net.NetworkCredential]::new('', $value).Password -cne 'synthetic-ci-input') { throw 'DPAPI value mismatch' }
+            if ($value -isnot [Security.SecureString] -or !$value.Length) { throw 'DPAPI round trip failed' }
           }
+          if ([Convert]::FromBase64String([IO.File]::ReadAllText("$dir/token-key.base64")).Length -ne 32) { throw 'Invalid AES key length' }
+          Push-Location $dir
+          try {
+            node -e "const c=require('crypto'),f=require('fs'),b=Buffer.from([JSON.stringify({alg:'RS256',typ:'JWT'}),JSON.stringify({sub:'ci'})].map(x=>Buffer.from(x).toString('base64url')).join('.'));if(!c.verify('sha256',b,f.readFileSync('jwt-public.pem'),c.sign('sha256',b,f.readFileSync('jwt-private.pem'))))process.exit(1)"
+            if ($LASTEXITCODE) { throw 'TEST signing keys do not match' }
+          } finally { Pop-Location }
       # The required TASK-009 run executes the Linux-specific acceptance harness.
       - name: Package accepted backend revision
         working-directory: backend
