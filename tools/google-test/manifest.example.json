@@ -1,0 +1,20 @@
+{
+  "projectRef": "zobxcixrxsazmngcthvg",
+  "databaseHost": "REPLACE_WITH_TEST_SESSION_POOLER_HOST",
+  "databasePort": 5432,
+  "databaseName": "postgres",
+  "databaseUser": "postgres.zobxcixrxsazmngcthvg",
+  "databaseCaFile": "E:/SupabaseSecrets/google-calendar-test/database-ca.crt",
+  "databasePasswordFile": "E:/SupabaseSecrets/google-calendar-test/database-password.dpapi.xml",
+  "clientIdFile": "E:/SupabaseSecrets/google-calendar-test/client-id.dpapi.xml",
+  "clientSecretFile": "E:/SupabaseSecrets/google-calendar-test/client-secret.dpapi.xml",
+  "tokenKeyFile": "E:/SupabaseSecrets/google-calendar-test/token-key.base64",
+  "keyId": "google-test-1",
+  "jwtPrivateKeyFile": "E:/SupabaseSecrets/google-calendar-test/jwt-private.pem",
+  "jwtPublicKeyFile": "E:/SupabaseSecrets/google-calendar-test/jwt-public.pem",
+  "resetHmacFile": "E:/SupabaseSecrets/google-calendar-test/reset-hmac.dpapi.xml",
+  "artifactReceipt": "E:/SupabaseSecrets/google-calendar-test/receipt.json",
+  "approvedCommit": "REPLACE_WITH_APPROVED_PACKAGED_COMMIT",
+  "approvedPackageRunId": "REPLACE_WITH_SUCCESSFUL_PACKAGE_RUN_ID",
+  "runtimeDirectory": "E:/SupabaseSecrets/google-calendar-test/runtime"
+}

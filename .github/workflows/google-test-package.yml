@@ -1,0 +1,91 @@
+name: Google OAuth TEST Windows package
+on:
+  workflow_call:
+    inputs:
+      acceptance_run_id:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      acceptance_run_id:
+        description: Successful TASK-009 run for this exact commit
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Require exact-revision hosted acceptance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACCEPTANCE_ID: ${{ inputs.acceptance_run_id }}
+        run: |
+          if ($env:ACCEPTANCE_ID -notmatch '^\d+$') { throw 'Invalid run ID' }
+          $run = Invoke-RestMethod "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/runs/$env:ACCEPTANCE_ID" -Headers @{Authorization="Bearer $env:GH_TOKEN"}
+          if ($run.head_sha -cne $env:GITHUB_SHA -or $run.conclusion -cne 'success' -or $run.path -cne '.github/workflows/task009-acceptance.yml' -or $run.repository.full_name -cne $env:GITHUB_REPOSITORY) { throw 'Exact revision TASK-009 success required' }
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
+      - name: Parse PowerShell entry points
+        shell: pwsh
+        run: |
+          Get-ChildItem tools/google-test/*.ps1 | ForEach-Object {
+            $tokens=$null; $errors=$null
+            [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if ($errors.Count) { throw "PowerShell syntax invalid: $($_.Name)" }
+          }
+      # The required TASK-009 run executes the Linux-specific acceptance harness.
+      - name: Package accepted backend revision
+        working-directory: backend
+        run: ./mvnw.cmd -B -DskipTests package
+      - run: npm install --global npm@11.19.0
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_ORIGIN: http://localhost:8081
+      - run: npm run typecheck
+        working-directory: frontend
+      - run: npm prune --omit=dev --ignore-scripts
+        working-directory: frontend
+      - name: Assemble secret-free Windows runtime and receipt
+        run: python tools/google-test/package_runtime.py
+        env:
+          ACCEPTANCE_RUN_ID: ${{ inputs.acceptance_run_id }}
+      - name: Verify extracted Windows deployment
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'google-oauth-package'
+          $root = Join-Path $env:RUNNER_TEMP 'verify-google-runtime'
+          Expand-Archive -LiteralPath "$dir/runtime.zip" -DestinationPath $root
+          $config = @{ artifactReceipt="$dir/receipt.json"; runtimeDirectory=$root; approvedCommit=$env:GITHUB_SHA; approvedPackageRunId=$env:GITHUB_RUN_ID }
+          $null = & ./tools/google-test/Verify-TestArtifact.ps1 -Config $config
+          Push-Location "$root/frontend"
+          node node_modules/next/dist/bin/next start --help
+          if ($LASTEXITCODE) { throw 'Packaged Next CLI unavailable' }
+          node -e "require('next'); require('@next/swc-win32-x64-msvc')"
+          if ($LASTEXITCODE) { throw 'Windows runtime dependencies unavailable' }
+          Pop-Location
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: google-oauth-test-windows-${{ github.sha }}
+          path: ${{ runner.temp }}/google-oauth-package/*
+          if-no-files-found: error
+          retention-days: 7

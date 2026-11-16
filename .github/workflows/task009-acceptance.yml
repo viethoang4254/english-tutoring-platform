@@ -1,6 +1,11 @@
 name: TASK-009 isolated acceptance
 on:
   workflow_dispatch:
+    inputs:
+      package_after_run:
+        description: Optional successful TASK-009 run ID for this same revision to produce the Windows TEST package
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -344,3 +349,12 @@ jobs:
           path: ${{ runner.temp }}/calendar-sync-review/*.png
           retention-days: 7
           if-no-files-found: error
+
+  windows-test-package:
+    if: inputs.package_after_run != ''
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/google-test-package.yml
+    with:
+      acceptance_run_id: ${{ inputs.package_after_run }}
