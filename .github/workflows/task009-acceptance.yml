@@ -19,6 +19,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: python ci/task009/run.py prepare
+      - name: Verify sanitized SMTP diagnostics
+        run: python -m unittest discover -s ci/task009 -p 'test_smtp_diagnostics.py'
       - run: python ci/task009/run.py smtp
       - run: python ci/task009/run.py smtp-test
       - if: always()

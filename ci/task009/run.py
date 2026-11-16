@@ -1,4 +1,5 @@
 """Bounded TASK-009 CI support. Never targets a developer or shared database."""
+from contextlib import contextmanager
 import base64
 from email import policy
 from email.parser import Parser
@@ -48,10 +49,35 @@ class CommandFailure(RuntimeError):
         self.exit_code = exit_code
 
 
-def run(args, *, data=None, cwd=None, timeout=120):
+def compiler_locations(output):
+    # Emit only repository-known Java paths, numeric locations and fixed categories.
+    known = {str(p.relative_to(REPO)).replace("\\", "/") for p in (REPO / "backend/src").rglob("*.java")}
+    found = []
+    pattern = r"\[ERROR\] (?:[^\r\n]*?/)?(backend/src/[^\r\n]+?\.java):\[(\d+),(\d+)\] (.*)"
+    for path, line, column, message in re.findall(pattern, output):
+        category = next((value for prefix, value in (
+            ("cannot find symbol", "unresolved-symbol"),
+            ("incompatible types", "incompatible-types"),
+            ("reference to ", "ambiguous-reference"),
+            ("no suitable method", "method-signature"),
+            ("method ", "method-signature"),
+            ("package ", "package-resolution"),
+            ("illegal ", "syntax"),
+        ) if message.startswith(prefix)), "compiler-error")
+        if path in known and len(line) <= 7 and len(column) <= 7:
+            item = {"file": path, "line": int(line), "column": int(column), "category": category}
+            if item not in found:
+                found.append(item)
+    return found[:20]
+
+
+def run(args, *, data=None, cwd=None, timeout=120, compilation=False):
     result = subprocess.run(args, input=data, text=True, capture_output=True, cwd=cwd, timeout=timeout)
     if result.returncode != 0:
-        raise CommandFailure(result.returncode)
+        failure = CommandFailure(result.returncode)
+        if compilation:
+            failure.locations = compiler_locations(result.stdout + "\n" + result.stderr)
+        raise failure
     return result.stdout.strip()
 
 
@@ -206,26 +232,59 @@ def smtp_check():
 
 def maven(arguments):
     resources()
-    run(["bash", "mvnw", "-B", *arguments], cwd=REPO / "backend", timeout=600)
+    run(["bash", "mvnw", "-B", *arguments], cwd=REPO / "backend", timeout=600, compilation="test-compile" in arguments)
+
+
+SMTP_STAGES = {"test-compilation", "dependency-classpath", "mockito-agent-resolution",
+               "smtp-test-execution", "surefire-report-validation"}
+
+
+@contextmanager
+def smtp_stage(name):
+    require(name in SMTP_STAGES, "Invalid diagnostic stage")
+    print(json.dumps({"stage": name, "event": "start"}), flush=True)
+    try:
+        yield
+    except Exception as error:
+        category = ("command-failed" if isinstance(error, CommandFailure) else
+                    "timeout" if isinstance(error, subprocess.TimeoutExpired) else
+                    "resource-limit" if isinstance(error, ResourceFailure) else
+                    "missing-file" if isinstance(error, FileNotFoundError) else "validation-failed")
+        item = {"stage": name, "event": "failure", "category": category}
+        if isinstance(error, CommandFailure):
+            item["exit_code"] = error.exit_code
+        print(json.dumps(item), flush=True)
+        if name == "test-compilation" and isinstance(error, CommandFailure):
+            for location in getattr(error, "locations", []):
+                print(json.dumps({"stage": name, "event": "compiler-location", **location}), flush=True)
+        raise
+    else:
+        print(json.dumps({"stage": name, "event": "completion"}), flush=True)
 
 
 def smtp_test():
-    maven(["test-compile", "dependency:build-classpath", "-Dmdep.includeScope=test",
-           "-Dmdep.outputFile=" + str(root() / "classpath")])
-    agent = [p for p in (root() / "classpath").read_text().split(os.pathsep) if Path(p).name.startswith("mockito-core-")]
-    require(len(agent) == 1, "Expected one resolved Mockito agent")
-    jvm = "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m -javaagent:" + agent[0]
+    with smtp_stage("test-compilation"):
+        maven(["test-compile"])
+    with smtp_stage("dependency-classpath"):
+        maven(["dependency:build-classpath", "-Dmdep.includeScope=test",
+               "-Dmdep.outputFile=" + str(root() / "classpath")])
+    with smtp_stage("mockito-agent-resolution"):
+        agent = [p for p in (root() / "classpath").read_text().split(os.pathsep) if Path(p).name.startswith("mockito-core-")]
+        require(len(agent) == 1, "Expected one resolved Mockito agent")
+        jvm = "-Xms128m -Xmx512m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=128m -javaagent:" + agent[0]
     try:
-        maven(["-DlocalResetSmtp=true", "-Dtest=LocalResetSmtpTests", "-DforkCount=1", "-DreuseForks=true",
-               "-Djunit.jupiter.execution.parallel.enabled=false", "-DargLine=" + jvm, "test"])
+        with smtp_stage("smtp-test-execution"):
+            maven(["-DlocalResetSmtp=true", "-Dtest=LocalResetSmtpTests", "-DforkCount=1", "-DreuseForks=true",
+                   "-Djunit.jupiter.execution.parallel.enabled=false", "-DargLine=" + jvm, "test"])
     finally:
-        report = REPO / "backend/target/surefire-reports/TEST-com.englishlearning.features.auth.service.LocalResetSmtpTests.xml"
-        require(report.exists(), "SMTP test report missing")
-        suite = ET.parse(report).getroot()
-        counts = {k: int(suite.attrib[k]) for k in ("tests", "failures", "errors", "skipped")}
-        counts["passed"] = counts["tests"] - counts["failures"] - counts["errors"] - counts["skipped"]
-        print("SMTP: " + json.dumps(counts))
-        require(counts["passed"] == 1 and counts["tests"] == 1, "SMTP acceptance did not pass")
+        with smtp_stage("surefire-report-validation"):
+            report = REPO / "backend/target/surefire-reports/TEST-com.englishlearning.features.auth.service.LocalResetSmtpTests.xml"
+            require(report.exists(), "SMTP test report missing")
+            suite = ET.parse(report).getroot()
+            counts = {k: int(suite.attrib[k]) for k in ("tests", "failures", "errors", "skipped")}
+            counts["passed"] = counts["tests"] - counts["failures"] - counts["errors"] - counts["skipped"]
+            print("SMTP: " + json.dumps(counts))
+            require(counts["passed"] == 1 and counts["tests"] == 1, "SMTP acceptance did not pass")
 
 
 def container():
