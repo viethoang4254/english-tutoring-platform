@@ -1,3 +1,4 @@
+import { openStudentNavigation } from "../support/student-navigation";
 import { expect, test } from '@playwright/test';
 for (const entry of ['/login', '/']) test(`Student login from ${entry} establishes session before redirect and logout protects dashboard`, async ({page}) => {
  let fail = true; let refreshes = 0;
@@ -22,11 +23,11 @@ for (const entry of ['/login', '/']) test(`Student login from ${entry} establish
  await expect(page).toHaveURL(/\/student\/dashboard$/);
  await expect(page.getByRole('heading',{name:/Xin chào,/})).toBeVisible();
  await expect(page.getByRole('contentinfo')).toHaveCount(0);
- await page.locator('[data-dashboard-account] summary').click();
- await page.getByRole('link',{name:'Hồ sơ và bảo mật',exact:true}).click();
+ await openStudentNavigation(page);
+ await page.getByRole('link',{name:'Hồ sơ và cài đặt',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Hồ sơ và cài đặt',exact:true})).toBeVisible();
- await page.locator('[data-dashboard-account] summary').click();
- await page.locator('[data-dashboard-account]').getByRole('button',{name:'Đăng xuất',exact:true}).click();
+ await openStudentNavigation(page);
+ await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
  await expect(page).toHaveURL(/\/login(?:\?|$)/);
  await expect(page.getByLabel('Email',{exact:true})).toBeVisible();
  expect(refreshes).toBe(0);

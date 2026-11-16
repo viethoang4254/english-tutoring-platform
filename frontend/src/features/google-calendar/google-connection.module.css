@@ -1,0 +1,4 @@
+.card { border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); }
+.card h2 { margin-top: 0; }
+.card > button { min-height: 44px; margin: 4px 8px 4px 0; max-width: 100%; white-space: normal; }
+@media (max-width: 600px) { .card > button { width: 100%; margin-inline: 0; } }

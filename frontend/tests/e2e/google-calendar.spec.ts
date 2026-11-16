@@ -9,7 +9,6 @@ test("@google-review Student disconnected and connected OAuth return without Rem
   await captureReview(page, info, "student-google-disconnected");
   await panel.getByRole("button", { name: "Kết nối Google Calendar", exact: true }).click();
   await expect(page).toHaveURL(/\/account\?googleCalendar=CONNECTED$/);
-  await page.locator("summary").filter({ hasText: "Kết nối Google Calendar" }).click();
   panel = page.getByRole("region", { name: "Kết nối Google Calendar", exact: true });
   await expect(panel.getByText("Đã kết nối", { exact: true })).toBeVisible();
   await expect(panel).toContainText("calendar.fixture@example.test");
@@ -89,7 +88,6 @@ for (const scenario of ["missing","expired","malformed","refresh-failed","identi
     page.on("request",request=>{if(new URL(request.url()).pathname.endsWith("/auth/logout"))logouts++;});
     await page.goto("/account?googleCalendar="+(scenario==="denied"?"CONSENT_DENIED":"CONNECTED"));
     if (scenario === "denied" || scenario === "replayed") {
-      await page.locator("summary").filter({hasText:"Kết nối Google Calendar"}).click();
       await expect(page.getByRole("region",{name:"Kết nối Google Calendar"})).toContainText(
         scenario==="denied"?"Bạn đã từ chối quyền truy cập Google.":"Đã kết nối Google Calendar.");
       if (scenario==="denied") return;

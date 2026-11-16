@@ -1,3 +1,4 @@
+import { openStudentNavigation } from "../support/student-navigation";
 import { accountPanel } from "../support/account-navigation";
 import {expect, test} from '@playwright/test';
 import {api, fixture, mutation, register} from '../support/live-fixtures';
@@ -36,8 +37,8 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
     await page.getByRole('button', {name: 'Đăng nhập', exact: true}).click();
     if (!teacher) {
       await expect(page).toHaveURL(/\/student\/dashboard$/);
-      await page.locator('[data-dashboard-account] summary').click();
-      await page.getByRole('link', {name: 'Hồ sơ và bảo mật', exact: true}).click();
+      await openStudentNavigation(page);
+      await page.getByRole('link', {name: 'Hồ sơ và cài đặt', exact: true}).click();
     }
     await accountPanel(page, 'Hồ sơ cá nhân');
     await expect(page.getByRole('button', {name: 'Chỉnh sửa thông tin'})).toBeVisible();

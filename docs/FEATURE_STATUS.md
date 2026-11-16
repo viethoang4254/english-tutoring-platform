@@ -1399,3 +1399,11 @@ Pending: static code review, approved commit, hosted CI on exact commit, later c
 ## Stage C4 personal calendar synchronization
 
 **IN_PROGRESS.** Implementation and synthetic acceptance are prepared. Hosted CI and real-provider verification are pending. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).
+
+## Student dashboard UI cleanup — IN_PROGRESS
+
+Student Google connection is an always-visible card; Overview retains upcoming
+sessions while the full calendar lives at /student/dashboard/schedule. Student
+profile and logout remain in the sidebar; other role shells are unchanged.
+Frontend regression fixtures/navigation and screenshot coverage are updated.
+Static diff checks only; hosted TASK-009 validation and visual review are pending.

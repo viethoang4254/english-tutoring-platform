@@ -33,7 +33,6 @@ test("connection backfill is pending until the server reports success",async ({p
   fixture.sync={state:"PENDING",pending:2,failed:0,lastSuccess:null};
   await panel.getByRole("button",{name:"Kết nối Google Calendar",exact:true}).click();
   await expect(page).toHaveURL(/\/account\?googleCalendar=CONNECTED$/);
-  await page.locator("summary").filter({hasText:"Kết nối Google Calendar"}).click();
   const account=page.getByRole("region",{name:"Kết nối Google Calendar",exact:true});
   await expect(account.getByText("Đang đồng bộ lịch học",{exact:true})).toBeVisible();
   await expect(account.getByText("Đã đồng bộ Google Calendar",{exact:true})).toHaveCount(0);

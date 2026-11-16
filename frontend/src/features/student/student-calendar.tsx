@@ -21,7 +21,7 @@ const dateFormat = new Intl.DateTimeFormat("vi-VN", { timeZone: dashboardTimeZon
 const timeFormat = new Intl.DateTimeFormat("vi-VN", { timeZone: dashboardTimeZone, hour: "2-digit", minute: "2-digit", hour12: false });
 const monthFormat = new Intl.DateTimeFormat("vi-VN", { timeZone: dashboardTimeZone, month: "long", year: "numeric" });
 
-export function StudentCalendar() {
+export function StudentCalendar({overview=false}:{overview?:boolean}) {
   const { session, clearSession } = useSession();
   const [now] = useState(() => new Date());
   const today = dayKey(now);
@@ -76,11 +76,12 @@ export function StudentCalendar() {
   function navigateMonth(offset: number) { selectDay(shiftMonth(month, offset) + "-01"); }
   return <section aria-label="Lịch học đã đăng ký">
     <GoogleConnection />
+    {overview&&<Link className="ui-button ui-button-secondary" href="/student/dashboard/schedule">Xem lịch học đầy đủ</Link>}
     <div className={styles.sectionHeading}><p>Buổi học từ khóa học đang học, đã xác nhận thanh toán.</p><button className="ui-button ui-button-secondary" disabled={loading} onClick={() => setAttempt(value => value + 1)}>Tải lại lịch học</button></div>
     {error && <div role="alert"><p>{error === "denied" ? "Tài khoản không có quyền xem lịch học." : "Không thể tải lịch học. Vui lòng thử lại."}</p>{error !== "denied" && <button className="ui-button ui-button-secondary" onClick={() => setAttempt(value => value + 1)}>Thử lại lịch học</button>}</div>}
     {!loading && !error && !sessions.length && <p role="status">Chưa có buổi học trong kỳ lịch này. <Link href="/student/enrollments">Xem khóa học của tôi</Link></p>}
-      <div className={styles.scheduleLayout}>
-        <section className={styles.calendar} id="lich-hoc" aria-labelledby="calendar-title">
+      <div className={overview ? undefined : styles.scheduleLayout}>
+        {!overview&&<section className={styles.calendar} id="lich-hoc" aria-labelledby="calendar-title">
           <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>CHỦ ĐỘNG THỜI GIAN</p><h2 id="calendar-title">Lịch học của tôi</h2></div><span className={styles.timezone}>Giờ Việt Nam · UTC+7</span></div>
           <div className={styles.calendarToolbar}><h3 aria-live="polite">{monthFormat.format(new Date(month + "-01T12:00:00Z"))}</h3><div><button onClick={() => selectDay(today)}>Hôm nay</button><button aria-label="Tháng trước" onClick={() => navigateMonth(-1)}>‹</button><button aria-label="Tháng sau" onClick={() => navigateMonth(1)}>›</button></div></div>
           <div className={styles.weekdays} aria-hidden="true">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map(day => <span key={day}>{day}</span>)}</div>
@@ -96,8 +97,8 @@ export function StudentCalendar() {
           </div>
           <div className={styles.legend}><span><i /> Có buổi học</span><span><i className={styles.cancelledDot} /> Đã hủy</span><span>Nhấn vào ngày để xem lịch</span></div>
           {!loading && !error && <div className={styles.dayDetails} aria-live="polite"><h3>{dateFormat.format(new Date(selected + "T12:00:00Z"))}</h3>{selectedSessions.length ? selectedSessions.map(session => <SessionCard key={session.id} session={session} />) : <div className={styles.empty}><Icon kind="check" /><strong>Không có buổi học trong ngày này</strong><p>Chọn ngày có dấu đánh dấu để xem lịch học.</p></div>}</div>}
-        </section>
-        <aside className={styles.upcoming} aria-labelledby="upcoming-title"><p className={styles.eyebrow}>LỊCH HỌC</p><h2 id="upcoming-title">Sắp diễn ra</h2><p className={styles.muted}>Các buổi sắp tới trong kỳ lịch đang xem</p>{loading ? <p role="status">Đang tải lịch học…</p> : error ? <p>Chưa thể tải các buổi sắp tới.</p> : upcoming.length ? upcoming.map(session => <div key={session.id} className={styles.upcomingItem}><span className={styles.dateBadge}>{new Date(session.startsAt).toLocaleDateString("vi-VN", { timeZone: dashboardTimeZone, day: "2-digit", month: "2-digit" })}</span><div><strong>{session.title || `Buổi ${session.sessionNumber}`}</strong><p>{session.courseTitle} · {session.teacherDisplayName}</p><p>{timeFormat.format(new Date(session.startsAt))} · Giờ Việt Nam</p><button className={styles.textButton} onClick={() => { selectDay(dayKey(session.startsAt)); document.getElementById("lich-hoc")?.scrollIntoView({ block: "start" }); }}>Xem trong lịch →</button></div></div>) : <p className={styles.empty}>Không có buổi học sắp tới trong kỳ lịch đang xem.</p>}<div className={styles.meetNote}><Icon kind="book" /><p>Mở khóa học để xem thông tin truy cập được cấp phép. Quyền tham gia Google Meet được kiểm tra khi bạn nhấn tham gia.</p></div></aside>
+        </section>}
+        <aside className={styles.upcoming} aria-labelledby="upcoming-title"><p className={styles.eyebrow}>LỊCH HỌC</p><h2 id="upcoming-title">Sắp diễn ra</h2><p className={styles.muted}>{overview?`Các buổi sắp tới trong kỳ lịch ${monthFormat.format(new Date(month + "-01T12:00:00Z"))}`:"Các buổi sắp tới trong kỳ lịch đang xem"}</p>{loading ? <p role="status">Đang tải lịch học…</p> : error ? <p>Chưa thể tải các buổi sắp tới.</p> : upcoming.length ? upcoming.map(session => <div key={session.id} className={styles.upcomingItem}><span className={styles.dateBadge}>{new Date(session.startsAt).toLocaleDateString("vi-VN", { timeZone: dashboardTimeZone, day: "2-digit", month: "2-digit" })}</span><div><strong>{session.title || `Buổi ${session.sessionNumber}`}</strong><p>{session.courseTitle} · {session.teacherDisplayName}</p><p>{timeFormat.format(new Date(session.startsAt))} · Giờ Việt Nam</p>{overview?<Link className={styles.textButton} href={`/student/dashboard/schedule?day=${dayKey(session.startsAt)}#session-${session.id}`}>Xem trong lịch →</Link>:<button className={styles.textButton} onClick={() => { selectDay(dayKey(session.startsAt)); document.getElementById("lich-hoc")?.scrollIntoView({ block: "start" }); }}>Xem trong lịch →</button>}</div></div>) : <p className={styles.empty}>Không có buổi học sắp tới trong kỳ lịch đang xem.</p>}<div className={styles.meetNote}><Icon kind="book" /><p>Mở khóa học để xem thông tin truy cập được cấp phép. Quyền tham gia Google Meet được kiểm tra khi bạn nhấn tham gia.</p></div></aside>
       </div>
   </section>;
 }

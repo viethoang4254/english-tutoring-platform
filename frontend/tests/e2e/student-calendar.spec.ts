@@ -74,7 +74,7 @@ test("calendar failure has an explicit safe retry independent of profile", async
   const region = page.getByRole("region", { name: "Lịch học đã đăng ký" });
   await expect(region.getByRole("alert")).toContainText("Không thể tải lịch học. Vui lòng thử lại.");
   await expect(page.getByText("PRIVATE")).toHaveCount(0);expect(fixture.requests).toHaveLength(1);
-  await expect(page.getByRole("heading", { name: /Xin chào,/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lịch học", exact: true })).toBeVisible();
   fixture.status = 200;await page.getByRole("button", { name: "Thử lại lịch học", exact: true }).click();
   await expect(page.locator("#lich-hoc").getByRole("heading", { name: "Giới thiệu bản thân" })).toBeVisible();
   expect(fixture.requests).toHaveLength(2);

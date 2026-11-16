@@ -46,8 +46,8 @@ async function setup(page: Page, options: { role?: string; rememberMe?: boolean;
   await page.getByLabel("Mật khẩu", { exact: true }).fill("fixture-password");
   await page.getByLabel("Ghi nhớ đăng nhập").setChecked(options.rememberMe ?? true);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
   if (!options.role) {
+    await expect(page.locator("[data-dashboard-account]")).toHaveCount(0);
     await expect(page).toHaveURL(/\/student\/dashboard$/);
     await expect(page.getByRole("heading",{name:/Xin chào,/})).toBeVisible();
     await expect(page.locator("[data-dashboard-layout]")).toBeVisible();
@@ -57,6 +57,7 @@ async function setup(page: Page, options: { role?: string; rememberMe?: boolean;
     if (options.failure !== 401) await expect(page).toHaveURL(/\/student\/enrollments$/);
   } else {
     await expect(page.locator("[data-dashboard-layout]")).toBeAttached();
+    await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
   }
   return calls;
 }

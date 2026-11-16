@@ -69,24 +69,26 @@ function DashboardAccount({ session, children }: { session: Session } & PanelPro
 
 function DashboardView({ profile, children }: { profile: Profile } & PanelProps) {
   const pathname = usePathname();
+  const inSchedule = pathname === "/student/dashboard/schedule";
   const inProfile = pathname === profilePath;
   const inCatalog = pathname === catalogPath || pathname.startsWith(catalogPath + "/");
   const {clearSession}=useSession();const router=useRouter();
+  useEffect(()=>{if(pathname==="/student/dashboard" && (window.location.hash==="#lich-hoc" || new URLSearchParams(window.location.search).has("day")))router.replace("/student/dashboard/schedule"+window.location.search+window.location.hash);},[pathname,router]);
   const [logoutMessage,setLogoutMessage]=useState("");const [loggingOut,setLoggingOut]=useState(false);const logoutFlight=useRef(false);
   async function logout(){if(logoutFlight.current)return;logoutFlight.current=true;setLoggingOut(true);try{await authMutation("/auth/logout");clearSession();router.replace("/login");}catch(error){setLogoutMessage(safeMessage(error));}finally{logoutFlight.current=false;setLoggingOut(false);}}
   const inEnrollments=pathname==="/student/enrollments";
-  return <DashboardLayout title={inProfile?"Hồ sơ và cài đặt":inCatalog?"Khám phá khóa học":inEnrollments?"Khóa học của tôi":"Tổng quan"} roleLabel="Không gian học viên" accountHref={profilePath} navigationLabel="Điều hướng học viên" busy={loggingOut} onLogout={()=>void logout()} navigation={<>
+  return <DashboardLayout showAccountMenu={false} title={inSchedule?"Lịch học":inProfile?"Hồ sơ và cài đặt":inCatalog?"Khám phá khóa học":inEnrollments?"Khóa học của tôi":"Tổng quan"} roleLabel="Không gian học viên" accountHref={profilePath} navigationLabel="Điều hướng học viên" busy={loggingOut} onLogout={()=>void logout()} navigation={<>
     <Link href="/student/dashboard" aria-current={!children?"page":undefined}>Tổng quan</Link>
     <Link href="/student/enrollments" aria-current={inEnrollments?"page":undefined}>Khóa học của tôi</Link>
     <Link href={catalogPath} aria-current={inCatalog?"page":undefined}>Khám phá khóa học</Link>
-    <Link href="/student/dashboard#lich-hoc">Lịch học</Link>
+    <Link href="/student/dashboard/schedule" aria-current={inSchedule?"page":undefined}>Lịch học</Link>
     <Link href={profilePath} aria-current={inProfile?"page":undefined}>Hồ sơ và cài đặt</Link>
   </>}>
     {logoutMessage&&<p role="alert">{logoutMessage}</p>}
     <div className={styles.workspaceContent}>
       {children ?? <>
       <header className={styles.welcome}><div><p className={styles.eyebrow}>KHÔNG GIAN HỌC VIÊN</p><h1>Xin chào, {profile.fullName} <span aria-hidden="true">✦</span></h1><p>Sắp xếp lịch học. Sẵn sàng cho buổi học tiếp theo.</p></div><Link className={styles.profileLink} href={profilePath}>Hồ sơ của tôi ↗</Link></header>
-      <StudentCalendar />
+      <StudentCalendar overview />
       </>}
     </div>
   </DashboardLayout>;

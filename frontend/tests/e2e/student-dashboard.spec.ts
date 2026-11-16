@@ -10,6 +10,7 @@ async function signIn(page: Page, role = 'STUDENT', profileStatus = 200) {
   await page.route('**/api/v1/**', async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     calls.push(path);
+    if (path === '/api/v1/integrations/google-calendar') return route.fulfill({json:{csrfToken:'test-csrf',connection:{status:'DISCONNECTED',email:null,reconnectRequired:false,connectedAt:null,synchronizationAvailable:false}}});
     if (path.endsWith('/csrf')) return route.fulfill({json:{token:'test-csrf'}});
     if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
     if (path.endsWith('/login')) { remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({json:{accessToken:'test-access',tokenType:'Bearer'}}); }
@@ -50,12 +51,17 @@ test('@ui-review calendar selection, navigation and enrolled states are responsi
   await signIn(page);
   await expect(page.getByRole('heading',{name:/Xin chào, Nguyễn Minh Anh/})).toBeVisible();
   await expect(page.getByText('Bản xem trước · Dữ liệu minh họa')).toHaveCount(0);
+  await expect(page.locator('[data-dashboard-account]')).toHaveCount(0);
+  await expect(page.getByRole('group',{name:'Các ngày trong tháng'})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Kết nối Google Calendar',exact:true})).toBeVisible();
+  await expect(page.locator('summary').filter({hasText:'Kết nối Google Calendar'})).toHaveCount(0);
+  await captureReview(page, info, 'student-dashboard');
+  await page.getByRole('link',{name:'Xem lịch học đầy đủ',exact:true}).click();
   const calendar = page.locator('#lich-hoc');
   await expect(calendar.getByRole('heading',{name:'Giới thiệu bản thân',exact:true})).toBeVisible();
   await expect(calendar.getByRole('button',{name:'Vào lớp'})).toHaveCount(0);
   await expect(calendar.getByRole('link',{name:'Xem khóa học'})).toHaveAttribute('href','/student/dashboard/courses/42');
   await expect(calendar.getByRole('heading',{name:'Lịch học của tôi',exact:true})).toBeVisible();
-  await captureReview(page, info, 'student-dashboard');
   await calendar.getByRole('button',{name:/20 tháng 10.*2 buổi học/}).click();
   await expect(calendar.getByRole('heading',{name:'Trao đổi trong cuộc họp'})).toBeVisible();
   await expect(calendar.getByRole('heading',{name:'Hội thoại theo tình huống'})).toBeVisible();
@@ -73,8 +79,11 @@ test('@ui-review calendar selection, navigation and enrolled states are responsi
   await expect(toggle).toBeAttached();
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Lịch học',exact:true}).click();
+  await expect(page).toHaveURL(/\/student\/dashboard\/schedule$/);
+  await page.locator('#lich-hoc').scrollIntoViewIfNeeded();
   await expect(page.locator('#lich-hoc')).toBeInViewport();
-  await page.getByRole('link',{name:'Hồ sơ của tôi'}).click();
+  if(await toggle.isVisible())await toggle.click();
+  await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Hồ sơ và cài đặt',exact:true}).click();
   await expect(page).toHaveURL(/\/account$/);
   if(await toggle.isVisible())await toggle.click();
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Tổng quan',exact:true}).click();

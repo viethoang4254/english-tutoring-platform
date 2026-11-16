@@ -20,6 +20,7 @@ export async function calendarFixture(page: Page) {
   const state = { sessions: [...calendarSessions], status: 200, requests: [] as URL[] };
   await page.route("**/api/v1/**", async route => {
     const request = route.request(); const url = new URL(request.url()); const path = url.pathname;
+    if (path === "/api/v1/integrations/google-calendar") return route.fulfill({json:{csrfToken:"test-csrf",connection:{status:"UNAVAILABLE",email:null,reconnectRequired:false,connectedAt:null,synchronizationAvailable:false}}});
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "test-csrf" } });
     if (path.endsWith("/login")) return route.fulfill({ json: { accessToken: "test-access", tokenType: "Bearer" } });
     if (path.endsWith("/users/me")) return route.fulfill({ json: { id: "3", role: "STUDENT", emailVerified: false } });
@@ -34,8 +35,7 @@ export async function calendarFixture(page: Page) {
   return state;
 }
 export async function openStudentCalendar(page: Page) {
-  await page.goto("/student/dashboard");
-  await expect(page).toHaveURL(/\/login\?next=/);
+  await page.goto("/student/dashboard/schedule");
   await page.getByLabel("Email", { exact: true }).fill("student@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();

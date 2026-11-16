@@ -1,3 +1,4 @@
+import { openStudentNavigation } from "../support/student-navigation";
 import { expect, test } from "@playwright/test";
 
 test("modal dismisses with Escape/backdrop, traps focus and links to registration", async ({ page }) => {
@@ -76,9 +77,9 @@ test("header login shares session across navigation and logout clears it without
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.locator("[data-dashboard-account] summary").click();
-  await expect(page.getByRole("link", { name: "Hồ sơ và bảo mật",exact:true })).toBeVisible();
-  await page.getByRole("link", { name: "Hồ sơ và bảo mật",exact:true }).click();
+  await openStudentNavigation(page);
+  await expect(page.getByRole("link", { name: "Hồ sơ và cài đặt",exact:true })).toBeVisible();
+  await page.getByRole("link", { name: "Hồ sơ và cài đặt",exact:true }).click();
   await expect(page.getByRole("heading",{name:"Hồ sơ và cài đặt",exact:true})).toBeVisible();
   await page.goto("/");
   expect(refreshes).toBe(0);
@@ -86,8 +87,8 @@ test("header login shares session across navigation and logout clears it without
   await page.getByLabel("Email", { exact: true }).fill("student@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill(" password ");
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
-  await page.locator("[data-dashboard-account] summary").click();
-  await page.locator("[data-dashboard-account]").getByRole("button", { name: "Đăng xuất", exact: true }).click();
+  await openStudentNavigation(page);
+  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await expect(page.getByLabel("Email",{exact:true})).toBeVisible();
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
 });

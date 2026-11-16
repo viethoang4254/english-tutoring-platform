@@ -5,8 +5,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Icon } from "./site-shell";
 import styles from "./dashboard-layout.module.css";
 
-type Props = { title: string; roleLabel: string; navigation: ReactNode; navigationLabel: string; accountHref: string; busy?: boolean; onLogout: () => void; children: ReactNode };
-export function DashboardLayout({title,roleLabel,navigation,navigationLabel,accountHref,busy,onLogout,children}:Props) {
+type Props = { title: string; roleLabel: string; navigation: ReactNode; navigationLabel: string; accountHref: string; showAccountMenu?: boolean; busy?: boolean; onLogout: () => void; children: ReactNode };
+export function DashboardLayout({title,roleLabel,navigation,navigationLabel,accountHref,showAccountMenu=true,busy,onLogout,children}:Props) {
   const drawer=useRef<HTMLDialogElement>(null), trigger=useRef<HTMLButtonElement>(null);
   const [open,setOpen]=useState(false);
   const id=useId();
@@ -25,7 +25,7 @@ export function DashboardLayout({title,roleLabel,navigation,navigationLabel,acco
   return <div className={styles.shell} data-dashboard-layout>
     <aside className={styles.sidebar}>{menu}</aside>
     <div className={styles.body}>
-      <header className={styles.topbar}><button ref={trigger} aria-label={navigationLabel} data-dashboard-toggle className={styles.toggle} aria-expanded={open} aria-controls={id} onClick={()=>setOpen(true)}>☰ <span>Điều hướng</span></button><div><p>{roleLabel}</p><h1>{title}</h1></div><details className={styles.account} data-dashboard-account><summary>Tài khoản</summary><div><Link href={accountHref}>Hồ sơ và bảo mật</Link><button disabled={busy} onClick={onLogout}>Đăng xuất</button></div></details></header>
+      <header className={styles.topbar}><button ref={trigger} aria-label={navigationLabel} data-dashboard-toggle className={styles.toggle} aria-expanded={open} aria-controls={id} onClick={()=>setOpen(true)}>☰ <span>Điều hướng</span></button><div><p>{roleLabel}</p><h1>{title}</h1></div>{showAccountMenu&&<details className={styles.account} data-dashboard-account><summary>Tài khoản</summary><div><Link href={accountHref}>Hồ sơ và bảo mật</Link><button disabled={busy} onClick={onLogout}>Đăng xuất</button></div></details>}</header>
       <main className={styles.content}>{children}</main>
     </div>
     <dialog ref={drawer} id={id} className={styles.drawer} aria-label={navigationLabel} onCancel={close} onClick={event=>{if(event.target===event.currentTarget){const rect=event.currentTarget.getBoundingClientRect();if(event.clientX>rect.right)close();}}}><button className={styles.close} onClick={close} aria-label="Đóng điều hướng">×</button>{open&&menu}</dialog>

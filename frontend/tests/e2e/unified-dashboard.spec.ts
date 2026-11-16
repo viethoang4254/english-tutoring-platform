@@ -53,6 +53,7 @@ test("logout clears session and anonymous Teacher routes remain protected",async
 });
 test("Student has its own shell for enrollment and profile, without Teacher menus",async({page})=>{
  await signIn(page,"STUDENT");
+ await expect(page.locator("[data-dashboard-account]")).toHaveCount(0);
  await expect(page).toHaveURL(/\/student\/dashboard$/);
  await expect(page.getByRole("heading",{level:1,name:"Tổng quan",exact:true})).toBeVisible();
  await menu(page);
