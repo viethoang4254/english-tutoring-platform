@@ -107,7 +107,9 @@ class GooglePersistenceTests {
             }else{
                 if(scenario.equals("competing-lock")){
                     assertTrue(atSave.await(10,TimeUnit.SECONDS));
-                    assertThrows(org.springframework.dao.CannotAcquireLockException.class,()->jdbc.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE NOWAIT",Long.class,actor));
+                    var denied=assertThrows(org.springframework.dao.DataAccessException.class,()->jdbc.queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE NOWAIT",Long.class,actor));
+                    var lockFailure=assertInstanceOf(java.sql.SQLException.class,denied.getRootCause());
+                    assertEquals("55P03",lockFailure.getSQLState()); // PostgreSQL lock_not_available
                     allowSave.countDown();
                 }
                 callback.get(10,TimeUnit.SECONDS);assertEquals("CONNECTED",store.connection(actor).status());
