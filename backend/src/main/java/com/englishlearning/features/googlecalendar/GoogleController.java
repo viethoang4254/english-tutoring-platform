@@ -37,8 +37,9 @@ public class GoogleController {
     @GetMapping("/callback") public ResponseEntity<?> callback(HttpServletRequest request){
         String result="CONNECTED";
         try{
-            if(!Set.of("state","code","error","error_description","error_uri","scope","authuser","prompt","hd").containsAll(request.getParameterMap().keySet())
-                ||request.getParameterMap().values().stream().anyMatch(v->v.length!=1))throw new GoogleFailure("INVALID_RESPONSE");
+            if(!Set.of("state","code","error","error_description","error_uri","scope","authuser","prompt","hd","iss").containsAll(request.getParameterMap().keySet())
+                ||request.getParameterMap().values().stream().anyMatch(v->v.length!=1)
+                ||(request.getParameter("iss")!=null && !"https://accounts.google.com".equals(request.getParameter("iss"))))throw new GoogleFailure("INVALID_RESPONSE");
             var cookies=request.getCookies()==null?List.<Cookie>of():Arrays.asList(request.getCookies());
             var bindings=cookies.stream().filter(c->c.getName().equals("google_oauth_binding")).toList();
             service.complete(request.getParameter("state"),bindings.size()==1?bindings.get(0).getValue():null,request.getParameter("code"),request.getParameter("error"));

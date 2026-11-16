@@ -81,6 +81,21 @@ class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
             .andExpect(header().string("Cache-Control","no-store")).andExpect(header().string("Referrer-Policy","no-referrer"));
         verify(google).complete("synthetic-state","synthetic-binding","synthetic-code",null);
     }
+    @Test void callbackAcceptsCanonicalGoogleIssuerWithConsentParameters()throws Exception{
+        mvc.perform(get(api()+path+"/callback").secure(true).param("iss","https://accounts.google.com")
+            .param("authuser","0").param("prompt","consent").param("scope","openid email "+GoogleSettings.SCOPE)
+            .param("state","synthetic-state").param("code","synthetic-code")
+            .cookie(new jakarta.servlet.http.Cookie("google_oauth_binding","synthetic-binding")))
+            .andExpect(status().isSeeOther()).andExpect(header().string("Location","https://web.example.test/account?googleCalendar=CONNECTED"));
+        verify(google).complete("synthetic-state","synthetic-binding","synthetic-code",null);
+    }
+    @Test void callbackRejectsInvalidOrDuplicateIssuerBeforeExchange()throws Exception{
+        for(String[] issuers:new String[][]{{""},{"https://other.example"},{"https://accounts.google.com","https://accounts.google.com"}}){
+            mvc.perform(get(api()+path+"/callback").secure(true).param("iss",issuers))
+                .andExpect(status().isSeeOther()).andExpect(header().string("Location","https://web.example.test/account?googleCalendar=INVALID_RESPONSE"));
+        }
+        verifyNoInteractions(google);
+    }
     @Test void callbackRejectsUnapprovedReturnPathAndDuplicateParameters()throws Exception{
         mvc.perform(get(api()+path+"/callback").secure(true).param("returnTo","https://attacker.example"))
             .andExpect(status().isSeeOther()).andExpect(header().string("Location","https://web.example.test/account?googleCalendar=INVALID_RESPONSE"));
