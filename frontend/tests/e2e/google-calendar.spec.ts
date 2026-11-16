@@ -95,7 +95,7 @@ for (const scenario of ["missing","expired","malformed","refresh-failed","identi
       if (scenario==="denied") return;
       await page.reload();
     }
-    await expect(page.getByRole("alert")).toContainText("Không thể xác minh phiên kết nối Google");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Không thể xác minh phiên kết nối Google");
     await expect(page.locator("[data-dashboard-layout]")).toHaveCount(0);
     await expect(page.getByText("Đã kết nối Google Calendar.",{exact:true})).toHaveCount(0);
     expect(await page.evaluate(()=>sessionStorage.getItem("google-calendar-return"))).toBeNull();
