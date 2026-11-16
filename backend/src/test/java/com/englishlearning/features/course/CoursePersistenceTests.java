@@ -407,7 +407,7 @@ class CoursePersistenceTests {
         sql("INSERT INTO session_calendar_events(session_id,provider,sync_status,created_at,updated_at) VALUES ("+sid+",'GOOGLE_CALENDAR','PENDING',now(),now())");
         org.springframework.test.util.ReflectionTestUtils.setField(courses,"personalCalendarSync",true);
         try {
-            var changed=courses.reschedule(teacher,id,sid,move(initial,"2030-02-01T12:00:00Z","2030-02-01T13:00:00Z"));
+            var changed=courses.reschedule(teacher,id,sid,move(courses.session(teacher,id,sid),"2030-02-01T12:00:00Z","2030-02-01T13:00:00Z"));
             assertEquals(Instant.parse("2030-02-01T12:00:00Z"),changed.scheduledStartAt());
             assertTrue(count("SELECT count(*) FROM calendar_sync_changes WHERE entity='session' AND entity_id="+sid)>0);
             assertTrue(count("SELECT count(*) FROM calendar_sync_changes WHERE entity='legacy-review' AND entity_id="+sid)>0);
