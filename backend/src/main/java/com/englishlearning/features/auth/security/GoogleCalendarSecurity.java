@@ -33,7 +33,7 @@ public class GoogleCalendarSecurity {
             .formLogin(c->c.disable()).httpBasic(c->c.disable()).logout(c->c.disable())
             .authorizeHttpRequests(a->a.requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH+"/callback").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH).hasAnyRole("STUDENT","TEACHER")
-                .requestMatchers(org.springframework.http.HttpMethod.POST,GoogleSettings.PATH+"/connect").hasAnyRole("STUDENT","TEACHER")
+                .requestMatchers(org.springframework.http.HttpMethod.POST,GoogleSettings.PATH+"/connect",GoogleSettings.PATH+"/sync").hasAnyRole("STUDENT","TEACHER")
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,GoogleSettings.PATH).hasAnyRole("STUDENT","TEACHER").anyRequest().denyAll())
             .exceptionHandling(e->e.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper)).accessDeniedHandler(ApiSecurityErrors.forbidden(mapper)));
         var provider=new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider(decoder);provider.setJwtAuthenticationConverter(accounts);

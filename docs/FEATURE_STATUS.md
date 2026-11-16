@@ -1395,3 +1395,7 @@ Implementation prepared on `codex/calendar-google-integration` baseline `b9b0b18
 Includes backend OAuth/CSRF/identity/encryption/owner persistence, V12 file-only migration, Student/Teacher connection UI and single-use callback session restoration. HTTP, provider, crypto, service and disposable PostgreSQL tests are registered. Six fixture screenshots and desktop/mobile acceptance are prepared alongside all prior artifacts. Exact contracts, limits and file inventory: [STAGE_C3_GOOGLE_OAUTH.md](STAGE_C3_GOOGLE_OAUTH.md).
 
 Pending: static code review, approved commit, hosted CI on exact commit, later controlled real-provider configuration/consent verification. No production changes, OAuth resources, real credentials, C4 sync or Meet creation.
+
+## Stage C4 personal calendar synchronization
+
+**IN_PROGRESS.** Implementation and synthetic acceptance are prepared. Hosted CI and real-provider verification are pending. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).

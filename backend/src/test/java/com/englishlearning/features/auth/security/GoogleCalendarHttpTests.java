@@ -15,9 +15,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties={"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-    "spring.flyway.enabled=false","app.security.browser.local-http=false","app.security.browser.allowed-origins=https://web.example.test"})
+    "spring.flyway.enabled=false","APP_GOOGLE_CALENDAR_SYNC_ENABLED=true","app.security.browser.local-http=false","app.security.browser.allowed-origins=https://web.example.test"})
 class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
     @MockitoBean GoogleService google;
+    @MockitoBean CalendarSyncStore sync;
     String origin(){return "https://web.example.test";}String api(){return "https://api.example.test";}boolean secure(){return true;}
     final String path=GoogleSettings.PATH;
     void account(Role role,boolean locked){
@@ -31,6 +32,32 @@ class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
         var cookie=MockCookie.parse(response.getHeaders("Set-Cookie").stream().filter(s->s.startsWith("GOOGLE-XSRF-TOKEN=")).findFirst().orElseThrow());
         assertTrue(cookie.isHttpOnly());assertTrue(cookie.getSecure());assertEquals(path,cookie.getPath());
         return new Csrf(cookie,mapper.readTree(response.getContentAsString()).path("csrfToken").asText());
+    }
+    @Test void syncIsCsrfProtectedOwnerScopedAndRejectsClientSelectedIdentity()throws Exception {
+        account(Role.STUDENT,false);
+        var token=googleCsrf();
+        when(google.status(1)).thenReturn(new GoogleService.Status("CONNECTED","fixture@example.invalid",false,null,true));
+        when(sync.status(1)).thenReturn(new CalendarSyncStore.Status("PENDING",1,0,null));
+        mvc.perform(read()).andExpect(status().isOk()).andExpect(jsonPath("$.sync.pending").value(1))
+            .andExpect(jsonPath("$.connection.refreshToken").doesNotExist());
+        mvc.perform(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access").content("{\"userId\":2}"),token))
+            .andExpect(status().isConflict());
+        verify(sync,never()).retry(anyLong());
+        mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isAccepted()).andExpect(header().string("Cache-Control","no-store"));
+        verify(sync).retry(1);verify(sync,never()).retry(2);
+        account(Role.ADMIN,false);
+        mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isForbidden());
+        account(Role.STUDENT,true);
+        mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isUnauthorized());
+        account(Role.TEACHER,false);
+        doThrow(new GoogleFailure("DENIED")).when(google).status(1);
+        mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isForbidden());
+        verify(sync,times(1)).retry(anyLong());
     }
     @Test void csrfAndBearerRequiredForBothMutations()throws Exception{
         account(Role.STUDENT,false);var token=googleCsrf();when(google.start(1)).thenReturn(new GoogleService.Started("https://accounts.google.com/o/oauth2/v2/auth","synthetic-binding"));

@@ -26,6 +26,8 @@ public class CourseService {
     private final UserCredentialService users;
     private final PaymentRepository payments;
     private final Clock clock;
+    @org.springframework.beans.factory.annotation.Value("${APP_GOOGLE_CALENDAR_SYNC_ENABLED:false}")
+    private boolean personalCalendarSync;
     public CourseService(CourseRepository courses, CategoryRepository categories, TeacherBusinessEligibility eligibility,
             UserCredentialService users, PaymentRepository payments, @Qualifier("refreshSessionClock") Clock clock) {
         this.courses=courses; this.categories=categories; this.eligibility=eligibility; this.users=users; this.clock=clock; this.payments=payments;
@@ -65,7 +67,7 @@ public class CourseService {
         var input=RescheduleInput.parse(fields,parent.timezone(),now);
         if(!input.expectedStartAt().equals(current.scheduledStartAt()) || !input.expectedEndAt().equals(current.scheduledEndAt()))
             throw new CourseFailure(Reason.SESSION_CHANGED);
-        if(courses.hasCalendarEvents(session))throw new CourseFailure(Reason.CALENDAR_SYNC_REQUIRED);
+        if(!personalCalendarSync && courses.hasCalendarEvents(session))throw new CourseFailure(Reason.CALENDAR_SYNC_REQUIRED);
         if(input.scheduledStartAt().equals(current.scheduledStartAt()) && input.scheduledEndAt().equals(current.scheduledEndAt()))return current;
         if(courses.overlaps(course,session,input.scheduledStartAt(),input.scheduledEndAt()))throw new CourseFailure(Reason.SCHEDULE_OVERLAP);
         return courses.reschedule(actor,course,current,input,now);
@@ -77,7 +79,7 @@ public class CourseService {
         // A retry of an already completed cancellation is a read, preserving its original metadata.
         if(current.status().equals("CANCELLED"))return current;
         var now=clock.instant();requireFutureSession(parent,current,now);
-        if(courses.hasCalendarEvents(session))throw new CourseFailure(Reason.CALENDAR_SYNC_REQUIRED);
+        if(!personalCalendarSync && courses.hasCalendarEvents(session))throw new CourseFailure(Reason.CALENDAR_SYNC_REQUIRED);
         return courses.cancel(actor,course,session,reason,now);
     }
     private void requireFutureSession(CourseDto parent,SessionDto current,java.time.Instant now) {

@@ -6,7 +6,8 @@ import { useSession } from "../auth/session-provider";
 import { apiRequest, ApiRequestError } from "../../lib/api";
 
 type Connection={status:"REVOCATION_PENDING"|"UNAVAILABLE"|"DISCONNECTED"|"CONNECTED"|"RECONNECT_REQUIRED";email:string|null;reconnectRequired:boolean;connectedAt:string|null;synchronizationAvailable:boolean};
-type Status={connection:Connection;csrfToken:string};
+type Sync={state:"PENDING"|"SYNCED"|"FAILED"|"EMPTY"|"REVIEW_REQUIRED";pending:number;failed:number;lastSuccess:string|null};
+type Status={connection:Connection;csrfToken:string;sync?:Sync};
 const path="/integrations/google-calendar";
 const messages:Record<string,string>={DISCONNECT_FIRST:"Vui lòng ngắt kết nối tài khoản Google hiện tại trước khi đổi tài khoản.",REVOCATION_PENDING:"Đã ngắt quyền truy cập trong ứng dụng. Đang chờ xác nhận thu hồi quyền từ Google.",CONNECTED:"Đã kết nối Google Calendar.",CONSENT_DENIED:"Bạn đã từ chối quyền truy cập Google.",EXPIRED_OR_INVALID:"Phiên kết nối đã hết hạn hoặc không hợp lệ. Vui lòng kết nối lại.",INVALID_RESPONSE:"Không thể xác minh phản hồi Google.",MISSING_PERMISSIONS:"Vui lòng cấp đầy đủ quyền Google Calendar.",RECONNECT_REQUIRED:"Cần kết nối lại tài khoản Google.",CONNECTION_CONFLICT:"Tài khoản Google đã được kết nối với tài khoản khác.",DENIED:"Tài khoản không có quyền kết nối.",UNAVAILABLE:"Kết nối Google Calendar hiện chưa khả dụng."};
 export function GoogleConnection(){
@@ -30,6 +31,17 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
       .catch(e=>{if(active){if(e instanceof ApiRequestError&&e.status===401)clearSession();else setError(e instanceof ApiRequestError&&e.status===403?messages.DENIED:"Không thể tải kết nối Google. Vui lòng thử lại.");}});
     return()=>{active=false;};
   },[token,attempt,clearSession]);
+  async function retrySync(){
+    if(flight.current)return;
+    flight.current=true;setBusy(true);setError("");
+    try{
+      const current=await status();
+      if(!alive.current||!current?.csrfToken)return;
+      await apiRequest(path+"/sync",{method:"POST",credentials:"include",headers:{Authorization:`Bearer ${token}`,"X-XSRF-TOKEN":current.csrfToken}});
+      if(alive.current)setAttempt(a=>a+1);
+    }catch(e){if(alive.current){if(e instanceof ApiRequestError&&e.status===401)clearSession();else setError("Không thể yêu cầu đồng bộ. Vui lòng thử lại.");}}
+    finally{flight.current=false;if(alive.current)setBusy(false);}
+  }
   async function mutate(disconnect:boolean){
     if(flight.current)return;flight.current=true;setBusy(true);setError("");
     try{
@@ -49,12 +61,18 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
     finally{flight.current=false;if(alive.current)setBusy(false);}
   }
   return <section aria-label="Kết nối Google Calendar" className="ui-card" style={{padding:"1rem",marginBlock:"1rem",overflowWrap:"anywhere"}}>
-    <h2>Google Calendar</h2><p>Kết nối để chuẩn bị đồng bộ lịch học ở giai đoạn tiếp theo. Đồng bộ buổi học chưa hoạt động.</p>
+    <h2>Google Calendar</h2><p>{result?.connection.synchronizationAvailable?"Các buổi học đủ điều kiện được đồng bộ vào lịch riêng của ứng dụng.":"Đồng bộ buổi học chưa hoạt động."}</p>
     {callback&&<p role="status">{callback}</p>}
     {error&&<p role="alert">{error}</p>}
     {!result&&!error&&<p role="status">Đang tải kết nối…</p>}
     {result?.connection.status==="UNAVAILABLE"?<p>{messages.UNAVAILABLE}</p>:result?.connection.status==="REVOCATION_PENDING"?<p role="status">{messages.REVOCATION_PENDING}</p>:result&&<>
       <p>{result.connection.status==="CONNECTED"?"Đã kết nối":result.connection.reconnectRequired?"Cần kết nối lại":"Chưa kết nối"}</p>
+      {result.sync&&<div role="status">
+        <p>{{PENDING:"Đang đồng bộ lịch học",SYNCED:"Đã đồng bộ Google Calendar",FAILED:"Đồng bộ thất bại, vui lòng thử lại",EMPTY:"Chưa có buổi học đủ điều kiện",REVIEW_REQUIRED:"Chưa xác định được lịch Google. Vui lòng liên hệ quản trị viên."}[result.sync.state]}</p>
+        {result.sync.lastSuccess&&<p>Lần đồng bộ gần nhất: {new Intl.DateTimeFormat("vi-VN",{dateStyle:"short",timeStyle:"short"}).format(new Date(result.sync.lastSuccess))}</p>}
+        {(result.sync.pending>0||result.sync.failed>0)&&<p>Đang chờ: {result.sync.pending} · Lỗi: {result.sync.failed}</p>}
+        {result.sync.state==="FAILED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void retrySync()}>Thử đồng bộ lại</button>}
+      </div>}
       {result.connection.email&&<p>Tài khoản Google: {result.connection.email}</p>}
       <button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void mutate(false)}>{result.connection.status==="DISCONNECTED"?"Kết nối Google Calendar":"Kết nối lại Google Calendar"}</button>
       {result.connection.status!=="DISCONNECTED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void mutate(true)}>Ngắt kết nối Google Calendar</button>}

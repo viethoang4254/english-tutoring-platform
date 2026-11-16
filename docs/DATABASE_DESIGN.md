@@ -1909,3 +1909,7 @@ A partial unique index prevents the same Google subject being actively connected
 No existing migration or `session_calendar_events` change. Fresh disposable CI schemas now contain 29 application tables through V12. This file preparation does not authorize production execution. C4 event/calendar mapping design remains separate; the old single-calendar mapping cannot silently serve multiple personal calendars.
 
 A disconnect commits REVOCATION_PENDING, erases local credentials and retains the unique verified subject. Only the original transition may send a revocation request, outside the transaction. Only a positive acknowledgement releases the subject. A PostgreSQL sequence and subject release record require fresh consent after release. A timeout, process crash or uncertain acknowledgement leaves the claim blocked across restarts. There is no automatic retry, lease expiry or self-service override. To change Google subjects, disconnect successfully before starting new consent.
+
+## Stage C4 personal calendar synchronization
+
+V13 adds personal_google_calendars, user_session_calendar_events, calendar_sync_changes and the personal_calendar_schedule eligibility view. Existing migrations and organizational mappings retain their original meaning. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).

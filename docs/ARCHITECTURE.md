@@ -855,3 +855,7 @@ The explicitly approved C3 direction replaces the former organization-only conne
 Browser -> authenticated connect API -> Google consent -> browser-bound backend callback -> encrypted connection -> fixed frontend account route. Google identity never grants an application role. The frontend holds no Google tokens; one token-free, tab-local marker allows a single existing refresh-cookie restoration on return when Remember Me is unchecked.
 
 No Calendar/event creation, sync queue, worker or Google Meet creation. A server-only credential refresh method detects invalid grants and fences concurrent disconnects; it has no public API and is not invoked automatically. C4 must separately design personal-calendar/event mapping and synchronization.
+
+## Stage C4 personal calendar synchronization
+
+A PostgreSQL change queue, transactional projector and leased worker deliver one-way updates after business transactions commit. Each destination belongs to a local user and Google subject. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).

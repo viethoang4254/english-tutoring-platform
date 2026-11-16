@@ -11,10 +11,21 @@ import com.englishlearning.features.auth.security.AccountPrincipal;
 @RestController
 @RequestMapping(GoogleSettings.PATH)
 public class GoogleController {
+    private final CalendarSyncStore sync;
     private final GoogleSettings settings;private final GoogleService service;
-    public GoogleController(GoogleSettings settings,GoogleService service){this.settings=settings;this.service=service;}
+    public GoogleController(GoogleSettings settings,GoogleService service,CalendarSyncStore sync){this.sync=sync;this.settings=settings;this.service=service;}
     @GetMapping public ResponseEntity<?> status(@AuthenticationPrincipal AccountPrincipal actor,CsrfToken csrf){
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of("connection",service.status(actor.id()),"csrfToken",csrf.getToken()));
+        var connection=service.status(actor.id());
+        var body=new HashMap<String,Object>();
+        body.put("connection",connection);body.put("csrfToken",csrf.getToken());
+        if(settings.syncEnabled && connection.status().equals("CONNECTED")) body.put("sync",sync.status(actor.id()));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+    @PostMapping("/sync") public ResponseEntity<?> retry(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request){
+        noInput(request);
+        if(!service.status(actor.id()).status().equals("CONNECTED") || !settings.syncEnabled)throw new GoogleFailure("UNAVAILABLE");
+        sync.retry(actor.id());
+        return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
     }
     @PostMapping("/connect") public ResponseEntity<?> connect(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request){
         noInput(request);var start=service.start(actor.id());

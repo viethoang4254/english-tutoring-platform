@@ -31,7 +31,7 @@ class CoursePersistenceTests {
         assertEquals("jdbc:postgresql://127.0.0.1:15437/task010_courses",url); assertEquals("task010_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
         var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();
-        flyway.migrate(); flyway.validate(); assertEquals(12,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        flyway.migrate(); flyway.validate(); assertEquals(13,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var props=new HashMap<String,Object>();
         props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
@@ -399,6 +399,23 @@ class CoursePersistenceTests {
         sql("CREATE TRIGGER reject_history BEFORE INSERT ON session_schedule_changes FOR EACH ROW EXECUTE FUNCTION reject_history()");
         try {assertThrows(RuntimeException.class,()->courses.reschedule(teacher,id,sid,move(adjacent,"2030-02-01T12:00:00Z","2030-02-01T13:00:00Z")));assertEquals(adjacent,courses.session(teacher,id,sid));assertEquals(1,courses.history(teacher,id,sid,0,20).items().size());}
         finally {sql("DROP TRIGGER reject_history ON session_schedule_changes");sql("DROP FUNCTION reject_history()");}
+    }
+    @Test void personalSyncSchedulesAfterCommitAndRetainsLegacyReview()throws Exception {
+        long id=contentCourse();var initial=courses.sessions(teacher,id,0,20,null).items().get(0);
+        long sid=initial.id().value();
+        sql("INSERT INTO session_calendar_events(session_id,provider,sync_status,created_at,updated_at) VALUES ("+sid+",'GOOGLE_CALENDAR','PENDING',now(),now())");
+        org.springframework.test.util.ReflectionTestUtils.setField(courses,"personalCalendarSync",true);
+        try {
+            var changed=courses.reschedule(teacher,id,sid,move(initial,"2030-02-01T12:00:00Z","2030-02-01T13:00:00Z"));
+            assertEquals(Instant.parse("2030-02-01T12:00:00Z"),changed.scheduledStartAt());
+            assertTrue(count("SELECT count(*) FROM calendar_sync_changes WHERE entity='session' AND entity_id="+sid)>0);
+            assertTrue(count("SELECT count(*) FROM calendar_sync_changes WHERE entity='legacy-review' AND entity_id="+sid)>0);
+            assertEquals("CANCELLED",courses.cancel(teacher,id,sid,Map.of()).status());
+            assertEquals(1,count("SELECT count(*) FROM session_calendar_events WHERE session_id="+sid));
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(courses,"personalCalendarSync",false);
+            sql("DELETE FROM session_calendar_events WHERE session_id="+sid);
+        }
     }
     @Test void phaseThreeLifecycleFutureAndEligibility() throws Exception {
         long id=contentCourse(),sid=courses.sessions(teacher,id,0,20,null).items().get(0).id().value();

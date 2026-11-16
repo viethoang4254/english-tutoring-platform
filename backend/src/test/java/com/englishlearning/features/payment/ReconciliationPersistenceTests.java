@@ -48,7 +48,7 @@ class ReconciliationPersistenceTests {
         String base=System.getenv("PAYMENT_TEST_URL");assertEquals("jdbc:postgresql://127.0.0.1:15442/task022c_payments",base);
         url=base.replace("/task022c_payments","/task022d_reconciliation");user=System.getenv("PAYMENT_TEST_USER");password=System.getenv("PAYMENT_TEST_PASSWORD");assertEquals("task022c_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
-        assertEquals(12,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
+        assertEquals(13,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
         sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (1,'teacher@example.invalid','unused','Teacher','TEACHER',true,false,now(),now()),(2,'admin@example.invalid','unused','Admin','ADMIN',true,false,now(),now()),(3,'student@example.invalid','unused','Student','STUDENT',false,false,now(),now()),(4,'other@example.invalid','unused','Other','STUDENT',true,false,now(),now()),(5,'teacher2@example.invalid','unused','Other Teacher','TEACHER',true,false,now(),now())");
         sql("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,created_at,updated_at) VALUES (1,'Test','Test','Test','APPROVED',now(),now(),2,now(),now()),(5,'Test','Test','Test','APPROVED',now(),now(),2,now(),now())");
         sql("INSERT INTO course_categories(id,name,created_at,updated_at) VALUES (100,'Reconciliation',now(),now())");
@@ -83,6 +83,54 @@ class ReconciliationPersistenceTests {
     long audits(PaymentDto p)throws Exception{return count("SELECT count(*) FROM payment_reconciliation_attempts WHERE payment_id="+p.id().value());}
     String state(PaymentDto p)throws Exception{return text("SELECT p.status||'/'||e.status FROM payments p JOIN enrollments e ON e.id=p.enrollment_id WHERE p.id="+p.id().value());}
     String snapshot(PaymentDto p)throws Exception{return text("SELECT to_jsonb(p)-'status'-'updated_at'-'confirmed_at' FROM payments p WHERE id="+p.id().value());}
+    @Test void calendarProjectionFollowsPaidAccessOwnershipAndSchedule() throws Exception {
+        var sync=context.getBean(com.englishlearning.features.googlecalendar.CalendarSyncStore.class);
+        var payment=create(3);
+        String session="SELECT id FROM sessions WHERE course_id="+course;
+        String events=" FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination WHERE m.session_id=("+session+")";
+        sql("UPDATE sessions SET scheduled_start_at='2099-04-01 09:00:00+07',scheduled_end_at='2099-04-01 10:00:00+07' WHERE course_id="+course);
+        sql("UPDATE users SET email_verified=true WHERE id=3");
+        try {
+            sql("INSERT INTO google_calendar_connections(user_id,google_subject,google_email,granted_scopes,refresh_ciphertext,key_id,status,connected_at) SELECT id,'subject-'||id,email,'synthetic','synthetic','test','CONNECTED',now() FROM users WHERE id IN (1,3,4,5)");
+            sync.project();
+            assertEquals(1,count("SELECT count(*)"+events+" AND wanted AND d.user_id=1"));
+            assertEquals(0,count("SELECT count(*)"+events+" AND d.user_id IN (3,4,5)"));
+            assertEquals("SUCCESS",decide(payment,evidence(payment),false).outcome());
+            sync.project();
+            assertEquals(1,count("SELECT count(*)"+events+" AND wanted AND d.user_id=3"));
+            String event=text("SELECT event_id"+events+" AND d.user_id=3");
+            sql("UPDATE sessions SET scheduled_start_at=scheduled_start_at+interval '1 day',scheduled_end_at=scheduled_end_at+interval '1 day' WHERE course_id="+course);
+            sync.project();sync.project();
+            assertEquals(event,text("SELECT event_id"+events+" AND d.user_id=3"));
+            assertEquals(2,count("SELECT revision"+events+" AND d.user_id=3"));
+            // A delayed projector must update existing mappings even after the session ended.
+            sql("UPDATE sessions SET scheduled_start_at='2000-04-01 09:00:00+07',scheduled_end_at='2000-04-01 10:00:00+07' WHERE course_id="+course);
+            sync.project();
+            assertEquals(event,text("SELECT event_id"+events+" AND d.user_id=3"));
+            assertEquals(3,count("SELECT revision"+events+" AND d.user_id=3"));
+            assertEquals(1,count("SELECT count(*)"+events+" AND d.user_id=3 AND (desired->>'start')::numeric=(SELECT extract(epoch FROM scheduled_start_at) FROM sessions WHERE course_id="+course+")"));
+            sql("UPDATE sessions SET scheduled_start_at='2099-04-02 09:00:00+07',scheduled_end_at='2099-04-02 10:00:00+07' WHERE course_id="+course);
+            sync.project();
+            sql("UPDATE users SET locked=true WHERE id=3");sync.project();
+            assertEquals(0,count("SELECT count(*)"+events+" AND wanted AND d.user_id=3"));
+            sql("UPDATE users SET locked=false WHERE id=3");sync.project();
+            assertEquals(1,count("SELECT count(*)"+events+" AND wanted AND d.user_id=3"));
+            sql("UPDATE enrollments SET status='CANCELLED' WHERE id="+payment.enrollmentId().value());sync.project();
+            assertEquals(0,count("SELECT count(*)"+events+" AND wanted AND d.user_id=3"));
+            sql("UPDATE enrollments SET status='ACTIVE' WHERE id="+payment.enrollmentId().value());sync.project();
+            sql("UPDATE courses SET status='CANCELLED' WHERE id="+course);sync.project();
+            assertEquals(0,count("SELECT count(*)"+events+" AND wanted"));
+            sql("UPDATE courses SET status='PUBLISHED' WHERE id="+course);sync.project();
+            assertEquals(2,count("SELECT count(*)"+events+" AND wanted"));
+            sql("UPDATE sessions SET status='CANCELLED' WHERE course_id="+course);sync.project();
+            assertEquals(0,count("SELECT count(*)"+events+" AND wanted"));
+            assertEquals("CONFIRMED/ACTIVE",state(payment));
+        } finally {
+            sql("DELETE FROM user_session_calendar_events");sql("DELETE FROM personal_google_calendars");
+            sql("DELETE FROM google_calendar_connections");
+            sql("UPDATE users SET locked=false,email_verified=false WHERE id=3");
+        }
+    }
     @Test void onTimeActivationSnapshotsHistoryAndNoProviderEvidence()throws Exception {
         var p=create(3);String snapshot=snapshot(p);
         long enrollment=p.enrollmentId().value();

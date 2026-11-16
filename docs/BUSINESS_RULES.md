@@ -943,3 +943,7 @@ One active connection per local user; conflicting active use of a Google subject
 C3 connection does not synchronize sessions or create a Meet URL. Existing ACTIVE Enrollment, CONFIRMED Payment, PUBLISHED Course and SCHEDULED Session requirements remain untouched.
 
 A disconnect commits REVOCATION_PENDING, erases local credentials and retains the unique verified subject. Only the original transition may send a revocation request, outside the transaction. Only a positive acknowledgement releases the subject. A PostgreSQL sequence and subject release record require fresh consent after release. A timeout, process crash or uncertain acknowledgement leaves the claim blocked across restarts. There is no automatic retry, lease expiry or self-service override. To change Google subjects, disconnect successfully before starting new consent.
+
+## Stage C4 personal calendar synchronization
+
+C4 uses one app-managed secondary calendar per personal connection. Publish only scheduled, eligible sessions. Loss of access queues event removal; external synchronization cannot grant application Join rights. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).

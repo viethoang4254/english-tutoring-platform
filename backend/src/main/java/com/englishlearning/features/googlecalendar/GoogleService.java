@@ -23,7 +23,7 @@ public class GoogleService {
         eligible(user);if(!settings.enabled)return new Status("UNAVAILABLE",null,false,null,false);
         var c=store.connection(user);if(c==null)return new Status("DISCONNECTED",null,false,null,false);
         boolean reconnect=c.status().equals("RECONNECT_REQUIRED")||c.status().equals("CONNECTED")&&!settings.keyId.equals(c.keyId());
-        return new Status(reconnect?"RECONNECT_REQUIRED":c.status(),c.email(),reconnect,c.connectedAt(),false);
+        return new Status(reconnect?"RECONNECT_REQUIRED":c.status(),c.email(),reconnect,c.connectedAt(),settings.syncEnabled && !reconnect && c.status().equals("CONNECTED"));
     }
     public record Started(String authorizationUrl,String browserBinding){@Override public String toString(){return "GoogleStarted[redacted]";}}
     public Started start(long user){
@@ -77,14 +77,20 @@ public class GoogleService {
         } catch(GoogleFailure failure){return false;}
         return store.transaction(()->{store.lock(user);return store.release(user,old.version()+1,old.subject());});
     }
-    // Server-only foundation for C4; no controller, polling or synchronization invokes this yet.
+    // Retain the eligible-account boundary for event creation and updates.
     public String accessToken(long user){
-        eligible(user);available();
+        return refreshForWorker(user,null,false);
+    }
+    String workerToken(CalendarSyncStore.Destination owner,boolean deletion) { return refreshForWorker(owner.user(),owner,deletion); }
+    private String refreshForWorker(long user,CalendarSyncStore.Destination owner,boolean deletion){
+        if(!deletion)eligible(user);
+        available();
         var c=store.connection(user);if(c==null||!c.status().equals("CONNECTED"))throw new GoogleFailure("RECONNECT_REQUIRED");
+        if(owner!=null && (owner.version()!=c.version() || !owner.subject().equals(c.subject())))throw new GoogleFailure("RECONNECT_REQUIRED");
         String token;
         try{token=provider.refresh(crypto.decrypt(c.ciphertext(),c.keyId(),"refresh:"+user+":"+c.subject()));}
         catch(GoogleFailure e){if(e.code.equals("RECONNECT_REQUIRED"))store.transaction(()->{store.lock(user);store.reconnectRequired(user,c.version());return null;});throw e;}
-        return store.transaction(()->{store.lockEligible(user);var latest=store.connection(user);
+        return store.transaction(()->{if(deletion)store.lock(user);else store.lockEligible(user);var latest=store.connection(user);
             if(latest==null||latest.version()!=c.version()||!latest.status().equals("CONNECTED"))throw new GoogleFailure("RECONNECT_REQUIRED");return token;});
     }
     private void available(){if(!settings.enabled)throw new GoogleFailure("UNAVAILABLE");}

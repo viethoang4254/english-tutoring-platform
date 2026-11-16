@@ -4,7 +4,7 @@ import { calendarPage } from "./student-calendar";
 
 export async function googleFixture(page: Page, role: "STUDENT" | "TEACHER" = "STUDENT") {
   await page.clock.setFixedTime(new Date("2026-10-18T03:00:00Z"));
-  const state = { status: "DISCONNECTED", http: 200, gets: 0, connects: 0, disconnects: 0, refreshes: 0, remoteRevoked: true };
+  const state = { sync: undefined as {state:string;pending:number;failed:number;lastSuccess:string|null}|undefined, syncRetries:0, status: "DISCONNECTED", http: 200, gets: 0, connects: 0, disconnects: 0, refreshes: 0, remoteRevoked: true };
   await page.route("**/api/v1/**", route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname;
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "synthetic-auth-csrf" } });
@@ -21,13 +21,14 @@ export async function googleFixture(page: Page, role: "STUDENT" | "TEACHER" = "S
       expect(request.headers().authorization).toBe("Bearer synthetic-access");
       if (request.method() !== "GET") expect(request.headers()["x-xsrf-token"]).toBe("synthetic-google-csrf");
       if (state.http !== 200) return route.fulfill({ status: state.http, json: { code: "UNAVAILABLE", message: "PRIVATE" } });
+      if (path.endsWith("/sync") && request.method() === "POST") {state.syncRetries++;state.sync={state:"PENDING",pending:1,failed:0,lastSuccess:null};return route.fulfill({status:202});}
       if (request.method() === "POST") {
         state.connects++;expect(request.postData()).toBeNull();
         return route.fulfill({ json: { authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=synthetic-intent" } });
       }
       if (request.method() === "DELETE") { state.disconnects++;state.status = "DISCONNECTED";return route.fulfill({ json: { disconnected: true, remoteRevoked: state.remoteRevoked } }); }
       state.gets++;
-      return route.fulfill({ json: { csrfToken: "synthetic-google-csrf", connection: { status: state.status, email: state.status === "DISCONNECTED" || state.status === "UNAVAILABLE" ? null : "calendar.fixture@example.test", reconnectRequired: state.status === "RECONNECT_REQUIRED", connectedAt: "2026-10-18T03:00:00Z", synchronizationAvailable: false } } });
+      return route.fulfill({ json: { sync:state.sync, csrfToken: "synthetic-google-csrf", connection: { status: state.status, email: state.status === "DISCONNECTED" || state.status === "UNAVAILABLE" ? null : "calendar.fixture@example.test", reconnectRequired: state.status === "RECONNECT_REQUIRED", connectedAt: "2026-10-18T03:00:00Z", synchronizationAvailable: !!state.sync } } });
     }
     return route.fulfill({ status: 404, json: { code: "NOT_FOUND", message: "Unavailable" } });
   });

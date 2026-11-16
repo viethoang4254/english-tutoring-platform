@@ -1088,3 +1088,7 @@ expiry coordination, late-payment and cutoff-under-rescheduling decisions remain
 Implement personal Google OAuth connection (authorization code, PKCE, browser-bound single-use state, verified OIDC identity), V12 credential/intent persistence, owner status/disconnect UI and synthetic-provider acceptance. Preserve C1/C2 and existing payment/login behavior. Requirements and configuration: [STAGE_C3_GOOGLE_OAUTH.md](STAGE_C3_GOOGLE_OAUTH.md). Live status remains solely in FEATURE_STATUS.md.
 
 C4 secondary-calendar creation, event mappings, synchronization workers and event updates/removal are explicitly excluded. Production migrations, real Google credentials/resources and hosted CI dispatch require subsequent authorization.
+
+## Stage C4 personal calendar synchronization
+
+Verify transaction-driven projection, subject-bound destinations, provider idempotency and cleanup under lost authorization. Stage C5 is the separately authorized real-provider acceptance. See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).

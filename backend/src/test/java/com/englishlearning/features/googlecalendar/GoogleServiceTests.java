@@ -77,6 +77,22 @@ class GoogleServiceTests {
         when(store.connection(1)).thenReturn(connection("subject","CONNECTED",2));when(provider.refresh(anyString())).thenThrow(new GoogleFailure("RECONNECT_REQUIRED"));
         assertThrows(GoogleFailure.class,()->service.accessToken(1));verify(store).reconnectRequired(1,2);
     }
+    @Test void workerRejectsChangedSubjectBeforeRefreshingCredentials(){
+        var owner=new CalendarSyncStore.Destination(java.util.UUID.randomUUID(),1,"old",2,"calendar");
+        when(store.connection(1)).thenReturn(connection("new","CONNECTED",3));
+        assertThrows(GoogleFailure.class,()->service.workerToken(owner,false));
+        assertThrows(GoogleFailure.class,()->service.workerToken(owner,true));
+        verifyNoInteractions(provider);
+    }
+    @Test void cleanupCanRemoveAFormerStudentsEventsButCannotMintCreationAccess(){
+        var owner=new CalendarSyncStore.Destination(java.util.UUID.randomUUID(),1,"subject",2,"calendar");
+        when(store.connection(1)).thenReturn(connection("subject","CONNECTED",2));
+        when(accounts.findById(1L)).thenReturn(Optional.of(new AccountSnapshot(1L,Role.STUDENT,true,true,false,false)));
+        when(provider.refresh("original-refresh")).thenReturn("synthetic-access");
+        assertThrows(GoogleFailure.class,()->service.workerToken(owner,false));
+        assertEquals("synthetic-access",service.workerToken(owner,true));
+        verify(store).lock(1);verify(store,never()).lockEligible(1);
+    }
     @Test void statusIsOwnerScopedAndContainsNoCredentials(){
         when(store.connection(1)).thenReturn(connection("subject","CONNECTED",2));var result=service.status(1);
         assertEquals("CONNECTED",result.status());assertFalse(result.synchronizationAvailable());assertFalse(result.toString().contains("refresh"));verify(store).connection(1);

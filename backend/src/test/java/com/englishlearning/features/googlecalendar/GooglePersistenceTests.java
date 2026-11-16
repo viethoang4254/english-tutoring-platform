@@ -17,17 +17,69 @@ import org.springframework.transaction.PlatformTransactionManager;
 @EnabledIfSystemProperty(named="googlePersistence",matches="true")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GooglePersistenceTests {
-    JdbcTemplate jdbc;GoogleStore store;long owner,other;
+    JdbcTemplate jdbc;GoogleStore store;CalendarSyncStore sync;long owner,other;
     @BeforeAll void setup(){
         String url=System.getenv("GOOGLE_TEST_URL"),user=System.getenv("GOOGLE_TEST_USER"),password=System.getenv("GOOGLE_TEST_PASSWORD");
         assertEquals("jdbc:postgresql://127.0.0.1:15443/task_c3_google",url);assertEquals("task_c3_test",user);
         var ds=new DriverManagerDataSource(url,user,password);jdbc=new JdbcTemplate(ds);
         assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')",Integer.class));
         var flyway=Flyway.configure().dataSource(ds).cleanDisabled(true).load();flyway.migrate();flyway.validate();
-        assertEquals(12,jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success",Integer.class));
+        assertEquals(13,jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success",Integer.class));
         var beans=new StaticListableBeanFactory();beans.addBean("jdbc",jdbc);beans.addBean("tx",new DataSourceTransactionManager(ds));
         store=new GoogleStore(beans.getBeanProvider(JdbcTemplate.class),beans.getBeanProvider(PlatformTransactionManager.class));
+        sync=new CalendarSyncStore(beans.getBeanProvider(JdbcTemplate.class));
         owner=insert("owner@example.invalid");other=insert("other@example.invalid");
+    }
+    @Test void workerLeaseIsExclusiveAndOldCompletionCannotOverwriteLatestRevision() throws Exception {
+        var grant=new GoogleProvider.Grant("worker-test","worker@example.invalid",GoogleSettings.SCOPE,"synthetic");
+        long version=begin(owner,"worker-state");
+        assertTrue(store.save(owner,version,grant,"cipher","key"));
+        store.transaction(()->{sync.project();return null;});
+        var dest=store.transaction(sync::provision);
+        assertNotNull(dest);
+        sync.provisioned(dest,"managed@example.invalid","READY");
+        sync.provisioned(dest,null,"FAILED");
+        assertEquals("managed@example.invalid",jdbc.queryForObject("SELECT calendar_id FROM personal_google_calendars WHERE id=?",String.class,dest.id()));
+        assertNull(store.transaction(sync::provision));
+        try {
+            jdbc.update("INSERT INTO user_session_calendar_events(destination,session_id,wanted) VALUES (?,19,false)",dest.id());
+            var claimed=new CountDownLatch(1);
+            var releaseClaim=new CountDownLatch(1);
+            var pool=Executors.newSingleThreadExecutor();
+            CalendarSyncStore.Job first;
+            try {
+                var pending=pool.submit(()->store.transaction(()->{
+                    var work=sync.claim();claimed.countDown();
+                    try { assertTrue(releaseClaim.await(10,TimeUnit.SECONDS)); }
+                    catch(InterruptedException e){throw new AssertionError(e);}
+                    return work;
+                }));
+                assertTrue(claimed.await(10,TimeUnit.SECONDS));
+                assertNull(store.transaction(sync::claim));
+                releaseClaim.countDown();first=pending.get(10,TimeUnit.SECONDS);
+            } finally {releaseClaim.countDown();pool.shutdownNow();}
+            assertNotNull(first);assertTrue(sync.current(first));
+            jdbc.update("UPDATE user_session_calendar_events SET revision=revision+1,lease_until=now()-interval '1 second' WHERE destination=?",dest.id());
+            var beans=new StaticListableBeanFactory();beans.addBean("jdbc",jdbc);
+            var restarted=new CalendarSyncStore(beans.getBeanProvider(JdbcTemplate.class));
+            var next=store.transaction(restarted::claim);
+            assertNotNull(next);assertEquals(first.event(),next.event());assertFalse(sync.current(first));
+            sync.finish(first,null,false,0);
+            assertTrue(sync.current(next));
+            sync.finish(next,null,false,0);
+            sync.finish(first,null,false,0);
+            assertEquals(3,jdbc.queryForObject("SELECT revision FROM user_session_calendar_events WHERE destination=?",Long.class,dest.id()));
+            jdbc.update("UPDATE user_session_calendar_events SET attempts=8,lease=NULL,lease_until=NULL WHERE destination=?",dest.id());
+            assertNull(store.transaction(sync::claim));
+            store.transaction(()->{sync.retry(owner);return null;});
+            var retry=store.transaction(sync::claim);
+            assertNotNull(retry);assertEquals(first.event(),retry.event());
+            store.transaction(()->{store.lock(owner);store.disconnect(owner);return null;});
+            assertFalse(sync.current(retry));
+        } finally {
+            jdbc.update("DELETE FROM user_session_calendar_events WHERE destination=?",dest.id());
+            jdbc.update("DELETE FROM personal_google_calendars WHERE id=?",dest.id());
+        }
     }
     long insert(String email){return jdbc.queryForObject("INSERT INTO users(email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (?,'unused','Synthetic','STUDENT',true,false,now(),now()) RETURNING id",Long.class,email);}
     @BeforeEach void clear(){jdbc.update("DELETE FROM google_calendar_oauth_intents");jdbc.update("DELETE FROM google_calendar_connections");}

@@ -11,7 +11,7 @@ import time
 import xml.etree.ElementTree as ET
 import run as support
 
-UNIT = ["GoogleCryptoTests", "GoogleProviderTests", "GoogleServiceTests", "GoogleCalendarHttpTests", "AuthenticationHttpTests", "AuthenticationHttpsTests", "ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CheckoutHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
+UNIT = ["CalendarTransportTests", "CalendarSyncWorkerTests", "GoogleCryptoTests", "GoogleProviderTests", "GoogleServiceTests", "GoogleCalendarHttpTests", "AuthenticationHttpTests", "AuthenticationHttpsTests", "ReconciliationHttpTests", "PaymentMoneyTests", "VietQrTests", "PaymentHttpTests", "ReceivingAccountReviewHttpTests", "ReceivingSubmissionTests", "ReceivingImageTests", "ReceivingStorageTests", "ReceivingAccountHttpTests", "PublicCourseHttpTests", "EnrollmentServiceTests", "EnrollmentHttpTests", "CheckoutHttpTests", "CategoryServiceTests", "TeacherCategoryServiceTests", "CategoryHttpTests", "TeacherCategoryHttpTests",
         "CourseInputTests", "CourseServiceTests", "CourseHttpTests", "CalendarRangeTests", "CalendarRepositoryTests",
         "MeetingHttpTests", "StudentCalendarHttpTests", "TeacherCalendarHttpTests", "SchedulePlanTests", "SessionInputTests", "RescheduleInputTests", "SessionHttpTests",
         "SecurityBoundaryTests", "StudentProfileHttpTests", "TeacherOnboardingHttpTests", "ApiBoundaryTests"]

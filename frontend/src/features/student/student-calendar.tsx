@@ -25,8 +25,14 @@ export function StudentCalendar() {
   const { session, clearSession } = useSession();
   const [now] = useState(() => new Date());
   const today = dayKey(now);
-  const [month, setMonth] = useState(today.slice(0, 7));
-  const [selected, setSelected] = useState(today);
+  const [initialDay] = useState(() => {
+    const day = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("day");
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return today;
+    const date = new Date(day + "T12:00:00Z");
+    return Number.isFinite(date.getTime()) && dayKey(date) === day ? day : today;
+  });
+  const [month, setMonth] = useState(initialDay.slice(0, 7));
+  const [selected, setSelected] = useState(initialDay);
   const [attempt, setAttempt] = useState(0);
   const key = `${month}:${attempt}:${session?.accessToken}`;
   const [result, setResult] = useState<{ key: string; items: StudentCalendarSession[]; error?: "denied" | "unavailable" }>();
@@ -98,5 +104,5 @@ export function StudentCalendar() {
 
 function SessionCard({ session }: { session: StudentCalendarSession }) {
   const { session: auth } = useSession();
-  return <article className={styles.sessionCard}><div className={styles.sessionTime}><strong>{timeFormat.format(new Date(session.startsAt))}</strong><span>{timeFormat.format(new Date(session.endsAt))}</span></div><div className={styles.sessionInfo}><span className={styles.muted}>{session.courseTitle}</span><h4>{session.title || `Buổi ${session.sessionNumber}`}</h4><p>{session.teacherDisplayName} · Buổi {session.sessionNumber}</p><p>Múi giờ khóa học: {session.timezone}</p><span className={session.status === "CANCELLED" ? styles.cancelled : styles.pill}>{session.status === "CANCELLED" ? "Đã hủy" : "Đã lên lịch"}</span>{session.rescheduled && <span className={styles.pill}>Đã đổi lịch</span>}</div><div className={styles.sessionActions}><Link className="ui-button ui-button-secondary" href={`/student/dashboard/courses/${session.courseId}`}>Xem khóa học</Link>{session.status === "SCHEDULED" ? <MeetingAccess key={`${auth?.accessToken}:${session.id}:${session.startsAt}`} endpoint={`/student/sessions/${session.id}/join`} /> : <button className="ui-button ui-button-secondary" disabled>Buổi học đã hủy</button>}</div></article>;
+  return <article id={`session-${session.id}`} className={styles.sessionCard}><div className={styles.sessionTime}><strong>{timeFormat.format(new Date(session.startsAt))}</strong><span>{timeFormat.format(new Date(session.endsAt))}</span></div><div className={styles.sessionInfo}><span className={styles.muted}>{session.courseTitle}</span><h4>{session.title || `Buổi ${session.sessionNumber}`}</h4><p>{session.teacherDisplayName} · Buổi {session.sessionNumber}</p><p>Múi giờ khóa học: {session.timezone}</p><span className={session.status === "CANCELLED" ? styles.cancelled : styles.pill}>{session.status === "CANCELLED" ? "Đã hủy" : "Đã lên lịch"}</span>{session.rescheduled && <span className={styles.pill}>Đã đổi lịch</span>}</div><div className={styles.sessionActions}><Link className="ui-button ui-button-secondary" href={`/student/dashboard/courses/${session.courseId}`}>Xem khóa học</Link>{session.status === "SCHEDULED" ? <MeetingAccess key={`${auth?.accessToken}:${session.id}:${session.startsAt}`} endpoint={`/student/sessions/${session.id}/join`} /> : <button className="ui-button ui-button-secondary" disabled>Buổi học đã hủy</button>}</div></article>;
 }
