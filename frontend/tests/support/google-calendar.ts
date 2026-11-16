@@ -44,6 +44,7 @@ export async function openGoogle(page: Page, role: "STUDENT" | "TEACHER" = "STUD
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(role === "STUDENT" ? /\/student\/dashboard$/ : /\/teacher$/);
   if (role === "TEACHER") await teacherPanel(page, "Lịch dạy");
-  await page.locator("summary").filter({ hasText: "Kết nối Google Calendar" }).click();
-  return page.getByRole("region", { name: "Kết nối Google Calendar", exact: true });
+  const calendar = page.getByRole("region", { name: role === "TEACHER" ? "Lịch dạy của tôi" : "Lịch học đã đăng ký", exact: true });
+  await calendar.locator("summary").filter({ hasText: "Kết nối Google Calendar" }).click();
+  return calendar.getByRole("region", { name: "Kết nối Google Calendar", exact: true });
 }
