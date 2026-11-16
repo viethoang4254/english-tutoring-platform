@@ -1,3 +1,4 @@
+﻿#Requires -Version 5.1
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$Manifest, [switch]$DryRun)
 $ErrorActionPreference = 'Stop'

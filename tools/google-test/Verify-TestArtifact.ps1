@@ -1,7 +1,7 @@
-#Requires -Version 7.2
+#Requires -Version 5.1
 param([Parameter(Mandatory)]$Config)
 $ErrorActionPreference='Stop'
-$receipt=Get-Content -LiteralPath $Config.artifactReceipt -Raw | ConvertFrom-Json
+$receipt=Get-Content -LiteralPath $Config.artifactReceipt -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($Config.approvedCommit -notmatch '^[a-f0-9]{40}$' -or $receipt.commit -cne $Config.approvedCommit -or
     $receipt.repository -cne 'viethoang4254/english-tutoring-platform' -or $receipt.platform -cne 'win32-x64' -or
     $receipt.apiOrigin -cne 'http://localhost:8081' -or [string]$receipt.runId -cne [string]$Config.approvedPackageRunId) { throw 'Artifact provenance mismatch.' }

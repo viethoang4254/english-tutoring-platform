@@ -1,6 +1,6 @@
 # First real Google Calendar consent on Windows TEST
 
-Use Windows x64, PowerShell 7.2+, Node 24 x64, Java 17 or newer and psql. Start in the calendar-google-integration worktree. The reviewed application baseline is 31e0942003a783c6fc507d209ef77a4e3445381f. The package needs acceptance on the commit containing these scripts.
+Use Windows x64, Windows PowerShell 5.1, Node 24 x64, Java 17 or newer and psql. Start in the calendar-google-integration worktree. The reviewed application baseline is 31e0942003a783c6fc507d209ef77a4e3445381f. The package needs acceptance on the commit containing these scripts.
 
 ## Obtain the matching application
 
@@ -10,12 +10,12 @@ Download google-oauth-test-windows-<commit> from the successful package run. Use
 
 ## Local secrets and TLS
 
-Run the following in PowerShell 7. The secret generator refuses to overwrite an existing directory. For previously configured secrets, retain the existing key and skip generation. Enter only TEST credentials at the masked prompts. DPAPI binds them to this Windows user and machine. The script also generates a 32-byte Base64 AES key, a separate RSA JWT pair and reset HMAC under a private NTFS ACL. Protect a recoverable backup of the AES key.
+Run the following in powershell.exe (Windows PowerShell 5.1). The secret generator refuses to overwrite an existing directory. For previously configured secrets, retain the existing key and skip generation. Enter only TEST credentials at the masked prompts. DPAPI binds them to this Windows user and machine. The script also generates a 32-byte Base64 AES key, a separate RSA JWT pair and reset HMAC under a private NTFS ACL. Node generates the PKCS#8 and public PEM keys. Windows encrypts the AES and JWT private key files with NTFS EFS before writing key material. EFS is the default. Retain recovery access to the EFS certificate. On Windows editions without EFS, explicitly select ACL-only mode by adding `-KeyProtection AclOnly` to Configure-Secrets.ps1 on first setup. Both modes enforce the owner-only directory ACL and use DPAPI for the OAuth credentials, database password and reset HMAC. In ACL-only mode the Java-readable AES key and JWT private key lack file-level encryption. Offline disk access or copying these files can expose them. Protect the disk and backups accordingly. An EFS failure stops setup without switching modes.
 
 ```powershell
 $private = 'E:\SupabaseSecrets\google-calendar-test'
 $manifest = Join-Path $private 'manifest.json'
-./tools/google-test/Configure-Secrets.ps1
+powershell.exe -NoProfile -File .\tools\google-test\Configure-Secrets.ps1
 Copy-Item ./tools/google-test/manifest.example.json $manifest -Confirm
 notepad $manifest
 ```
@@ -47,7 +47,7 @@ After explicit startup approval, with both ports available, run the backend laun
 
 ```powershell
 ./tools/google-test/Start-TestEnvironment.ps1 -Manifest $manifest -StartBackend
-(Invoke-WebRequest http://localhost:8081/api/v1/auth/csrf).StatusCode
+(Invoke-WebRequest -UseBasicParsing http://localhost:8081/api/v1/auth/csrf).StatusCode
 ./tools/google-test/Start-TestFrontend.ps1 -Manifest $manifest -StartFrontend
 ```
 
