@@ -11,7 +11,7 @@ public final class GoogleSettings {
     public static final String PATH="/api/v1/integrations/google-calendar";
     public static final String SCOPE="https://www.googleapis.com/auth/calendar.app.created";
     public final String clientId,clientSecret,redirectUri,keyId,frontend;
-    public final boolean enabled,secure,syncEnabled;
+    public final boolean enabled,secure,syncEnabled,invitationsEnabled;
     private final byte[] key;
     public GoogleSettings(Environment env) {
         clientId=env.getProperty("APP_GOOGLE_CALENDAR_CLIENT_ID","");
@@ -41,6 +41,7 @@ public final class GoogleSettings {
         } catch(Exception invalid) { valid=false; }
         key=loaded;
         syncEnabled=env.getProperty("APP_GOOGLE_CALENDAR_SYNC_ENABLED",Boolean.class,false);
+        invitationsEnabled=syncEnabled && env.getProperty("APP_GOOGLE_CALENDAR_INVITATIONS_ENABLED",Boolean.class,false);
         enabled=valid&&loaded!=null&&loaded.length==32&&env.getProperty("APP_GOOGLE_CALENDAR_ENABLED",Boolean.class,false);
     }
     private static String safeOrigin(String value){

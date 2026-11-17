@@ -54,6 +54,51 @@ class CalendarSyncWorkerTests {
         assertEquals(job.event(),event.get("id"));
         assertEquals(Map.of("dateTime",Instant.ofEpochSecond(1793511000).toString(),"timeZone","America/New_York"),event.get("start"));
     }
+    @Test void lostInvitationResponseRecoversPrivateEventWithoutNotifyingAgain()throws Exception{
+        worker=new CalendarSyncWorker(store,provider,connections,oauth,GoogleTestSettings.create(folder,true),json);
+        var teacher=(tools.jackson.databind.node.ObjectNode)json.readTree(desired);
+        teacher.put("role","TEACHER");
+        teacher.putArray("attendees").add("student@example.invalid").add("STUDENT@example.invalid");
+        var invitation=new CalendarSyncStore.Job(destination,7,job.event(),2,UUID.randomUUID(),teacher.toString(),1);
+        var payload=worker.event(invitation);
+        assertEquals(java.util.List.of(Map.of("email","student@example.invalid")),payload.get("attendees"));
+        assertEquals("private",payload.get("visibility"));
+        for(String field:java.util.List.of("guestsCanModify","guestsCanInviteOthers","guestsCanSeeOtherGuests"))assertEquals(false,payload.get(field));
+        assertTrue(payload.get("description").toString().contains("/student/dashboard/schedule?day="));
+        assertFalse(payload.toString().contains("meet.google.com"));
+        when(store.current(invitation)).thenReturn(true);
+        when(store.claim()).thenReturn(invitation,null,invitation,null);
+        when(provider.event("synthetic",destination.calendar(),job.event())).thenReturn(reply(404,Map.of()),reply(200,payload));
+        when(provider.insert("synthetic",destination.calendar(),payload)).thenThrow(new IOException());
+        worker.tick();worker.tick();
+        verify(provider,times(1)).insert("synthetic",destination.calendar(),payload);
+        verify(provider,never()).replace(anyString(),anyString(),anyString(),anyMap(),anyString());
+        verify(store).finish(invitation,null,false,0);
+    }
+
+    @Test void changingGuestsPreservesRetainedResponseAndRemovesIneligibleGuest()throws Exception{
+        worker=new CalendarSyncWorker(store,provider,connections,oauth,GoogleTestSettings.create(folder,true),json);
+        var data=(tools.jackson.databind.node.ObjectNode)json.readTree(desired);
+        data.put("role","TEACHER");
+        data.putArray("attendees").add("retained@example.invalid").add("new@example.invalid");
+        var invitation=new CalendarSyncStore.Job(destination,7,job.event(),3,UUID.randomUUID(),data.toString(),1);
+        var existing=Map.of("email","retained@example.invalid","responseStatus","accepted");
+        when(store.claim()).thenReturn(invitation).thenReturn(null);
+        when(store.current(invitation)).thenReturn(true);
+        when(provider.event("synthetic",destination.calendar(),job.event())).thenReturn(reply(200,Map.of(
+            "id",job.event(),"etag","v2","extendedProperties",Map.of("private",Map.of("elpDestination",destination.id().toString())),
+            "attendees",java.util.List.of(existing,Map.of("email","removed@example.invalid")))));
+        when(provider.replace(eq("synthetic"),eq(destination.calendar()),eq(job.event()),anyMap(),eq("v2")))
+            .thenAnswer(call->{
+                Map<String,Object> patch=call.getArgument(3);
+                assertEquals(json.valueToTree(java.util.List.of(Map.of("email","new@example.invalid"),existing)),
+                    json.valueToTree(patch.get("attendees")));
+                return reply(200,Map.of());
+            });
+        worker.tick();
+        verify(store).finish(invitation,null,false,0);
+    }
+
     @Test void staleRevisionCannotWrite()throws Exception {
         when(store.claim()).thenReturn(job).thenReturn(null);
         when(store.current(job)).thenReturn(true,false);

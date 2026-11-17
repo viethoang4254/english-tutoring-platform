@@ -131,6 +131,44 @@ class ReconciliationPersistenceTests {
             sql("UPDATE users SET locked=false,email_verified=false WHERE id=3");
         }
     }
+    @Test void teacherInvitationSnapshotUsesPaidOwnedCourseWithoutStudentOAuth() throws Exception {
+        var sync=context.getBean(com.englishlearning.features.googlecalendar.CalendarSyncStore.class);
+        var payment=create(3);
+        sql("UPDATE sessions SET scheduled_start_at=now()+interval '2 days',scheduled_end_at=now()+interval '3 days' WHERE course_id="+course);
+        sql("UPDATE users SET email_verified=true WHERE id=3");
+        try {
+            sql("INSERT INTO google_calendar_connections(user_id,google_subject,google_email,granted_scopes,refresh_ciphertext,key_id,status,connected_at) SELECT id,'subject-'||id,email,'synthetic','synthetic','test','CONNECTED',now() FROM users WHERE id IN (1,5)");
+            String mapping=" FROM user_session_calendar_events WHERE session_id=(SELECT id FROM sessions WHERE course_id="+course+")";
+            assertThrows(com.englishlearning.features.googlecalendar.GoogleFailure.class,()->sync.requestInvitations(5,course));
+            sync.requestInvitations(1,course);
+            assertEquals("[]",text("SELECT desired->'attendees'"+mapping));
+            String event=text("SELECT event_id"+mapping);
+            assertEquals("SUCCESS",decide(payment,evidence(payment),false).outcome());
+            sync.requestInvitations(1,course);
+            assertEquals("student@example.invalid",text("SELECT desired->'attendees'->>0"+mapping));
+            assertEquals(1,count("SELECT jsonb_array_length(desired->'attendees')"+mapping));
+            long paidCourse=course;
+            createCourse(1);
+            sql("UPDATE sessions SET scheduled_start_at=now()+interval '2 days',scheduled_end_at=now()+interval '3 days' WHERE course_id="+course);
+            sync.requestInvitations(1,course);
+            assertEquals("[]",text("SELECT desired->'attendees' FROM user_session_calendar_events WHERE session_id=(SELECT id FROM sessions WHERE course_id="+course+")"));
+            long otherCourse=course;
+            course=paidCourse;
+            long revision=count("SELECT revision"+mapping);
+            sync.requestInvitations(1,course);sync.project();
+            assertEquals(event,text("SELECT event_id"+mapping));
+            assertEquals(revision,count("SELECT revision"+mapping));
+            assertEquals(1,sync.invitationStatus(1,course).pending());
+            assertEquals(0,sync.invitationStatus(1,course).synchronizedSessions());
+            sql("UPDATE enrollments SET status='CANCELLED' WHERE id="+payment.enrollmentId().value());
+            sync.requestInvitations(1,course);
+            assertEquals("[]",text("SELECT desired->'attendees'"+mapping));
+            course=otherCourse;
+        } finally {
+            sql("DELETE FROM user_session_calendar_events");sql("DELETE FROM personal_google_calendars");
+            sql("DELETE FROM google_calendar_connections");sql("UPDATE users SET email_verified=false WHERE id=3");
+        }
+    }
     @Test void onTimeActivationSnapshotsHistoryAndNoProviderEvidence()throws Exception {
         var p=create(3);String snapshot=snapshot(p);
         long enrollment=p.enrollmentId().value();

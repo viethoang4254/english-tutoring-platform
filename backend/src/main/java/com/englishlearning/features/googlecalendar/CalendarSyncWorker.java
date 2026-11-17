@@ -1,6 +1,6 @@
 package com.englishlearning.features.googlecalendar;
 
-import java.util.Map;
+import java.util.*;
 import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -89,9 +89,24 @@ public class CalendarSyncWorker {
             if(job.desired()==null&&absent){store.finish(job,null,false,0);return;}
             CalendarTransport.Reply result;
             String etag=current.body().path("etag").asText("");
+            boolean invitationEvent = !absent && current.body().path("extendedProperties").path("private").has("elpInvitations");
+            if(invitationEvent && (job.desired()==null || !json.readTree(job.desired()).has("attendees"))){
+                store.finish(job,"INVITATION_RECONCILIATION_REQUIRED",false,0);return;
+            }
             if(job.desired()==null)result=provider.delete(token,d.calendar(),job.event(),etag);
             else {
                 var event=event(job);
+                if(event.containsKey("attendees")){
+                    if(!settings.invitationsEnabled){store.finish(job,"INVITATIONS_DISABLED",false,0);return;}
+                    if(!absent){
+                        if(current.body().path("attendeesOmitted").asBoolean(false)){store.finish(job,"INCOMPLETE_ATTENDEES",false,0);return;}
+                        reconcileGuests(event,current.body());
+                        if(!event.containsKey("attendees") && current.body().path("extendedProperties").path("private").path("elpRevision").asText("").equals(Long.toString(job.revision()))
+                                && invitationEvent && privateInvitationMatches(event,current.body())){
+                            store.finish(job,null,false,0);return;
+                        }
+                    }
+                }
                 result=absent?provider.insert(token,d.calendar(),event):provider.replace(token,d.calendar(),job.event(),event,etag);
             }
             if(result.success()||job.desired()==null&&(result.status()==404||result.status()==410))store.finish(job,null,false,0);
@@ -114,9 +129,55 @@ public class CalendarSyncWorker {
         String route="TEACHER".equals(data.path("role").asText())?"/teacher/courses/"+data.path("course").asLong():
             "/student/dashboard?day="+day+"#session-"+j.session();
         String link=settings.frontend.replaceAll("/$","")+route;
-        return Map.of("id",j.event(),"summary",title,"description",link,
+        var payload=new HashMap<String,Object>(Map.of("id",j.event(),"summary",title,"description",link,
             "start",time(data,"start"),"end",time(data,"end"),
-            "extendedProperties",Map.of("private",Map.of("elpDestination",j.dest().id().toString(),"elpRevision",Long.toString(j.revision()))));
+            "extendedProperties",Map.of("private",Map.of("elpDestination",j.dest().id().toString(),"elpRevision",Long.toString(j.revision())))));
+        if(data.has("attendees")){
+            if(!"TEACHER".equals(data.path("role").asText()) || !data.path("attendees").isArray())
+                throw new IllegalArgumentException("Invalid invitation snapshot");
+            var emails=new TreeSet<String>();
+            for(var item:data.path("attendees")){
+                String email=item.asText("").strip().toLowerCase(Locale.ROOT);
+                if(email.length()>254 || !email.matches("[^\\s@,;<>]+@[^\\s@,;<>]+[.][^\\s@,;<>]+"))
+                    throw new IllegalArgumentException("Invalid attendee");
+                emails.add(email);
+            }
+            payload.put("attendees",emails.stream().map(e->Map.of("email",e)).toList());
+            payload.put("description",settings.frontend.replaceAll("/$","")+"/student/dashboard/schedule?day="+day+"#session-"+j.session());
+            payload.put("visibility","private");
+            for(String field:List.of("guestsCanInviteOthers","guestsCanModify","guestsCanSeeOtherGuests"))payload.put(field,false);
+            payload.put("extendedProperties",Map.of("private",Map.of("elpDestination",j.dest().id().toString(),
+                "elpRevision",Long.toString(j.revision()),"elpInvitations","1")));
+        }
+        return payload;
+    }
+    private boolean privateInvitationMatches(Map<String,Object> event,JsonNode remote) {
+        for(String field:List.of("description","summary","visibility","guestsCanModify","guestsCanInviteOthers","guestsCanSeeOtherGuests")){
+            if(!remote.path(field).equals(json.valueToTree(event.get(field))))return false;
+        }
+        for(String field:List.of("start","end")){
+            JsonNode expected=json.valueToTree(event.get(field)), actual=remote.path(field);
+            if(!expected.path("timeZone").equals(actual.path("timeZone")))return false;
+            try {
+                if(!Instant.parse(expected.path("dateTime").asText()).equals(Instant.parse(actual.path("dateTime").asText())))return false;
+            } catch(java.time.DateTimeException invalid){return false;}
+        }
+        return true;
+    }
+
+    private void reconcileGuests(Map<String,Object> event,JsonNode remote) {
+        var existing=new HashMap<String,JsonNode>();
+        for(var guest:remote.path("attendees"))existing.put(guest.path("email").asText("").toLowerCase(Locale.ROOT),guest);
+        var desired=new TreeSet<String>();
+        JsonNode guests=json.valueToTree(event.get("attendees"));
+        for(var guest:guests)desired.add(guest.path("email").asText());
+        if(existing.keySet().equals(desired)){
+            event.remove("attendees");
+            return;
+        }
+        // PATCH replaces arrays as a unit. Keep RSVP fields for retained attendees.
+        event.put("attendees",desired.stream().map(email->existing.containsKey(email)
+            ? existing.get(email) : json.valueToTree(Map.of("email",email))).toList());
     }
     private Map<String,String> time(JsonNode data,String field) {
         var epoch=data.path(field).decimalValue();

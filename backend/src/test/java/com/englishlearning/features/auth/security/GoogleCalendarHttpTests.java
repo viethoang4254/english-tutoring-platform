@@ -15,7 +15,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties={"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-    "spring.flyway.enabled=false","APP_GOOGLE_CALENDAR_SYNC_ENABLED=true","app.security.browser.local-http=false","app.security.browser.allowed-origins=https://web.example.test"})
+    "spring.flyway.enabled=false","APP_GOOGLE_CALENDAR_SYNC_ENABLED=true","APP_GOOGLE_CALENDAR_INVITATIONS_ENABLED=true","app.security.browser.local-http=false","app.security.browser.allowed-origins=https://web.example.test"})
 class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
     @MockitoBean GoogleService google;
     @MockitoBean CalendarSyncStore sync;
@@ -58,6 +58,26 @@ class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
         mvc.perform(csrf(post(api()+path+"/sync").secure(true).header("Authorization","Bearer access"),token))
             .andExpect(status().isForbidden());
         verify(sync,times(1)).retry(anyLong());
+    }
+    @Test void studentCannotRequestTeacherInvitationsEvenWithValidCsrf()throws Exception {
+        account(Role.STUDENT,false);
+        var token=googleCsrf();
+        mvc.perform(csrf(post(api()+path+"/courses/3/invitations").secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isForbidden());
+        verify(sync,never()).requestInvitations(anyLong(),anyLong());
+    }
+    @Test void teacherQueuesOnlyTheRequestedCourseWithCsrfAndConnectedAccount()throws Exception {
+        account(Role.TEACHER,false);var token=googleCsrf();
+        String coursePath=api()+path+"/courses/3/invitations";
+        mvc.perform(csrf(post(coursePath).secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isServiceUnavailable());
+        when(google.status(1)).thenReturn(new GoogleService.Status("CONNECTED","fixture@example.invalid",false,null,true));
+        when(sync.invitationStatus(1,3)).thenReturn(new CalendarSyncStore.InvitationStatus(1,0,0));
+        mvc.perform(post(coursePath).secure(true).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        mvc.perform(csrf(post(coursePath).secure(true).header("Authorization","Bearer access"),token))
+            .andExpect(status().isAccepted()).andExpect(jsonPath("$.pending").value(1))
+            .andExpect(jsonPath("$.synchronizedSessions").value(0));
+        verify(sync).requestInvitations(1,3);
     }
     @Test void csrfAndBearerRequiredForBothMutations()throws Exception{
         account(Role.STUDENT,false);var token=googleCsrf();when(google.start(1)).thenReturn(new GoogleService.Started("https://accounts.google.com/o/oauth2/v2/auth","synthetic-binding"));

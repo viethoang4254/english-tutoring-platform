@@ -43,7 +43,7 @@ public class CalendarSyncStore {
                     WHERE existing.destination=v.destination AND existing.session_id=v.session_id)
             ON CONFLICT(destination,session_id) DO UPDATE SET wanted=true,desired=excluded.desired,
                 revision=m.revision+1,attempts=0,next_attempt=now(),failure=NULL
-            WHERE m.desired IS DISTINCT FROM excluded.desired
+            WHERE (m.desired - 'attendees') IS DISTINCT FROM excluded.desired
             """);
         sql().update("""
             UPDATE user_session_calendar_events m SET wanted=false,desired=NULL,revision=revision+1,
@@ -59,6 +59,63 @@ public class CalendarSyncStore {
                 AND EXISTS (SELECT FROM calendar_sync_changes q WHERE q.entity='connection' AND q.entity_id=d.user_id)
             """);
         sql().batchUpdate("DELETE FROM calendar_sync_changes WHERE id=?", ids, ids.size(), (ps,id)->ps.setLong(1,id));
+    }
+
+    // The requesting Teacher is checked separately even for courses with no future sessions.
+    private static final String COURSE_OWNER = """
+        SELECT EXISTS(SELECT FROM courses c JOIN users u ON u.id=c.teacher_id
+          JOIN google_calendar_connections g ON g.user_id=u.id AND g.status='CONNECTED'
+          WHERE c.id=? AND u.id=? AND u.role='TEACHER' AND NOT u.locked AND c.status='PUBLISHED'
+          AND EXISTS(SELECT FROM teacher_applications a WHERE a.teacher_id=u.id AND a.status='APPROVED'))
+        """;
+    private static final String ATTENDEES = """
+        (SELECT coalesce(jsonb_agg(email ORDER BY email),'[]'::jsonb) FROM (
+          SELECT DISTINCT lower(trim(u.email)) email FROM users u JOIN enrollments e ON e.student_id=u.id
+          WHERE e.course_id=(v.desired->>'course')::bigint AND e.status='ACTIVE'
+          AND u.role='STUDENT' AND NOT u.locked AND (u.email_verified OR u.student_login_without_verification)
+          AND length(trim(u.email))<=254 AND lower(trim(u.email)) ~ '^[^[:space:]@,;<>]+@[^[:space:]@,;<>]+[.][^[:space:]@,;<>]+$'
+          AND EXISTS(SELECT FROM payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
+        ) eligible)
+        """;
+    private void requireCourseOwner(long teacher,long course) {
+        if (!Boolean.TRUE.equals(sql().queryForObject(COURSE_OWNER,Boolean.class,course,teacher)))
+            throw new GoogleFailure("DENIED");
+    }
+    private static final String INVITATION_SESSIONS = """
+        FROM personal_calendar_schedule v JOIN personal_google_calendars d ON d.id=v.destination
+        WHERE d.user_id=? AND (v.desired->>'course')::bigint=? AND v.desired->>'role'='TEACHER'
+        AND (v.desired->>'start')::numeric>extract(epoch FROM now())
+        """;
+    @Transactional
+    public void requestInvitations(long teacher,long course) {
+        requireCourseOwner(teacher,course);
+        sql().update("""
+            INSERT INTO personal_google_calendars(user_id,google_subject)
+            SELECT user_id,google_subject FROM google_calendar_connections WHERE user_id=? AND status='CONNECTED'
+            ON CONFLICT DO NOTHING
+            """,teacher);
+        sql().update("""
+            INSERT INTO user_session_calendar_events AS m(destination,session_id,wanted,desired)
+            SELECT v.destination,v.session_id,true,v.desired || jsonb_build_object('attendees',
+            """ + ATTENDEES + ") " + INVITATION_SESSIONS + """
+            ORDER BY v.session_id
+            ON CONFLICT(destination,session_id) DO UPDATE SET wanted=true,desired=excluded.desired,
+                revision=m.revision+1,attempts=0,failure=NULL,next_attempt=now()
+            WHERE m.desired IS DISTINCT FROM excluded.desired OR m.attempts>=8
+            """,teacher,course);
+    }
+    public record InvitationStatus(long pending,long synchronizedSessions,long failed) {}
+    public InvitationStatus invitationStatus(long teacher,long course) {
+        requireCourseOwner(teacher,course);
+        return sql().queryForObject("""
+            SELECT count(*) FILTER(WHERE revision>applied_revision AND m.attempts<8
+                AND provisioning NOT IN ('FAILED','UNCERTAIN')) pending,
+                count(*) FILTER(WHERE revision=applied_revision) synced,
+                count(*) FILTER(WHERE revision>applied_revision AND (m.attempts>=8 OR provisioning IN ('FAILED','UNCERTAIN'))) failed
+            FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination
+            """ + OWNER + """
+            WHERE d.user_id=? AND (m.desired->>'course')::bigint=? AND jsonb_exists(m.desired,'attendees')
+            """,(r,n)->new InvitationStatus(r.getLong(1),r.getLong(2),r.getLong(3)),teacher,course);
     }
 
     public record Status(String state,long pending,long failed,java.time.Instant lastSuccess) {}
@@ -142,8 +199,11 @@ public class CalendarSyncStore {
         return Boolean.TRUE.equals(sql().queryForObject("SELECT EXISTS(SELECT FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination "+OWNER+"""
             LEFT JOIN personal_calendar_schedule v ON v.destination=m.destination AND v.session_id=m.session_id
             WHERE m.destination=? AND m.session_id=? AND g.version=? AND m.lease=? AND m.lease_until>now()
-              AND m.revision=? AND m.desired IS NOT DISTINCT FROM v.desired)
-            """,Boolean.class,j.dest().id(),j.session(),j.dest().version(),j.lease(),j.revision()));
+              AND m.revision=? AND (m.desired - 'attendees') IS NOT DISTINCT FROM v.desired
+              AND (NOT coalesce(jsonb_exists(m.desired,'attendees'),false) OR
+                (v.desired->>'role'='TEACHER' AND (v.desired->>'start')::numeric>extract(epoch FROM now())
+                AND m.desired->'attendees' =
+            """ + ATTENDEES + ")))",Boolean.class,j.dest().id(),j.session(),j.dest().version(),j.lease(),j.revision()));
     }
     public void replaceRemovedEvent(Job j) {
         sql().update("""

@@ -27,6 +27,18 @@ public class GoogleController {
         sync.retry(actor.id());
         return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
     }
+    @PostMapping("/courses/{course}/invitations")
+    public ResponseEntity<?> invite(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable long course,HttpServletRequest request) {
+        noInput(request);
+        if(!settings.invitationsEnabled || !service.status(actor.id()).synchronizationAvailable()) throw new GoogleFailure("UNAVAILABLE");
+        sync.requestInvitations(actor.id(),course);
+        return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).body(sync.invitationStatus(actor.id(),course));
+    }
+    @GetMapping("/courses/{course}/invitations")
+    public ResponseEntity<?> invitations(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable long course) {
+        if(!settings.invitationsEnabled || !service.status(actor.id()).synchronizationAvailable()) throw new GoogleFailure("UNAVAILABLE");
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(sync.invitationStatus(actor.id(),course));
+    }
     @PostMapping("/connect") public ResponseEntity<?> connect(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request){
         noInput(request);var start=service.start(actor.id());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(HttpHeaders.SET_COOKIE,binding(start.browserBinding(),600)).body(Map.of("authorizationUrl",start.authorizationUrl()));

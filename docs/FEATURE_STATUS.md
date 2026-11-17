@@ -1426,3 +1426,12 @@ remain, with new Student absence coverage. Google screenshots now cover Teacher
 disconnected, OAuth return and connected states (six PNGs); sync screenshots cover
 Teacher synced/pending/failed states (six PNGs). Other screenshot groups remain.
 Static review only; hosted TASK-009 and desktop/mobile verification pending.
+
+
+## Teacher-managed Calendar invitations — IN_PROGRESS
+
+The protected course invitation action and session status API are prepared behind
+a default-off feature flag. Teacher ownership, paid attendee projection, private
+events and retry readback have mocked and disposable-database coverage prepared
+for hosted CI. See [implementation and limits](TEACHER_CALENDAR_INVITATIONS.md).
+Lifecycle reconciliation, reminders and Teacher management UI remain pending.

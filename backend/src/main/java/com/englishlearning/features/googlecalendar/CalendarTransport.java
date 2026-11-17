@@ -49,15 +49,28 @@ final class CalendarTransport {
     }
 
     Reply insert(String token, String calendar, Map<String,Object> event) throws IOException, InterruptedException {
-        return request(token, "POST", calendarPath(calendar) + "/events", event, null);
+        return request(token, "POST", calendarPath(calendar) + "/events" + notifications(event), event, null);
     }
 
     Reply replace(String token, String calendar, String event, Map<String,Object> data, String etag) throws IOException, InterruptedException {
-        return request(token, "PUT", eventPath(calendar, event), data, requireTag(etag));
+        var patch = new java.util.HashMap<>(data);
+        patch.remove("id");
+        return request(token, "PATCH", eventPath(calendar, event) + notifications(patch), patch, requireTag(etag));
     }
 
     Reply delete(String token, String calendar, String event, String etag) throws IOException, InterruptedException {
-        return request(token, "DELETE", eventPath(calendar, event), null, requireTag(etag));
+        return delete(token, calendar, event, etag, false);
+    }
+
+    Reply delete(String token, String calendar, String event, String etag, boolean notifyAttendees)
+            throws IOException, InterruptedException {
+        return request(token, "DELETE", eventPath(calendar, event) + (notifyAttendees ? "?sendUpdates=all" : ""),
+            null, requireTag(etag));
+    }
+
+    private static String notifications(Map<String, Object> event) {
+        // An empty attendee list must also notify removed guests.
+        return event.containsKey("attendees") ? "?sendUpdates=all" : "";
     }
 
     private static String requireTag(String tag) {
