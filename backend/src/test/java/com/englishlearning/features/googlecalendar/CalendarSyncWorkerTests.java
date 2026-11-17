@@ -67,6 +67,7 @@ class CalendarSyncWorkerTests {
         assertTrue(payload.get("description").toString().contains("/student/dashboard/schedule?day="));
         assertFalse(payload.toString().contains("meet.google.com"));
         when(store.current(invitation)).thenReturn(true);
+        when(store.markInvitationInsert(invitation)).thenReturn(true);
         when(store.claim()).thenReturn(invitation,null,invitation,null);
         when(provider.event("synthetic",destination.calendar(),job.event())).thenReturn(reply(404,Map.of()),reply(200,payload));
         when(provider.insert("synthetic",destination.calendar(),payload)).thenThrow(new IOException());
@@ -97,6 +98,40 @@ class CalendarSyncWorkerTests {
             });
         worker.tick();
         verify(store).finish(invitation,null,false,0);
+    }
+
+    @Test void rescheduleNotifiesWithoutReplacingGuestResponses()throws Exception{
+        worker=new CalendarSyncWorker(store,provider,connections,oauth,GoogleTestSettings.create(folder,true),json);
+        var data=(tools.jackson.databind.node.ObjectNode)json.readTree(desired);
+        data.put("role","TEACHER");data.putArray("attendees").add("paid@example.invalid");
+        var changed=new CalendarSyncStore.Job(destination,7,job.event(),2,UUID.randomUUID(),data.toString(),1);
+        var remote=new java.util.HashMap<>(worker.event(changed));
+        remote.put("start",Map.of("dateTime","2025-01-01T00:00:00Z","timeZone","America/New_York"));
+        remote.put("etag","before");
+        when(store.claim()).thenReturn(changed).thenReturn(null);
+        when(store.current(changed)).thenReturn(true);
+        when(provider.event("synthetic",destination.calendar(),job.event())).thenReturn(reply(200,remote));
+        when(provider.patch(eq("synthetic"),eq(destination.calendar()),eq(job.event()),anyMap(),eq("before"),eq(true)))
+            .thenAnswer(call->{Map<String,Object> patch=call.getArgument(3);assertFalse(patch.containsKey("attendees"));return reply(200,Map.of());});
+        worker.tick();
+        verify(store).finish(changed,null,false,0);
+    }
+
+    @Test void cancellationRequiresEvidenceAfterAnAmbiguousInsert()throws Exception{
+        worker=new CalendarSyncWorker(store,provider,connections,oauth,GoogleTestSettings.create(folder,true),json);
+        var removal=new CalendarSyncStore.Job(destination,7,job.event(),2,UUID.randomUUID(),null,1);
+        when(store.claim()).thenReturn(removal,null,removal,null);
+        when(store.current(removal)).thenReturn(true);
+        when(store.uncertainInsert(removal)).thenReturn(true);
+        when(oauth.workerToken(destination,true)).thenReturn("synthetic");
+        when(provider.event("synthetic",destination.calendar(),job.event())).thenReturn(reply(404,Map.of()),
+            reply(200,Map.of("id",job.event(),"etag","current","extendedProperties",Map.of("private",
+                Map.of("elpDestination",destination.id().toString(),"elpInvitations","1")))));
+        when(provider.delete("synthetic",destination.calendar(),job.event(),"current",true)).thenReturn(reply(204,Map.of()));
+        worker.tick();
+        verify(store).finish(eq(removal),eq("INSERT_OUTCOME_UNKNOWN"),eq(true),anyLong());
+        verify(store,never()).finish(removal,null,false,0);
+        worker.tick();verify(store).finish(removal,null,false,0);
     }
 
     @Test void staleRevisionCannotWrite()throws Exception {

@@ -29,28 +29,23 @@ public class CalendarSyncStore {
                 AND x.revision=x.applied_revision AND x.last_success<now()-interval '1 day'
                 ORDER BY x.last_success LIMIT 16 FOR UPDATE OF x SKIP LOCKED)
             """);
-        if (ids.isEmpty()) return;
+        if (ids.isEmpty()) {
+            var due=sql().query("""
+                SELECT destination,course_id FROM calendar_invitation_courses WHERE next_review<=now()
+                ORDER BY next_review,destination,course_id LIMIT 8 FOR UPDATE SKIP LOCKED
+                """,(r,n)->Map.entry(r.getObject(1,UUID.class),r.getLong(2)));
+            for(var course:due){
+                reconcile(course.getKey(),course.getValue());
+                sql().update("UPDATE calendar_invitation_courses SET next_review=now()+interval '5 minutes' WHERE destination=? AND course_id=?",course.getKey(),course.getValue());
+            }
+            return;
+        }
         sql().update("""
             INSERT INTO personal_google_calendars(user_id,google_subject)
             SELECT user_id,google_subject FROM google_calendar_connections WHERE status='CONNECTED'
             ON CONFLICT DO NOTHING
             """);
-        sql().update("""
-            INSERT INTO user_session_calendar_events AS m(destination,session_id,wanted,desired)
-            SELECT v.destination,v.session_id,true,v.desired FROM personal_calendar_schedule v
-            WHERE (v.desired->>'end')::numeric > extract(epoch FROM now())
-                OR EXISTS (SELECT FROM user_session_calendar_events existing
-                    WHERE existing.destination=v.destination AND existing.session_id=v.session_id)
-            ON CONFLICT(destination,session_id) DO UPDATE SET wanted=true,desired=excluded.desired,
-                revision=m.revision+1,attempts=0,next_attempt=now(),failure=NULL
-            WHERE (m.desired - 'attendees') IS DISTINCT FROM excluded.desired
-            """);
-        sql().update("""
-            UPDATE user_session_calendar_events m SET wanted=false,desired=NULL,revision=revision+1,
-                attempts=0,next_attempt=now(),failure=NULL
-            WHERE wanted AND NOT EXISTS (SELECT FROM personal_calendar_schedule v
-                WHERE v.destination=m.destination AND v.session_id=m.session_id)
-            """);
+        reconcile(null,0);
         sql().update("""
             UPDATE user_session_calendar_events m SET attempts=0,next_attempt=now(),failure=NULL
             FROM personal_google_calendars d JOIN google_calendar_connections g
@@ -68,41 +63,48 @@ public class CalendarSyncStore {
           WHERE c.id=? AND u.id=? AND u.role='TEACHER' AND NOT u.locked AND c.status='PUBLISHED'
           AND EXISTS(SELECT FROM teacher_applications a WHERE a.teacher_id=u.id AND a.status='APPROVED'))
         """;
-    private static final String ATTENDEES = """
-        (SELECT coalesce(jsonb_agg(email ORDER BY email),'[]'::jsonb) FROM (
-          SELECT DISTINCT lower(trim(u.email)) email FROM users u JOIN enrollments e ON e.student_id=u.id
-          WHERE e.course_id=(v.desired->>'course')::bigint AND e.status='ACTIVE'
-          AND u.role='STUDENT' AND NOT u.locked AND (u.email_verified OR u.student_login_without_verification)
-          AND length(trim(u.email))<=254 AND lower(trim(u.email)) ~ '^[^[:space:]@,;<>]+@[^[:space:]@,;<>]+[.][^[:space:]@,;<>]+$'
-          AND EXISTS(SELECT FROM payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
-        ) eligible)
-        """;
+    private void reconcile(UUID destination,long course) {
+        boolean scoped=destination!=null;
+        Object[] args=scoped?new Object[]{destination,course}:new Object[0];
+        sql().update("""
+            INSERT INTO user_session_calendar_events AS m(destination,session_id,wanted,desired,invitation_course_id)
+            SELECT v.destination,v.session_id,true,v.desired,v.invitation_course_id FROM calendar_event_target v
+            WHERE ((v.desired->>'end')::numeric>extract(epoch FROM now()) OR EXISTS
+              (SELECT FROM user_session_calendar_events h WHERE h.destination=v.destination AND h.session_id=v.session_id))
+            """+(scoped?" AND v.destination=? AND v.invitation_course_id=? ":"")+"""
+            ORDER BY v.destination,v.session_id
+            ON CONFLICT(destination,session_id) DO UPDATE SET wanted=true,desired=excluded.desired,
+              invitation_course_id=excluded.invitation_course_id,revision=m.revision+1,attempts=0,next_attempt=now(),failure=NULL
+            WHERE m.desired IS DISTINCT FROM excluded.desired
+            """,args);
+        sql().update("""
+            UPDATE user_session_calendar_events m SET wanted=false,desired=NULL,revision=revision+1,
+              attempts=0,next_attempt=now(),failure=NULL
+            WHERE wanted AND (m.invitation_course_id IS NULL OR (m.desired->>'end')::numeric>extract(epoch FROM now())
+              OR EXISTS(SELECT FROM calendar_invitation_courses i WHERE i.destination=m.destination AND i.course_id=m.invitation_course_id AND i.cleanup))
+              AND NOT EXISTS (SELECT FROM calendar_event_target v WHERE v.destination=m.destination AND v.session_id=m.session_id)
+            """+(scoped?" AND m.destination=? AND m.invitation_course_id=?":""),args);
+    }
     private void requireCourseOwner(long teacher,long course) {
         if (!Boolean.TRUE.equals(sql().queryForObject(COURSE_OWNER,Boolean.class,course,teacher)))
             throw new GoogleFailure("DENIED");
     }
-    private static final String INVITATION_SESSIONS = """
-        FROM personal_calendar_schedule v JOIN personal_google_calendars d ON d.id=v.destination
-        WHERE d.user_id=? AND (v.desired->>'course')::bigint=? AND v.desired->>'role'='TEACHER'
-        AND (v.desired->>'start')::numeric>extract(epoch FROM now())
-        """;
     @Transactional
     public void requestInvitations(long teacher,long course) {
+        sql().queryForObject("SELECT id FROM users WHERE id=? FOR UPDATE",Long.class,teacher);
+        sql().execute("SELECT pg_advisory_xact_lock(740034)");
         requireCourseOwner(teacher,course);
         sql().update("""
             INSERT INTO personal_google_calendars(user_id,google_subject)
             SELECT user_id,google_subject FROM google_calendar_connections WHERE user_id=? AND status='CONNECTED'
             ON CONFLICT DO NOTHING
             """,teacher);
-        sql().update("""
-            INSERT INTO user_session_calendar_events AS m(destination,session_id,wanted,desired)
-            SELECT v.destination,v.session_id,true,v.desired || jsonb_build_object('attendees',
-            """ + ATTENDEES + ") " + INVITATION_SESSIONS + """
-            ORDER BY v.session_id
-            ON CONFLICT(destination,session_id) DO UPDATE SET wanted=true,desired=excluded.desired,
-                revision=m.revision+1,attempts=0,failure=NULL,next_attempt=now()
-            WHERE m.desired IS DISTINCT FROM excluded.desired OR m.attempts>=8
-            """,teacher,course);
+        UUID destination=sql().queryForObject("SELECT d.id FROM personal_google_calendars d "+OWNER+" WHERE d.user_id=?",UUID.class,teacher);
+        if(Boolean.TRUE.equals(sql().queryForObject("SELECT EXISTS(SELECT FROM calendar_invitation_courses WHERE destination=? AND cleanup)",Boolean.class,destination)))
+            throw new GoogleFailure("CLEANUP_PENDING");
+        sql().update("INSERT INTO calendar_invitation_courses(destination,course_id) VALUES (?,?) ON CONFLICT DO NOTHING",destination,course);
+        reconcile(destination,course);
+        sql().update("UPDATE user_session_calendar_events SET attempts=0,failure=NULL,next_attempt=now() WHERE destination=? AND invitation_course_id=? AND revision>applied_revision AND attempts>=8 AND (lease_until IS NULL OR lease_until<now())",destination,course);
     }
     public record InvitationStatus(long pending,long synchronizedSessions,long failed) {}
     public InvitationStatus invitationStatus(long teacher,long course) {
@@ -114,7 +116,7 @@ public class CalendarSyncStore {
                 count(*) FILTER(WHERE revision>applied_revision AND (m.attempts>=8 OR provisioning IN ('FAILED','UNCERTAIN'))) failed
             FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination
             """ + OWNER + """
-            WHERE d.user_id=? AND (m.desired->>'course')::bigint=? AND jsonb_exists(m.desired,'attendees')
+            WHERE d.user_id=? AND m.invitation_course_id=?
             """,(r,n)->new InvitationStatus(r.getLong(1),r.getLong(2),r.getLong(3)),teacher,course);
     }
 
@@ -197,13 +199,25 @@ public class CalendarSyncStore {
     }
     public boolean current(Job j) {
         return Boolean.TRUE.equals(sql().queryForObject("SELECT EXISTS(SELECT FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination "+OWNER+"""
-            LEFT JOIN personal_calendar_schedule v ON v.destination=m.destination AND v.session_id=m.session_id
+            LEFT JOIN calendar_event_target v ON v.destination=m.destination AND v.session_id=m.session_id
             WHERE m.destination=? AND m.session_id=? AND g.version=? AND m.lease=? AND m.lease_until>now()
-              AND m.revision=? AND (m.desired - 'attendees') IS NOT DISTINCT FROM v.desired
+              AND m.revision=? AND m.desired IS NOT DISTINCT FROM v.desired
               AND (NOT coalesce(jsonb_exists(m.desired,'attendees'),false) OR
-                (v.desired->>'role'='TEACHER' AND (v.desired->>'start')::numeric>extract(epoch FROM now())
-                AND m.desired->'attendees' =
-            """ + ATTENDEES + ")))",Boolean.class,j.dest().id(),j.session(),j.dest().version(),j.lease(),j.revision()));
+                   EXISTS(SELECT FROM sessions s WHERE s.id=m.session_id AND s.status='SCHEDULED' AND s.scheduled_start_at>now())))
+            """,Boolean.class,j.dest().id(),j.session(),j.dest().version(),j.lease(),j.revision()));
+    }
+    public boolean markInvitationInsert(Job j) {
+        return sql().update("""
+            UPDATE user_session_calendar_events m SET invitation_insert_uncertain=true FROM calendar_event_target v
+            WHERE m.destination=? AND m.session_id=? AND m.lease=? AND m.revision=? AND m.lease_until>now()
+              AND v.destination=m.destination AND v.session_id=m.session_id AND v.desired=m.desired
+            """,j.dest().id(),j.session(),j.lease(),j.revision())==1;
+    }
+    public boolean uncertainInsert(Job j) {
+        return Boolean.TRUE.equals(sql().queryForObject("""
+            SELECT EXISTS(SELECT FROM user_session_calendar_events WHERE destination=? AND session_id=?
+            AND invitation_insert_uncertain)
+            """,Boolean.class,j.dest().id(),j.session()));
     }
     public void replaceRemovedEvent(Job j) {
         sql().update("""
@@ -221,12 +235,13 @@ public class CalendarSyncStore {
     public void finish(Job j,String failure,boolean retry,long delay) {
         int updated=sql().update("""
             UPDATE user_session_calendar_events SET lease=NULL,lease_until=NULL,
+                invitation_insert_uncertain=CASE WHEN ? THEN false ELSE invitation_insert_uncertain END,
                 applied_revision=CASE WHEN ? THEN revision ELSE applied_revision END,
                 last_success=CASE WHEN ? THEN now() ELSE last_success END,failure=?,
                 attempts=CASE WHEN ? THEN 0 WHEN ? THEN attempts ELSE 8 END,
                 next_attempt=now()+(? * interval '1 second')
             WHERE destination=? AND session_id=? AND lease=? AND revision=?
-            """,failure==null,failure==null,failure,failure==null,retry,delay,j.dest().id(),j.session(),j.lease(),j.revision());
+            """,failure==null,failure==null,failure==null,failure,failure==null,retry,delay,j.dest().id(),j.session(),j.lease(),j.revision());
         // A superseded request may already have reached Google. Reconcile again even if
         // the newer worker completed first, retaining the same remote event identity.
         if(updated==0)sql().update("""

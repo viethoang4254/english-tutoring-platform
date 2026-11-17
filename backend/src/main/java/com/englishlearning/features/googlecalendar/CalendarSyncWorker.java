@@ -86,14 +86,20 @@ public class CalendarSyncWorker {
                 store.finish(job,"OWNERSHIP_CONFLICT",false,0);return;
             }
             if(!store.current(job)){retry(job,"STATE_CHANGED");return;}
-            if(job.desired()==null&&absent){store.finish(job,null,false,0);return;}
+            if(job.desired()==null&&absent){
+                if(current.status()==404 && store.uncertainInsert(job)){retry(job,"INSERT_OUTCOME_UNKNOWN");return;}
+                store.finish(job,null,false,0);return;
+            }
             CalendarTransport.Reply result;
             String etag=current.body().path("etag").asText("");
             boolean invitationEvent = !absent && current.body().path("extendedProperties").path("private").has("elpInvitations");
-            if(invitationEvent && (job.desired()==null || !json.readTree(job.desired()).has("attendees"))){
+            if(invitationEvent && job.desired()!=null && !json.readTree(job.desired()).has("attendees")){
                 store.finish(job,"INVITATION_RECONCILIATION_REQUIRED",false,0);return;
             }
-            if(job.desired()==null)result=provider.delete(token,d.calendar(),job.event(),etag);
+            if(job.desired()==null && invitationEvent){
+                if(!settings.invitationsEnabled){store.finish(job,"INVITATIONS_DISABLED",false,0);return;}
+                result=provider.delete(token,d.calendar(),job.event(),etag,true);
+            } else if(job.desired()==null)result=provider.delete(token,d.calendar(),job.event(),etag);
             else {
                 var event=event(job);
                 if(event.containsKey("attendees")){
@@ -101,13 +107,18 @@ public class CalendarSyncWorker {
                     if(!absent){
                         if(current.body().path("attendeesOmitted").asBoolean(false)){store.finish(job,"INCOMPLETE_ATTENDEES",false,0);return;}
                         reconcileGuests(event,current.body());
-                        if(!event.containsKey("attendees") && current.body().path("extendedProperties").path("private").path("elpRevision").asText("").equals(Long.toString(job.revision()))
+                        if(!event.containsKey("attendees")
                                 && invitationEvent && privateInvitationMatches(event,current.body())){
                             store.finish(job,null,false,0);return;
                         }
                     }
                 }
-                result=absent?provider.insert(token,d.calendar(),event):provider.replace(token,d.calendar(),job.event(),event,etag);
+                if(json.readTree(job.desired()).has("attendees")){
+                    if(!store.current(job) || (absent && !store.markInvitationInsert(job))){retry(job,"STATE_CHANGED");return;}
+                }
+                if(!absent && invitationEvent && !event.containsKey("attendees") && !timesMatch(event,current.body())){
+                    result=provider.patch(token,d.calendar(),job.event(),event,etag,true);
+                } else result=absent?provider.insert(token,d.calendar(),event):provider.replace(token,d.calendar(),job.event(),event,etag);
             }
             if(result.success()||job.desired()==null&&(result.status()==404||result.status()==410))store.finish(job,null,false,0);
             else failure(job,result);
@@ -155,6 +166,9 @@ public class CalendarSyncWorker {
         for(String field:List.of("description","summary","visibility","guestsCanModify","guestsCanInviteOthers","guestsCanSeeOtherGuests")){
             if(!remote.path(field).equals(json.valueToTree(event.get(field))))return false;
         }
+        return timesMatch(event,remote);
+    }
+    private boolean timesMatch(Map<String,Object> event,JsonNode remote) {
         for(String field:List.of("start","end")){
             JsonNode expected=json.valueToTree(event.get(field)), actual=remote.path(field);
             if(!expected.path("timeZone").equals(actual.path("timeZone")))return false;

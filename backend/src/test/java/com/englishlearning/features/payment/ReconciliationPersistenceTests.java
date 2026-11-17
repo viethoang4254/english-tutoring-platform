@@ -48,7 +48,7 @@ class ReconciliationPersistenceTests {
         String base=System.getenv("PAYMENT_TEST_URL");assertEquals("jdbc:postgresql://127.0.0.1:15442/task022c_payments",base);
         url=base.replace("/task022c_payments","/task022d_reconciliation");user=System.getenv("PAYMENT_TEST_USER");password=System.getenv("PAYMENT_TEST_PASSWORD");assertEquals("task022c_test",user);
         assertEquals(0,count("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"));
-        assertEquals(13,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
+        assertEquals(14,Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load().migrate().migrationsExecuted);
         sql("INSERT INTO users(id,email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES (1,'teacher@example.invalid','unused','Teacher','TEACHER',true,false,now(),now()),(2,'admin@example.invalid','unused','Admin','ADMIN',true,false,now(),now()),(3,'student@example.invalid','unused','Student','STUDENT',false,false,now(),now()),(4,'other@example.invalid','unused','Other','STUDENT',true,false,now(),now()),(5,'teacher2@example.invalid','unused','Other Teacher','TEACHER',true,false,now(),now())");
         sql("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,created_at,updated_at) VALUES (1,'Test','Test','Test','APPROVED',now(),now(),2,now(),now()),(5,'Test','Test','Test','APPROVED',now(),now(),2,now(),now())");
         sql("INSERT INTO course_categories(id,name,created_at,updated_at) VALUES (100,'Reconciliation',now(),now())");
@@ -143,8 +143,9 @@ class ReconciliationPersistenceTests {
             sync.requestInvitations(1,course);
             assertEquals("[]",text("SELECT desired->'attendees'"+mapping));
             String event=text("SELECT event_id"+mapping);
+            sql("UPDATE personal_google_calendars SET calendar_id='teacher-managed@example.invalid',provisioning='READY' WHERE user_id=1");
             assertEquals("SUCCESS",decide(payment,evidence(payment),false).outcome());
-            sync.requestInvitations(1,course);
+            sync.project();
             assertEquals("student@example.invalid",text("SELECT desired->'attendees'->>0"+mapping));
             assertEquals(1,count("SELECT jsonb_array_length(desired->'attendees')"+mapping));
             long paidCourse=course;
@@ -155,14 +156,52 @@ class ReconciliationPersistenceTests {
             long otherCourse=course;
             course=paidCourse;
             long revision=count("SELECT revision"+mapping);
-            sync.requestInvitations(1,course);sync.project();
+            var pool=Executors.newFixedThreadPool(2);
+            var go=new CountDownLatch(1);
+            Callable<Void> request=()->{go.await();sync.requestInvitations(1,paidCourse);return null;};
+            try{
+                var one=pool.submit(request);var two=pool.submit(request);go.countDown();
+                one.get(10,TimeUnit.SECONDS);two.get(10,TimeUnit.SECONDS);
+            }finally{go.countDown();pool.shutdownNow();}
+            sync.project();
             assertEquals(event,text("SELECT event_id"+mapping));
             assertEquals(revision,count("SELECT revision"+mapping));
             assertEquals(1,sync.invitationStatus(1,course).pending());
             assertEquals(0,sync.invitationStatus(1,course).synchronizedSessions());
             sql("UPDATE enrollments SET status='CANCELLED' WHERE id="+payment.enrollmentId().value());
-            sync.requestInvitations(1,course);
+            sync.project();
             assertEquals("[]",text("SELECT desired->'attendees'"+mapping));
+            sql("UPDATE enrollments SET status='ACTIVE' WHERE id="+payment.enrollmentId().value());
+            // Drop only the disposable invalidation to exercise the bounded periodic fallback.
+            sql("DELETE FROM calendar_sync_changes WHERE entity='user' AND entity_id=3");
+            sql("UPDATE calendar_invitation_courses SET next_review=now() WHERE course_id="+course);
+            sync.project();
+            assertEquals("student@example.invalid",text("SELECT desired->'attendees'->>0"+mapping));
+            sql("UPDATE sessions SET scheduled_start_at=scheduled_start_at+interval '1 hour' WHERE course_id="+course);
+            sync.project();
+            assertEquals(event,text("SELECT event_id"+mapping));
+            sql("UPDATE sessions SET status='CANCELLED' WHERE course_id="+course);
+            sync.project();assertEquals(0,count("SELECT count(*)"+mapping+" AND wanted"));
+            sql("UPDATE sessions SET status='SCHEDULED' WHERE course_id="+course);
+            sync.project();assertEquals(event,text("SELECT event_id"+mapping));
+            sql("UPDATE courses SET status='CANCELLED' WHERE id="+course);
+            sync.project();assertEquals(0,count("SELECT count(*)"+mapping+" AND wanted"));
+            var google=context.getBean(com.englishlearning.features.googlecalendar.GoogleStore.class);
+            assertEquals(Boolean.TRUE,google.transaction(()->{google.lock(1);return google.cleanupPending(1,"subject-1");}));
+            sql("UPDATE google_calendar_connections SET status='RECONNECT_REQUIRED',refresh_ciphertext=NULL,key_id=NULL WHERE user_id=1");
+            sql("UPDATE google_calendar_connections SET status='CONNECTED',refresh_ciphertext='synthetic',key_id='test' WHERE user_id=1");
+            sync.project();
+            assertEquals(Boolean.TRUE,google.transaction(()->{google.lock(1);return google.cleanupPending(1,"subject-1");}));
+            assertEquals(0,count("SELECT count(*) FROM user_session_calendar_events WHERE invitation_course_id="+otherCourse+" AND wanted"));
+            // Fixtures have no provider. Model completed tombstones, then verify a new
+            // opt-in with no future sessions still requires two distinct disconnect actions.
+            sql("UPDATE user_session_calendar_events SET applied_revision=revision WHERE invitation_course_id IS NOT NULL AND NOT wanted");
+            assertEquals(Boolean.FALSE,google.transaction(()->{google.lock(1);return google.cleanupPending(1,"subject-1");}));
+            sql("UPDATE sessions SET status='CANCELLED' WHERE course_id="+otherCourse);
+            sync.requestInvitations(1,otherCourse);
+            assertEquals(Boolean.TRUE,google.transaction(()->{google.lock(1);return google.cleanupPending(1,"subject-1");}));
+            assertTrue(google.cleaning(1,"subject-1"));
+            assertEquals(Boolean.FALSE,google.transaction(()->{google.lock(1);return google.cleanupPending(1,"subject-1");}));
             course=otherCourse;
         } finally {
             sql("DELETE FROM user_session_calendar_events");sql("DELETE FROM personal_google_calendars");

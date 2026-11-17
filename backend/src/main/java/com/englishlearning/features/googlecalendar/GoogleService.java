@@ -23,6 +23,8 @@ public class GoogleService {
         eligible(user);if(!settings.enabled)return new Status("UNAVAILABLE",null,false,null,false);
         var c=store.connection(user);if(c==null)return new Status("DISCONNECTED",null,false,null,false);
         boolean reconnect=c.status().equals("RECONNECT_REQUIRED")||c.status().equals("CONNECTED")&&!settings.keyId.equals(c.keyId());
+        if(!reconnect && "CONNECTED".equals(c.status()) && store.cleaning(user,c.subject()))
+            return new Status("CLEANUP_PENDING",c.email(),false,c.connectedAt(),false);
         return new Status(reconnect?"RECONNECT_REQUIRED":c.status(),c.email(),reconnect,c.connectedAt(),settings.syncEnabled && !reconnect && c.status().equals("CONNECTED"));
     }
     public record Started(String authorizationUrl,String browserBinding){@Override public String toString(){return "GoogleStarted[redacted]";}}
@@ -61,12 +63,18 @@ public class GoogleService {
     }
     public boolean disconnect(long user){
         eligible(user);
-        var old=store.transaction(()->{
+        record Disconnect(GoogleStore.Connection previous,boolean cleanupPending){}
+        var decision=store.transaction(()->{
             store.lockEligible(user);
             var current=store.connection(user);
+            if(current!=null && current.subject()!=null && !current.status().equals("REVOCATION_PENDING") && store.cleanupPending(user,current.subject()))
+                return new Disconnect(current,true);
             if(current==null || !current.status().equals("REVOCATION_PENDING"))store.disconnect(user);
-            return current;
+            return new Disconnect(current,false);
         });
+        // Throw only after committing the durable cancellation request.
+        if(decision.cleanupPending())throw new GoogleFailure("CLEANUP_PENDING");
+        var old=decision.previous();
         if(old==null||old.subject()==null)return true;
         // Only the caller that committed the pending transition may contact Google.
         // An ambiguous outcome (including process death) keeps the subject quarantined.
@@ -87,6 +95,7 @@ public class GoogleService {
         available();
         var c=store.connection(user);if(c==null||!c.status().equals("CONNECTED"))throw new GoogleFailure("RECONNECT_REQUIRED");
         if(owner!=null && (owner.version()!=c.version() || !owner.subject().equals(c.subject())))throw new GoogleFailure("RECONNECT_REQUIRED");
+        if(!deletion && store.cleaning(user,c.subject()))throw new GoogleFailure("CLEANUP_PENDING");
         String token;
         try{token=provider.refresh(crypto.decrypt(c.ciphertext(),c.keyId(),"refresh:"+user+":"+c.subject()));}
         catch(GoogleFailure e){if(e.code.equals("RECONNECT_REQUIRED"))store.transaction(()->{store.lock(user);store.reconnectRequired(user,c.version());return null;});throw e;}

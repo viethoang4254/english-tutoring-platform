@@ -24,7 +24,7 @@ class GooglePersistenceTests {
         var ds=new DriverManagerDataSource(url,user,password);jdbc=new JdbcTemplate(ds);
         assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')",Integer.class));
         var flyway=Flyway.configure().dataSource(ds).cleanDisabled(true).load();flyway.migrate();flyway.validate();
-        assertEquals(13,jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success",Integer.class));
+        assertEquals(14,jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success",Integer.class));
         var beans=new StaticListableBeanFactory();beans.addBean("jdbc",jdbc);beans.addBean("tx",new DataSourceTransactionManager(ds));
         store=new GoogleStore(beans.getBeanProvider(JdbcTemplate.class),beans.getBeanProvider(PlatformTransactionManager.class));
         sync=new CalendarSyncStore(beans.getBeanProvider(JdbcTemplate.class));

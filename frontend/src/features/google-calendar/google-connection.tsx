@@ -5,7 +5,7 @@ import { prepareGoogleReturn } from "./google-return";
 import { useSession } from "../auth/session-provider";
 import { apiRequest, ApiRequestError } from "../../lib/api";
 
-type Connection={status:"REVOCATION_PENDING"|"UNAVAILABLE"|"DISCONNECTED"|"CONNECTED"|"RECONNECT_REQUIRED";email:string|null;reconnectRequired:boolean;connectedAt:string|null;synchronizationAvailable:boolean};
+type Connection={status:"CLEANUP_PENDING"|"REVOCATION_PENDING"|"UNAVAILABLE"|"DISCONNECTED"|"CONNECTED"|"RECONNECT_REQUIRED";email:string|null;reconnectRequired:boolean;connectedAt:string|null;synchronizationAvailable:boolean};
 type Sync={state:"PENDING"|"SYNCED"|"FAILED"|"EMPTY"|"REVIEW_REQUIRED";pending:number;failed:number;lastSuccess:string|null};
 type Status={connection:Connection;csrfToken:string;sync?:Sync};
 const path="/integrations/google-calendar";
@@ -57,7 +57,7 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
         prepareGoogleReturn(accountId);
         window.location.assign(url.href);
       }
-    }catch(e){if(alive.current){if(e instanceof ApiRequestError&&e.status===401)clearSession();else setError("Chưa xác nhận được kết quả kết nối. Tải lại trạng thái trước khi thử lại.");}}
+    }catch(e){if(alive.current){if(e instanceof ApiRequestError&&e.status===401)clearSession();else if(e instanceof ApiRequestError && e.code==="GOOGLE_CLEANUP_PENDING")setError("Đang chờ hủy lời mời. Hãy kiểm tra trạng thái đồng bộ, kết nối lại nếu cần, rồi nhấn Ngắt kết nối lần nữa.");else setError("Chưa xác nhận được kết quả kết nối. Tải lại trạng thái trước khi thử lại.");}}
     finally{flight.current=false;if(alive.current)setBusy(false);}
   }
   return <section aria-label="Kết nối Google Calendar" className="ui-card" style={{padding:"1rem",marginBlock:"1rem",overflowWrap:"anywhere"}}>
@@ -66,7 +66,7 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
     {error&&<p role="alert">{error}</p>}
     {!result&&!error&&<p role="status">Đang tải kết nối…</p>}
     {result?.connection.status==="UNAVAILABLE"?<p>{messages.UNAVAILABLE}</p>:result?.connection.status==="REVOCATION_PENDING"?<p role="status">{messages.REVOCATION_PENDING}</p>:result&&<>
-      <p>{result.connection.status==="CONNECTED"?"Đã kết nối":result.connection.reconnectRequired?"Cần kết nối lại":"Chưa kết nối"}</p>
+      <p>{result.connection.status==="CLEANUP_PENDING"?"Đang hủy lời mời trước khi ngắt kết nối. Sau khi đồng bộ hoàn tất, hãy nhấn Ngắt kết nối lần nữa.":result.connection.status==="CONNECTED"?"Đã kết nối":result.connection.reconnectRequired?"Cần kết nối lại":"Chưa kết nối"}</p>
       {result.sync&&<div role="status">
         <p>{{PENDING:"Đang đồng bộ lịch học",SYNCED:"Đã đồng bộ Google Calendar",FAILED:"Đồng bộ thất bại, vui lòng thử lại",EMPTY:"Chưa có buổi học đủ điều kiện",REVIEW_REQUIRED:"Chưa xác định được lịch Google. Vui lòng liên hệ quản trị viên."}[result.sync.state]}</p>
         {result.sync.lastSuccess&&<p>Lần đồng bộ gần nhất: {new Intl.DateTimeFormat("vi-VN",{dateStyle:"short",timeStyle:"short"}).format(new Date(result.sync.lastSuccess))}</p>}
@@ -74,7 +74,7 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
         {result.sync.state==="FAILED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void retrySync()}>Thử đồng bộ lại</button>}
       </div>}
       {result.connection.email&&<p>Tài khoản Google: {result.connection.email}</p>}
-      <button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void mutate(false)}>{result.connection.status==="DISCONNECTED"?"Kết nối Google Calendar":"Kết nối lại Google Calendar"}</button>
+      {result.connection.status!=="CLEANUP_PENDING"&&<button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void mutate(false)}>{result.connection.status==="DISCONNECTED"?"Kết nối Google Calendar":"Kết nối lại Google Calendar"}</button>}
       {result.connection.status!=="DISCONNECTED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void mutate(true)}>Ngắt kết nối Google Calendar</button>}
     </>}
     <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>setAttempt(a=>a+1)}>Tải lại kết nối</button>

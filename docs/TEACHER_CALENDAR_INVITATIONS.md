@@ -1,4 +1,4 @@
-# Teacher-managed Calendar invitations, Batch 1
+# Teacher-managed Calendar invitations
 
 An approved, unlocked Teacher can request invitations for upcoming scheduled sessions
 of an owned published course. Their connected Google account and app-created secondary
@@ -16,9 +16,7 @@ write or matching event readback completes a job. These counts do not measure em
 delivery or RSVP. The Teacher UI for this action remains pending.
 
 The new `APP_GOOGLE_CALENDAR_INVITATIONS_ENABLED` flag defaults to false. The existing
-OAuth and sync flags, usable Teacher grant and V13 schema are prerequisites. No new
-scope or migration is needed. Leave invitations disabled in real environments during
-Batch 1 review. Installed TEST migration versions have not been checked.
+OAuth and sync flags, usable Teacher grant and V13 schema are prerequisites. Batch 2 additionally requires V14 for synchronization. OAuth-only installations can remain on V12. Keep invitations disabled in real environments pending hosted and lifecycle review. Installed TEST migration versions have not been checked.
 
 ## Processing
 
@@ -51,9 +49,43 @@ Use the fake HTTP provider and disposable PostgreSQL suites for verification. Ne
 use real grants for automated tests. Google delivery and calendar appearance depend
 on recipient settings.
 
-Automatic enrollment-change, rescheduling, cancellation and disconnect cleanup,
-reminders, and the Teacher management UI are deferred. Disconnect immediately disables
-the local connection and revokes credentials. Existing remote events may persist.
-Before real-provider acceptance, complete lifecycle reconciliation, validate the exact
-revision in hosted CI, verify the isolated database schema and use explicitly consenting
-Teacher and Student test accounts.
+## Batch 2 lifecycle
+
+V14 retains explicit course opt-ins by destination (Teacher and Google subject)
+and backfills them from identifiable Batch 1 invitation snapshots. If an old
+snapshot was already erased, its former opt-in cannot be recovered from payment
+data. The owning Teacher can request synchronization again.
+
+Enrollment, payment, course, session, connection and account changes already record
+invalidations in the same transaction through V13 triggers. V14 also watches
+registered email changes. The projector recomputes eligible future attendees for
+opted-in courses and keeps each original event ID. With no queued invalidations,
+each tick revisits up to eight due course destinations, scheduled five minutes apart
+per destination. A new revision is written only when the desired data changes.
+The existing global invalidation pass still considers the full schedule.
+
+A time change with the same guests sends a conditional time patch with
+`sendUpdates=all` while omitting the attendee array. Cancellation removes the
+owned event with a conditional DELETE and attendee notification. The local mapping
+survives as a tombstone. If eligibility changes after the final local check, a write
+can briefly reach Google. The next revision reconciles the same ID.
+
+The first disconnect request records cleanup and queues cancellations while the
+grant still exists. The Teacher sees cleanup pending and may retry failed sync.
+New invitation requests are blocked. After cleanup, pressing disconnect again
+completes the existing local invalidation, remote revocation and subject-release
+flow. If Google revoked the grant first, reconnect the same subject to resume
+cleanup. Successful final disconnect clears opt-ins, so later invitations require
+an explicit course action. Do not enable invitations solely to clear a production
+queue without reviewing its destination and pending changes.
+
+Before issuing an invitation insert, the worker records the possibility of an
+ambiguous result. A later Google 404 during cancellation cannot prove that a delayed
+insert was cancelled. Retain that mapping, retry within the bounded policy, and
+show a failure requiring review if uncertainty persists. Credential revocation
+stays blocked until cleanup is accounted for. External notification receipt cannot
+be verified through these status counts.
+
+Use TASK-009 disposable PostgreSQL and mocked Google fixtures to verify this revision.
+The migration has not been applied to TEST or production. Fifteen-minute reminders,
+a complete course management UI and real-provider acceptance remain separate.

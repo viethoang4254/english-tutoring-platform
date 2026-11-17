@@ -69,6 +69,55 @@ public class GoogleStore {
     public void reconnectRequired(long user,long version){
         jdbc.getObject().update("UPDATE public.google_calendar_connections SET status='RECONNECT_REQUIRED',refresh_ciphertext=NULL,key_id=NULL,version=version+1,updated_at=now() WHERE user_id=? AND version=?",user,version);
     }
+    private boolean hasInvitationSchema() {
+        return Boolean.TRUE.equals(jdbc.getObject().queryForObject(
+            "SELECT to_regclass('public.calendar_invitation_courses') IS NOT NULL",Boolean.class));
+    }
+    public boolean cleaning(long user,String subject) {
+        return hasInvitationSchema() && Boolean.TRUE.equals(jdbc.getObject().queryForObject("""
+            SELECT EXISTS(SELECT FROM calendar_invitation_courses i JOIN personal_google_calendars d
+              ON d.id=i.destination WHERE d.user_id=? AND d.google_subject=? AND i.cleanup)
+            """,Boolean.class,user,subject));
+    }
+    // Called under the same user row lock as course opt-in, before credentials are removed.
+    public boolean cleanupPending(long user,String subject) {
+        var db=jdbc.getObject();
+        if(!hasInvitationSchema()){
+            if(Boolean.TRUE.equals(db.queryForObject("SELECT to_regclass('public.user_session_calendar_events') IS NOT NULL",Boolean.class))
+                && Boolean.TRUE.equals(db.queryForObject("""
+                    SELECT EXISTS(SELECT FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination
+                      WHERE d.user_id=? AND d.google_subject=? AND jsonb_exists(m.desired,'attendees'))
+                    """,Boolean.class,user,subject)))throw new GoogleFailure("CLEANUP_SCHEMA_REQUIRED");
+            return false;
+        }
+        db.execute("SELECT pg_advisory_xact_lock(740034)");
+        var destinations=db.queryForList("""
+            SELECT d.id FROM personal_google_calendars d WHERE d.user_id=? AND d.google_subject=?
+            AND EXISTS(SELECT FROM calendar_invitation_courses i WHERE i.destination=d.id)
+            """,java.util.UUID.class,user,subject);
+        if(destinations.isEmpty())return false;
+        var destination=destinations.get(0);
+        int newlyRequested=db.update("UPDATE calendar_invitation_courses SET cleanup=true,next_review=now() WHERE destination=? AND NOT cleanup",destination);
+        db.update("""
+            UPDATE user_session_calendar_events SET wanted=false,desired=NULL,revision=revision+1,
+              attempts=0,failure=NULL,next_attempt=now()
+            WHERE destination=? AND invitation_course_id IS NOT NULL AND wanted
+            """,destination);
+        // Without an assigned calendar the worker could never have claimed an event write.
+        db.update("""
+            UPDATE user_session_calendar_events m SET applied_revision=revision,attempts=0,failure=NULL,last_success=now()
+            FROM personal_google_calendars d WHERE d.id=? AND m.destination=d.id AND d.calendar_id IS NULL
+              AND m.invitation_course_id IS NOT NULL AND NOT m.wanted AND NOT m.invitation_insert_uncertain
+              AND m.lease IS NULL AND m.applied_revision=0
+            """,destination);
+        boolean pending=Boolean.TRUE.equals(db.queryForObject("""
+            SELECT EXISTS(SELECT FROM user_session_calendar_events WHERE destination=? AND invitation_course_id IS NOT NULL
+              AND (revision<>applied_revision OR lease_until>now()))
+            """,Boolean.class,destination));
+        if(newlyRequested>0)return true;
+        if(!pending)db.update("DELETE FROM calendar_invitation_courses WHERE destination=?",destination);
+        return pending;
+    }
     public void disconnect(long user){
         advance(user);
         jdbc.getObject().update("UPDATE public.google_calendar_connections SET status=CASE WHEN google_subject IS NULL THEN 'DISCONNECTED' ELSE 'REVOCATION_PENDING' END,refresh_ciphertext=NULL,key_id=NULL,google_email=NULL,granted_scopes=NULL,connected_at=NULL WHERE user_id=?",user);

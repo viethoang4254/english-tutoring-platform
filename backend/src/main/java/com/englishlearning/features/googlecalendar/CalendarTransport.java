@@ -53,9 +53,14 @@ final class CalendarTransport {
     }
 
     Reply replace(String token, String calendar, String event, Map<String,Object> data, String etag) throws IOException, InterruptedException {
+        return patch(token,calendar,event,data,etag,data.containsKey("attendees"));
+    }
+
+    Reply patch(String token,String calendar,String event,Map<String,Object> data,String etag,boolean notify)
+            throws IOException,InterruptedException {
         var patch = new java.util.HashMap<>(data);
         patch.remove("id");
-        return request(token, "PATCH", eventPath(calendar, event) + notifications(patch), patch, requireTag(etag));
+        return request(token, "PATCH", eventPath(calendar, event) + (notify ? "?sendUpdates=all" : ""), patch, requireTag(etag));
     }
 
     Reply delete(String token, String calendar, String event, String etag) throws IOException, InterruptedException {

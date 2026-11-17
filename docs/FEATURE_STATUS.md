@@ -1435,3 +1435,10 @@ a default-off feature flag. Teacher ownership, paid attendee projection, private
 events and retry readback have mocked and disposable-database coverage prepared
 for hosted CI. See [implementation and limits](TEACHER_CALENDAR_INVITATIONS.md).
 Lifecycle reconciliation, reminders and Teacher management UI remain pending.
+
+## Teacher invitation lifecycle — IN_PROGRESS
+
+Batch 2 adds V14 durable course opt-ins, automatic attendee and session reconciliation,
+conditional cancellation and cleanup before credential revocation. Mocked provider and
+disposable PostgreSQL regressions are prepared for TASK-009. Hosted verification is pending.
+See [invitation lifecycle](TEACHER_CALENDAR_INVITATIONS.md#batch-2-lifecycle).

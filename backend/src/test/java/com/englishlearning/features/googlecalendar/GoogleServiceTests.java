@@ -73,6 +73,17 @@ class GoogleServiceTests {
         when(provider.revoke(anyString())).thenReturn(false);assertFalse(service.disconnect(1));
         var order=inOrder(store,provider);order.verify(store).disconnect(1);order.verify(provider).revoke("original-refresh");
     }
+    @Test void disconnectCommitsCleanupBeforeAnyCredentialRevocation(){
+        when(store.connection(1)).thenReturn(connection("subject","CONNECTED",2));
+        when(store.cleanupPending(1,"subject")).thenReturn(true,false);
+        assertEquals("CLEANUP_PENDING",assertThrows(GoogleFailure.class,()->service.disconnect(1)).code);
+        verify(store,never()).disconnect(1);verifyNoInteractions(provider);
+        when(provider.revoke("original-refresh")).thenReturn(true);
+        when(store.release(1,3,"subject")).thenReturn(true);
+        assertTrue(service.disconnect(1));
+        var order=inOrder(store,provider);
+        order.verify(store).disconnect(1);order.verify(provider).revoke("original-refresh");order.verify(store).release(1,3,"subject");
+    }
     @Test void invalidGrantMarksReconnectionAndCannotReturnAccess(){
         when(store.connection(1)).thenReturn(connection("subject","CONNECTED",2));when(provider.refresh(anyString())).thenThrow(new GoogleFailure("RECONNECT_REQUIRED"));
         assertThrows(GoogleFailure.class,()->service.accessToken(1));verify(store).reconnectRequired(1,2);

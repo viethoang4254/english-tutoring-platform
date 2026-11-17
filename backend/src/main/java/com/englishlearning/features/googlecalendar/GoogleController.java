@@ -18,12 +18,12 @@ public class GoogleController {
         var connection=service.status(actor.id());
         var body=new HashMap<String,Object>();
         body.put("connection",connection);body.put("csrfToken",csrf.getToken());
-        if(settings.syncEnabled && connection.status().equals("CONNECTED")) body.put("sync",sync.status(actor.id()));
+        if(settings.syncEnabled && Set.of("CONNECTED","CLEANUP_PENDING").contains(connection.status())) body.put("sync",sync.status(actor.id()));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
     }
     @PostMapping("/sync") public ResponseEntity<?> retry(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request){
         noInput(request);
-        if(!service.status(actor.id()).status().equals("CONNECTED") || !settings.syncEnabled)throw new GoogleFailure("UNAVAILABLE");
+        if(!Set.of("CONNECTED","CLEANUP_PENDING").contains(service.status(actor.id()).status()) || !settings.syncEnabled)throw new GoogleFailure("UNAVAILABLE");
         sync.retry(actor.id());
         return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();
     }
