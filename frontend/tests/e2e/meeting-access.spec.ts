@@ -48,8 +48,18 @@ for (const status of [401, 403, 503]) test(`student join handles ${status} witho
   await calendarFixture(page); let calls = 0;
   await page.route(join, route => { calls++; return route.fulfill({ status, json: { code: "UNAVAILABLE", message: "PRIVATE" } }); });
   await openStudentCalendar(page);
+  let refreshes = 0;
+  page.on("request", request => { if (new URL(request.url()).pathname.endsWith("/auth/refresh")) refreshes++; });
   await page.getByRole("button", { name: "Tham gia Google Meet" }).click();
-  if (status === 401) await expect(page).toHaveURL(/\/login\?next=/);
+  if (status === 401) {
+    await expect(page).toHaveURL(/\/login\?next=/);
+    await expect(page.getByRole("button", {name:"Đăng nhập",exact:true})).toBeVisible();
+    await expect(page.locator("[data-dashboard-layout]")).toHaveCount(0);
+    await expect(page.locator('a[href*="meet.google.com"]')).toHaveCount(0);
+    await expect(page.getByText("PRIVATE", {exact:true})).toHaveCount(0);
+    expect(calls).toBe(1);
+    expect(refreshes).toBe(0);
+  }
   else {
     await expect(page.getByLabel("Truy cập Google Meet").getByRole("alert")).toBeVisible();
     await expect(page.getByText("PRIVATE", { exact: true })).toHaveCount(0);
@@ -71,8 +81,8 @@ test("obsolete join response cannot navigate after leaving the selected day", as
   await page.getByRole("button", { name: "Tháng sau", exact: true }).click();
   await expect(page.getByRole("button", { name: "Đang kiểm tra quyền truy cập…" })).toHaveCount(0);
   const response = page.waitForResponse(r => r.url().endsWith("/sessions/101/join"));
-  release(); await response;
-  await expect(page).toHaveURL(/\/student\/dashboard$/);
+  release(); await (await response).finished();
+  await expect(page).toHaveURL(/\/student\/dashboard\/schedule$/);
   await expect(page.locator('a[href*="meet.google.com"]')).toHaveCount(0);
 });
 

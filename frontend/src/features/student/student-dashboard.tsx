@@ -24,17 +24,20 @@ export function StudentDashboard({children}:PanelProps) {
   const embedded=children!=null;
   const pathname=usePathname();
   const checkout=checkoutReturnPath(pathname);
+  const hadSession=useRef(false);
   const restoration=useRef<ReturnType<typeof signIn>|null>(null);
   const [needsLogin,setNeedsLogin]=useState(false);
   useEffect(() => {
-    if (session) {restoration.current=null;return;}
+    if (session) {hadSession.current=true;restoration.current=null;return;}
+    // A rejected established schedule session must not silently refresh itself.
+    if (pathname==="/student/dashboard/schedule" && hadSession.current) {router.replace("/login?next=/student/dashboard");return;}
     if (checkout) {router.replace(`/login?next=${encodeURIComponent(checkout)}`);return;}
     if (!embedded) {router.replace("/login?next=/student/dashboard");return;}
     let active=true;
     restoration.current??=signIn();
     restoration.current.then(current=>{if(active)setSession(current);}).catch(()=>{if(active)setNeedsLogin(true);});
     return ()=>{active=false;};
-  }, [session,router,embedded,setSession,checkout]);
+  }, [session,router,embedded,setSession,checkout,pathname]);
   if (!session) return <main className={styles.gate}>{embedded&&needsLogin
     ? <AccountWorkspace dedicatedLogin stayOnPage />
     : <p role="status">Đang kiểm tra phiên đăng nhập…</p>}</main>;
