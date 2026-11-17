@@ -1,3 +1,4 @@
+import { openStudentNavigation } from "../support/student-navigation";
 import { calendarPage } from "../support/student-calendar";
 import { captureReview } from "../support/ui-review";
 import { expect, test, type Page } from '@playwright/test';
@@ -75,18 +76,18 @@ test('@ui-review calendar selection, navigation and enrolled states are responsi
   await expect(calendar.getByRole('button',{pressed:true})).toHaveAttribute('aria-current','date');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({path:`test-results/dashboard-${info.project.name}.png`,fullPage:true});
-  const toggle = page.locator('[data-dashboard-toggle]');
-  await expect(toggle).toBeAttached();
-  if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await openStudentNavigation(page);
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Lịch học',exact:true}).click();
   await expect(page).toHaveURL(/\/student\/dashboard\/schedule$/);
   await page.locator('#lich-hoc').scrollIntoViewIfNeeded();
   await expect(page.locator('#lich-hoc')).toBeInViewport();
-  if(await toggle.isVisible())await toggle.click();
+  await openStudentNavigation(page);
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Hồ sơ và cài đặt',exact:true}).click();
   await expect(page).toHaveURL(/\/account$/);
-  if(await toggle.isVisible())await toggle.click();
+  await expect(page.getByRole('heading',{name:'Hồ sơ và cài đặt',exact:true})).toBeVisible();
+  await openStudentNavigation(page);
   await page.getByRole('navigation',{name:'Điều hướng học viên'}).getByRole('link',{name:'Tổng quan',exact:true}).click();
+  await expect(page).toHaveURL(/\/student\/dashboard$/);
   await expect(page.getByRole('heading',{name:/Xin chào, Nguyễn Minh Anh/})).toBeVisible();
 });
 
