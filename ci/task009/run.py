@@ -49,12 +49,28 @@ class CommandFailure(RuntimeError):
         self.exit_code = exit_code
 
 
-def compiler_locations(output):
+def compiler_diagnostics(output):
     # Emit only repository-known Java paths, numeric locations and fixed categories.
     known = {str(p.relative_to(REPO)).replace("\\", "/") for p in (REPO / "backend/src").rglob("*.java")}
     found = []
-    pattern = r"\[ERROR\] (?:[^\r\n]*?/)?(backend/src/[^\r\n]+?\.java):\[(\d+),(\d+)\] (.*)"
-    for path, line, column, message in re.findall(pattern, output):
+    recognized = 0
+    unrecognized = 0
+    root_path = REPO.as_posix().rstrip("/") + "/"
+    output = re.sub(r"\x1b\[[0-9;]*m", "", output).replace("\\", "/")
+    pattern = r"^\[ERROR\][ \t]+(.+?\.java):(?:\[(\d+),(\d+)\]|(\d+):(?:(\d+):)?)[ \t]*(?:error: )?(.*)$"
+    for record in output.splitlines():
+        if not record.startswith("[ERROR]"):
+            continue
+        match = re.fullmatch(pattern, record)
+        if not match:
+            unrecognized += 1
+            continue
+        path, bracket_line, bracket_column, plain_line, plain_column, message = match.groups()
+        if path.startswith(root_path):
+            path = path[len(root_path):]
+        elif path.startswith("src/"):
+            path = "backend/" + path
+        line, column = bracket_line or plain_line, bracket_column or plain_column
         category = next((value for prefix, value in (
             ("cannot find symbol", "unresolved-symbol"),
             ("incompatible types", "incompatible-types"),
@@ -64,11 +80,21 @@ def compiler_locations(output):
             ("package ", "package-resolution"),
             ("illegal ", "syntax"),
         ) if message.startswith(prefix)), "compiler-error")
-        if path in known and len(line) <= 7 and len(column) <= 7:
-            item = {"file": path, "line": int(line), "column": int(column), "category": category}
+        if path in known and len(line) <= 7 and (not column or len(column) <= 7):
+            recognized += 1
+            item = {"file": path, "line": int(line), "column": int(column) if column else None, "category": category}
             if item not in found:
                 found.append(item)
-    return found[:20]
+        else:
+            unrecognized += 1
+    return found[:20], {"recognized_diagnostics": recognized,
+                       "unrecognized_error_records": unrecognized,
+                       "unique_locations": len(found), "emitted_locations": min(20, len(found))}
+
+
+def compiler_locations(output):
+    return compiler_diagnostics(output)[0]
+
 
 
 def run(args, *, data=None, cwd=None, timeout=120, compilation=False):
@@ -76,7 +102,7 @@ def run(args, *, data=None, cwd=None, timeout=120, compilation=False):
     if result.returncode != 0:
         failure = CommandFailure(result.returncode)
         if compilation:
-            failure.locations = compiler_locations(result.stdout + "\n" + result.stderr)
+            failure.locations, failure.diagnostic_counts = compiler_diagnostics(result.stdout + "\n" + result.stderr)
         raise failure
     return result.stdout.strip()
 
@@ -255,7 +281,11 @@ def smtp_stage(name):
             item["exit_code"] = error.exit_code
         print(json.dumps(item), flush=True)
         if name == "test-compilation" and isinstance(error, CommandFailure):
-            for location in getattr(error, "locations", []):
+            locations = getattr(error, "locations", [])
+            print(json.dumps({"stage": name, "event": "compiler-summary",
+                              **getattr(error, "diagnostic_counts", {"recognized_diagnostics": 0, "unrecognized_error_records": 0, "unique_locations": 0, "emitted_locations": 0}),
+                              "category": "source-diagnostics" if locations else "no-recognized-source-diagnostics"}), flush=True)
+            for location in locations:
                 print(json.dumps({"stage": name, "event": "compiler-location", **location}), flush=True)
         raise
     else:
@@ -473,7 +503,7 @@ if __name__ == "__main__":
         elif action == "resources": resources()
         elif action == "cleanup": cleanup()
         else: raise RuntimeError("Unknown CI action")
-    except Exception:
+    except Exception as error:
         # Subprocess errors and SMTP diagnostics can contain credential material.
         print("TASK-009 CI step failed; sensitive diagnostics withheld", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(error.exit_code if isinstance(error, CommandFailure) and 0 < error.exit_code < 256 else 1)
