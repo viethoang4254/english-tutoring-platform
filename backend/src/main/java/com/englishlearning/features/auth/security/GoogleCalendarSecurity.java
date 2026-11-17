@@ -34,7 +34,7 @@ public class GoogleCalendarSecurity {
             .authorizeHttpRequests(a->a.requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH+"/callback").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH).hasAnyRole("STUDENT","TEACHER")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,GoogleSettings.PATH+"/connect",GoogleSettings.PATH+"/sync").hasAnyRole("STUDENT","TEACHER")
-                .requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH+"/courses/*/invitations").hasRole("TEACHER")
+                .requestMatchers(org.springframework.http.HttpMethod.GET,GoogleSettings.PATH+"/courses/*/invitations",GoogleSettings.PATH+"/courses/*/overview").hasRole("TEACHER")
                 .requestMatchers(org.springframework.http.HttpMethod.POST,GoogleSettings.PATH+"/courses/*/invitations").hasRole("TEACHER")
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,GoogleSettings.PATH).hasAnyRole("STUDENT","TEACHER").anyRequest().denyAll())
             .exceptionHandling(e->e.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper)).accessDeniedHandler(ApiSecurityErrors.forbidden(mapper)));

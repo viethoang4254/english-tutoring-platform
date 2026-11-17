@@ -16,7 +16,7 @@ export function GoogleConnection(){
   if(!session||session.account.role!=="TEACHER")return null;
   return <details onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Kết nối Google Calendar</summary>{expanded&&<ConnectionPanel key={session.accessToken} accountId={session.account.id} token={session.accessToken}/>}</details>;
 }
-function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
+export function ConnectionPanel({token,accountId,courseContent}:{token:string;accountId:string;courseContent?:(connected:boolean)=>import("react").ReactNode}){
   const {clearSession,googleOutcome}=useSession();
   const [result,setResult]=useState<Status>();const [error,setError]=useState("");
   const [attempt,setAttempt]=useState(0),[busy,setBusy]=useState(false);
@@ -67,7 +67,7 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
     {!result&&!error&&<p role="status">Đang tải kết nối…</p>}
     {result?.connection.status==="UNAVAILABLE"?<p>{messages.UNAVAILABLE}</p>:result?.connection.status==="REVOCATION_PENDING"?<p role="status">{messages.REVOCATION_PENDING}</p>:result&&<>
       <p>{result.connection.status==="CLEANUP_PENDING"?"Đang hủy lời mời trước khi ngắt kết nối. Sau khi đồng bộ hoàn tất, hãy nhấn Ngắt kết nối lần nữa.":result.connection.status==="CONNECTED"?"Đã kết nối":result.connection.reconnectRequired?"Cần kết nối lại":"Chưa kết nối"}</p>
-      {result.sync&&<div role="status">
+      {result.sync&&!courseContent&&<div role="status">
         <p>{{PENDING:"Đang đồng bộ lịch học",SYNCED:"Đã đồng bộ Google Calendar",FAILED:"Đồng bộ thất bại, vui lòng thử lại",EMPTY:"Chưa có buổi học đủ điều kiện",REVIEW_REQUIRED:"Chưa xác định được lịch Google. Vui lòng liên hệ quản trị viên."}[result.sync.state]}</p>
         {result.sync.lastSuccess&&<p>Lần đồng bộ gần nhất: {new Intl.DateTimeFormat("vi-VN",{dateStyle:"short",timeStyle:"short"}).format(new Date(result.sync.lastSuccess))}</p>}
         {(result.sync.pending>0||result.sync.failed>0)&&<p>Đang chờ: {result.sync.pending} · Lỗi: {result.sync.failed}</p>}
@@ -78,5 +78,6 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
       {result.connection.status!=="DISCONNECTED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void mutate(true)}>Ngắt kết nối Google Calendar</button>}
     </>}
     <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>setAttempt(a=>a+1)}>Tải lại kết nối</button>
+    {result&&courseContent?.(result.connection.status==="CONNECTED" && result.connection.synchronizationAvailable && !error)}
   </section>;
 }

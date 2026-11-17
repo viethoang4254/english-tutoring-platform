@@ -1,4 +1,5 @@
 import { teacherPanel, openTeacher } from "../support/teacher-navigation";
+import { captureReview } from "../support/ui-review";
 import { test, expect, type Page } from "@playwright/test";
 const id="9007199254740993";
 const course={id,name:"Khóa học mẫu kiểm thử",status:"DRAFT",category:{id:"9",name:"Danh mục cũ",active:false},description:"Nội dung kiểm thử",tuition:{amount:"9999999999999.99",currency:"VND"},minStudents:1,maxStudents:150,sessionCount:200,plannedStartDate:"2026-12-01",timezone:"Asia/Ho_Chi_Minh",discount:null};
@@ -18,6 +19,48 @@ async function open(page:Page) {
   await openTeacher(page); await teacherPanel(page,"Khóa học của tôi");
   await expect(page.getByRole("heading",{name:"Khóa học của tôi"}).last()).toBeVisible();
 }
+test("@course-invitations Teacher manages invitations and refreshes course progress",async({page},info)=>{
+  await open(page);
+  const published={...course,status:"PUBLISHED",name:"Tiếng Anh trong công việc"};
+  await page.route(url=>url.pathname==="/api/v1/teacher/courses"||url.pathname==="/api/v1/teacher/courses/"+id,r=>r.fulfill({json:new URL(r.request().url()).pathname.endsWith(id)
+    ?published:{items:[published],page:0,size:20,hasNext:false}}));
+  let connected=false, queued=0, synced=false;
+  await page.route(url=>url.pathname==="/api/v1/integrations/google-calendar"||url.pathname.startsWith("/api/v1/integrations/google-calendar/courses/"),r=>{
+    const path=new URL(r.request().url()).pathname;
+    expect(r.request().headers().authorization).toBe("Bearer fixture");
+    if(path.endsWith("/google-calendar"))return r.fulfill({json:{csrfToken:"calendar-fixture",connection:{
+      email:connected?"teacher@example.invalid":null,status:connected?"CONNECTED":"DISCONNECTED",synchronizationAvailable:connected}}});
+    if(path.endsWith("/courses/"+id+"/overview"))return r.fulfill({json:{eligibleStudents:connected?4:0,invitationsEnabled:true,remindersEnabled:false,
+      sessions:connected?[{number:1,start:"2030-01-01T02:00:00Z",end:"2030-01-01T03:00:00Z",status:"SCHEDULED",
+        syncState:synced?"SYNCED":queued?"PENDING":"FAILED"}]:[]}});
+    expect(path).toBe("/api/v1/integrations/google-calendar/courses/"+id+"/invitations");
+    expect(connected).toBe(true);
+    if(r.request().method()==="POST"){expect(r.request().headers()["x-xsrf-token"]).toBe("calendar-fixture");queued++;}
+    return r.fulfill({status:r.request().method()==="POST"?202:200,json:{pending:queued&&!synced?1:0,synchronizedSessions:synced?1:0,failed:queued?0:1}});
+  });
+  await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
+  await page.getByRole("button",{name:"Xem chi tiết",exact:true}).click();
+  await page.getByText("Google Calendar của khóa học",{exact:true}).click();
+  const panel=page.getByRole("region",{name:"Lời mời theo khóa học"});
+  await expect(page.getByRole("button",{name:"Kết nối Google Calendar",exact:true})).toBeVisible();
+  await expect(panel.getByText("Chưa có buổi học sắp tới.")).toBeVisible();
+  await expect(panel.getByRole("button",{name:"Đồng bộ lời mời",exact:true})).toHaveCount(0);
+  connected=true;
+  await page.getByRole("button",{name:"Tải lại kết nối"}).click();
+  await expect(page.getByText("Tài khoản Google: teacher@example.invalid")).toBeVisible();
+  await expect(panel.getByText("Học viên đủ điều kiện").locator("..").locator("dd")).toHaveText("4");
+  await panel.getByRole("button",{name:"Thử đồng bộ lại lời mời"}).click();
+  await expect(panel.getByRole("status")).toContainText("Đã xếp hàng đồng bộ");
+  expect(queued).toBe(1);
+  await expect(panel.getByText("Chờ đồng bộ",{exact:true}).first().locator("..").locator("dd")).toHaveText("1");
+  synced=true;
+  await panel.getByRole("button",{name:"Tải lại trạng thái lời mời"}).click();
+  await expect(panel.locator("li").getByText("Đã đồng bộ")).toBeVisible();
+  await expect(panel.getByText("Đã đồng bộ",{exact:true}).first().locator("..").locator("dd")).toHaveText("1");
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await captureReview(page,info,"teacher-course-invitations");
+});
+
 test("owned list filtering pagination detail edit inactive retention and responsive layout",async({page},info)=>{
   await open(page);let saved={...course};
   await page.route("**/api/v1/teacher/categories**",r=>r.fulfill({json:{items:[{id:"10",name:"Đang hoạt động",active:true}],page:0,size:100,hasNext:false}}));

@@ -1473,3 +1473,14 @@ Attempts, last attempt, current outcome and completion time are recorded per job
 
 TASK-009 payment-persistence exercises the worker against disposable PostgreSQL with a
 mock JavaMailSender. Hosted validation of this batch is pending.
+
+### Teacher Calendar Batch 4: course invitation management (IN_PROGRESS)
+
+The Teacher course detail includes a Google Calendar section with account controls,
+eligible Student and upcoming session counts, course synchronization totals,
+per-session mapping status where available, and the configured reminder flag.
+GET /api/v1/integrations/google-calendar/courses/{course}/overview is read-only
+and restricted to the approved, unlocked owning Teacher. The existing invitation
+GET and CSRF-protected POST supply queue progress and synchronization requests.
+HTTP 202 indicates queued work. Neither queue state nor reminder configuration
+measures email delivery. TASK-009 desktop/mobile verification is pending.

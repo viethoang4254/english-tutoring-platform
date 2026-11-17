@@ -106,6 +106,40 @@ public class CalendarSyncStore {
         reconcile(destination,course);
         sql().update("UPDATE user_session_calendar_events SET attempts=0,failure=NULL,next_attempt=now() WHERE destination=? AND invitation_course_id=? AND revision>applied_revision AND attempts>=8 AND (lease_until IS NULL OR lease_until<now())",destination,course);
     }
+    public record UpcomingSession(int number,java.time.Instant start,java.time.Instant end,String status,String syncState) {}
+    public record CourseOverview(long eligibleStudents,List<UpcomingSession> sessions) {}
+    @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public CourseOverview courseOverview(long teacher,long course) {
+        boolean owned=Boolean.TRUE.equals(sql().queryForObject("""
+            SELECT EXISTS(SELECT FROM courses c JOIN users u ON u.id=c.teacher_id
+            WHERE c.id=? AND u.id=? AND u.role='TEACHER' AND NOT u.locked AND EXISTS
+            (SELECT FROM teacher_applications a WHERE a.teacher_id=u.id AND a.status='APPROVED'))
+            """,Boolean.class,course,teacher));
+        if(!owned)throw new GoogleFailure("DENIED");
+        long eligible=sql().queryForObject("""
+            SELECT count(*) FROM enrollments e JOIN users u ON u.id=e.student_id
+            JOIN courses c ON c.id=e.course_id
+            WHERE e.course_id=? AND c.status='PUBLISHED' AND e.status='ACTIVE' AND u.role='STUDENT'
+            AND NOT u.locked AND (u.email_verified OR u.student_login_without_verification)
+            AND length(trim(u.email))<=254 AND lower(trim(u.email)) ~ '^[^[:space:]@,;<>]+@[^[:space:]@,;<>]+[.][^[:space:]@,;<>]+$'
+            AND EXISTS(SELECT FROM payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
+            """,Long.class,course);
+        var sessions=sql().query("""
+            SELECT s.session_number,s.scheduled_start_at,s.scheduled_end_at,s.status,progress.state
+            FROM sessions s LEFT JOIN (
+                SELECT m.session_id,m.invitation_course_id,
+                    CASE WHEN m.revision=m.applied_revision THEN 'SYNCED'
+                         WHEN m.attempts>=8 OR d.provisioning IN ('FAILED','UNCERTAIN') THEN 'FAILED'
+                         ELSE 'PENDING' END state
+                FROM user_session_calendar_events m JOIN personal_google_calendars d ON d.id=m.destination
+                JOIN google_calendar_connections g ON g.user_id=d.user_id AND g.google_subject=d.google_subject
+                WHERE d.user_id=? AND g.status='CONNECTED' AND m.invitation_course_id=?
+            ) progress ON progress.session_id=s.id AND progress.invitation_course_id=s.course_id
+            WHERE s.course_id=? AND s.scheduled_start_at>now() ORDER BY s.scheduled_start_at,s.id
+            """,(r,n)->new UpcomingSession(r.getInt(1),r.getTimestamp(2).toInstant(),r.getTimestamp(3).toInstant(),
+                    r.getString(4),r.getString(5)),teacher,course,course);
+        return new CourseOverview(eligible,sessions);
+    }
     public record InvitationStatus(long pending,long synchronizedSessions,long failed) {}
     public InvitationStatus invitationStatus(long teacher,long course) {
         requireCourseOwner(teacher,course);

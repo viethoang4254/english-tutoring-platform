@@ -4,6 +4,11 @@
 .grid label,.toolbar label { display:flex; flex-direction:column; gap:.5rem; min-width:0; }
 .panel input,.panel select,.panel textarea { width:100%; box-sizing:border-box; min-height:44px; padding:.7rem; border:1px solid #cbd5e1; border-radius:10px; color:#0f172a; background:white; }
 .wide { grid-column:1/-1; }
+.invitationSection { margin-block:1rem; border-top:1px solid #dbe7df; }
+.invitationSection summary { cursor:pointer; padding-block:.9rem; color:#166534; font-weight:700; }
+.panel .invitationMetrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr)); }
+.panel .invitationMetrics > div { display:block; padding:.75rem; border-radius:.75rem; background:#f1f8f3; }
+.invitationMetrics dd { margin:0; font-size:1.3rem; font-weight:700; }
 .list { list-style:none; padding:0; display:grid; gap:1rem; }
 .list li { border:1px solid #e2e8f0; padding:1rem; border-radius:14px; display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; overflow-wrap:anywhere; }
 .panel dl { display:grid; grid-template-columns:minmax(100px,1fr) 2fr; gap:.75rem; overflow-wrap:anywhere; }

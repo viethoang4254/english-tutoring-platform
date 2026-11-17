@@ -12,6 +12,8 @@ import com.englishlearning.features.auth.security.AccountPrincipal;
 @RequestMapping(GoogleSettings.PATH)
 public class GoogleController {
     private final CalendarSyncStore sync;
+    @org.springframework.beans.factory.annotation.Value("${APP_SESSION_REMINDERS_ENABLED:false}")
+    private boolean remindersEnabled;
     private final GoogleSettings settings;private final GoogleService service;
     public GoogleController(GoogleSettings settings,GoogleService service,CalendarSyncStore sync){this.sync=sync;this.settings=settings;this.service=service;}
     @GetMapping public ResponseEntity<?> status(@AuthenticationPrincipal AccountPrincipal actor,CsrfToken csrf){
@@ -33,6 +35,13 @@ public class GoogleController {
         if(!settings.invitationsEnabled || !service.status(actor.id()).synchronizationAvailable()) throw new GoogleFailure("UNAVAILABLE");
         sync.requestInvitations(actor.id(),course);
         return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).body(sync.invitationStatus(actor.id(),course));
+    }
+    @GetMapping("/courses/{course}/overview")
+    public ResponseEntity<?> overview(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable long course) {
+        var overview=sync.courseOverview(actor.id(),course);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of(
+            "eligibleStudents",overview.eligibleStudents(),"sessions",overview.sessions(),
+            "invitationsEnabled",settings.invitationsEnabled,"remindersEnabled",remindersEnabled));
     }
     @GetMapping("/courses/{course}/invitations")
     public ResponseEntity<?> invitations(@AuthenticationPrincipal AccountPrincipal actor,@PathVariable long course) {

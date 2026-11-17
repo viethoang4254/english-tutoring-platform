@@ -140,6 +140,9 @@ class ReconciliationPersistenceTests {
             sql("INSERT INTO google_calendar_connections(user_id,google_subject,google_email,granted_scopes,refresh_ciphertext,key_id,status,connected_at) SELECT id,'subject-'||id,email,'synthetic','synthetic','test','CONNECTED',now() FROM users WHERE id IN (1,5)");
             String mapping=" FROM user_session_calendar_events WHERE session_id=(SELECT id FROM sessions WHERE course_id="+course+")";
             assertThrows(com.englishlearning.features.googlecalendar.GoogleFailure.class,()->sync.requestInvitations(5,course));
+            assertThrows(com.englishlearning.features.googlecalendar.GoogleFailure.class,()->sync.courseOverview(5,course));
+            assertEquals(0,sync.courseOverview(1,course).eligibleStudents());
+            assertEquals(1,sync.courseOverview(1,course).sessions().size());
             sync.requestInvitations(1,course);
             assertEquals("[]",text("SELECT desired->'attendees'"+mapping));
             String event=text("SELECT event_id"+mapping);
@@ -167,6 +170,8 @@ class ReconciliationPersistenceTests {
             assertEquals(event,text("SELECT event_id"+mapping));
             assertEquals(revision,count("SELECT revision"+mapping));
             assertEquals(1,sync.invitationStatus(1,course).pending());
+            assertEquals(1,sync.courseOverview(1,course).eligibleStudents());
+            assertEquals("PENDING",sync.courseOverview(1,course).sessions().get(0).syncState());
             assertEquals(0,sync.invitationStatus(1,course).synchronizedSessions());
             sql("UPDATE enrollments SET status='CANCELLED' WHERE id="+payment.enrollmentId().value());
             sync.project();

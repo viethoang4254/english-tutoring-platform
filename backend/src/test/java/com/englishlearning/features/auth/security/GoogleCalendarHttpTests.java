@@ -64,11 +64,18 @@ class GoogleCalendarHttpTests extends AuthenticationHttpTestSupport {
         var token=googleCsrf();
         mvc.perform(csrf(post(api()+path+"/courses/3/invitations").secure(true).header("Authorization","Bearer access"),token))
             .andExpect(status().isForbidden());
+        mvc.perform(get(api()+path+"/courses/3/overview").secure(true).header("Authorization","Bearer access"))
+            .andExpect(status().isForbidden());
+        verify(sync,never()).courseOverview(anyLong(),anyLong());
         verify(sync,never()).requestInvitations(anyLong(),anyLong());
     }
     @Test void teacherQueuesOnlyTheRequestedCourseWithCsrfAndConnectedAccount()throws Exception {
         account(Role.TEACHER,false);var token=googleCsrf();
         String coursePath=api()+path+"/courses/3/invitations";
+        when(sync.courseOverview(1,3)).thenReturn(new CalendarSyncStore.CourseOverview(4,java.util.List.of()));
+        mvc.perform(get(api()+path+"/courses/3/overview").secure(true).header("Authorization","Bearer access"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.eligibleStudents").value(4))
+            .andExpect(jsonPath("$.remindersEnabled").value(false)).andExpect(jsonPath("$.sessions").isEmpty());
         mvc.perform(csrf(post(coursePath).secure(true).header("Authorization","Bearer access"),token))
             .andExpect(status().isServiceUnavailable());
         when(google.status(1)).thenReturn(new GoogleService.Status("CONNECTED","fixture@example.invalid",false,null,true));

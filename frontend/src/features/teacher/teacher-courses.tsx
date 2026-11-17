@@ -10,6 +10,7 @@ import styles from "./teacher-courses.module.css";
 import { useSession } from "../auth/session-provider";
 import { useRouter } from "next/navigation";
 import { TeacherSessions } from "./teacher-sessions";
+import { CourseInvitations } from "./course-invitations";
 import { TeacherCoursePreview } from "./teacher-course-preview";
 
 type Category = { id: string; name: string; active: boolean };
@@ -132,6 +133,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
     {courseId && selected?.id !== courseId && <p role="status">Chưa tải được chi tiết khóa học.</p>}
     {selected&&selected.id===courseId&&!editing&&<article><h3>{selected.name}</h3><dl>{Object.entries({"Trạng thái":states[selected.status],"Danh mục":selected.category.name+(selected.category.active?"":" (ngừng hoạt động)"),"Mô tả":selected.description,"Học phí":`${selected.tuition.amount} VND`,"Số học viên":`${selected.minStudents}–${selected.maxStudents}`,"Ngày bắt đầu dự kiến":selected.plannedStartDate,"Múi giờ":selected.timezone,"Số buổi dự kiến":selected.sessionCount,"Giảm giá":selected.discount?`${selected.discount.percent}% · ${selected.discount.startAt} → ${selected.discount.endAt}`:"Không"}).map(([label,text])=><div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
       {!blocked && <MeetingAccess key={`${session.accessToken}:${selected.id}:${selected.status}`} endpoint={`${root}/${selected.id}/meeting`} teacher />}
+      {!blocked && <CourseInvitations key={`${session.accessToken}:${selected.id}`} course={selected} session={session}/>}
       {selected.status==="DRAFT" && <CourseCoverUpload key={selected.id} id={selected.id} session={session}/>}
       {selected.status==="DRAFT" && <details key={selected.id}><summary>Giới thiệu và lộ trình học</summary><OutlineEditor id={selected.id} session={session}/></details>}
       {selected.status==="DRAFT" && <form onSubmit={event=>{

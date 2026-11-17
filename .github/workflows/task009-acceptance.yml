@@ -107,11 +107,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '8'
       - run: python ci/task009/run.py resources
-      - name: Mocked Dashboard and Calendar regressions (64 cases)
+      - name: Mocked Dashboard and Calendar regressions (66 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/teacher-calendar.spec.ts tests/e2e/unified-dashboard.spec.ts tests/e2e/teacher-login.spec.ts tests/e2e/teacher-courses.spec.ts tests/e2e/teacher-sessions.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '64'
+          TASK009_EXPECTED_TESTS: '66'
       - run: python ci/task009/run.py resources
       - name: Additional feature browser acceptance (108 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/course-registration.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
@@ -293,6 +293,33 @@ jobs:
         with:
           name: meeting-review-screenshots
           path: ${{ runner.temp }}/meeting-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Capture Teacher course invitation management with synthetic API fixtures
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @course-invitations
+        env:
+          TASK009_EXPECTED_TESTS: '2'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/course-invitations-review
+      - name: Verify two Teacher course invitation PNGs
+        if: ${{ !cancelled() }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'course-invitations-review'
+          for page in ('teacher-course-invitations',):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() }}
+        with:
+          name: course-invitations-review-screenshots
+          path: ${{ runner.temp }}/course-invitations-review/*.png
           retention-days: 7
           if-no-files-found: error
 
