@@ -1,4 +1,3 @@
-import { openStudentNavigation } from "../support/student-navigation";
 import { accountPanel } from "../support/account-navigation";
 import {expect,test} from '@playwright/test';
 for(const role of ['STUDENT','TEACHER']) for(const status of [200,400,401,403,500,503])test(`${role} profile save ${status} is safe and does not retry`,async({page})=>{
@@ -12,7 +11,7 @@ for(const role of ['STUDENT','TEACHER']) for(const status of [200,400,401,403,50
   await page.goto('/account');await expect(page.getByRole('contentinfo')).toHaveCount(0);await page.getByLabel('Email',{exact:true}).fill('student@example.test');await page.getByLabel('Mật khẩu',{exact:true}).fill('password');await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
  });
  await test.step('profile-navigation',async()=>{
-  if(role==='STUDENT'){await expect(page).toHaveURL(/\/student\/dashboard$/);await openStudentNavigation(page);await page.getByRole('link',{name:'Hồ sơ và cài đặt',exact:true}).click();}
+  if(role==='STUDENT'){await expect(page).toHaveURL(/\/student\/dashboard$/);}
   await accountPanel(page,'Hồ sơ cá nhân');
  });
  await test.step('profile-discard',async()=>{

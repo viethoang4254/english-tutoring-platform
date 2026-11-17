@@ -1,3 +1,4 @@
+import { accountPanel } from "../support/account-navigation";
 import {test,expect,type Page} from "@playwright/test";
 
 async function signIn(page:Page,role="TEACHER",status="APPROVED") {
@@ -62,4 +63,11 @@ test("Student has its own shell for enrollment and profile, without Teacher menu
  await nav.getByRole("link",{name:"Khóa học của tôi",exact:true}).click();await expect(page).toHaveURL(/\/student\/enrollments$/);
  await expect(page.getByRole("heading",{level:1,name:"Khóa học của tôi"})).toBeVisible();await expect(page.getByRole("contentinfo")).toHaveCount(0);
  await navigate(page,"Hồ sơ và cài đặt","Điều hướng học viên");await expect(page.locator("#change-password summary")).toBeVisible();
+ let accountNavigations=0;
+ page.on("framenavigated",frame=>{if(frame===page.mainFrame())accountNavigations++;});
+ await accountPanel(page,"Hồ sơ cá nhân");
+ await accountPanel(page,"Đổi mật khẩu");
+ expect(accountNavigations).toBe(0);
+ await expect(page.locator("[data-dashboard-account]")).toHaveCount(0);
+
 });
