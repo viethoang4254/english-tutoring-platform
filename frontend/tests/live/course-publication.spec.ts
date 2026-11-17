@@ -59,6 +59,7 @@ test('owner publishes a draft visible across public and Student catalogs', async
     await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
     await page.getByRole("listitem").filter({hasText:title}).getByRole("button",{name:"Xem chi tiết",exact:true}).click();
     await expect(page).toHaveURL(url=>url.pathname===editorPath);
+    await page.getByRole('button',{name:'Cài đặt',exact:true}).click();
   }
   await page.goto('/login');
   await signInAndOpenOwnerDraft();

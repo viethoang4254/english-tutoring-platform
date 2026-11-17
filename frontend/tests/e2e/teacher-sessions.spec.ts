@@ -92,14 +92,14 @@ test("saved Teacher preview preserves unsaved curriculum and survives Course edi
   await preview.getByRole("button",{name:"Xem trước: trang sau"}).click();
   await expect(preview.getByText("Chưa có buổi học trên trang này.")).toBeVisible();
   await preview.getByRole("button",{name:"Xem trước: trang trước"}).click();
-  await page.getByRole("button",{name:"Lịch giảng dạy & nội dung",exact:true}).click();
+  await page.getByRole("button",{name:"Buổi học",exact:true}).click();
   await expect(page.getByLabel("Tiêu đề buổi học",{exact:true})).toHaveValue("Unsaved curriculum title");
   await page.getByRole("textbox",{name:"Nội dung buổi học",exact:true}).fill("Saved independent curriculum");
   await page.getByRole("button",{name:"Lưu nội dung",exact:true}).click();
   await expect(page.getByRole("region",{name:"Lịch và buổi học",exact:true}).getByRole("alert")).toContainText("Đã cập nhật");
   expect(f.bodies[0]).toEqual({title:"Unsaved curriculum title",content:"Saved independent curriculum"});
-  await page.getByRole("button",{name:"Thông tin & học phí",exact:true}).click();
-  await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
+  await page.getByRole("button",{name:"Tổng quan",exact:true}).click();
+  await page.getByRole("button",{name:"Cài đặt",exact:true}).click();await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
   await expect(page.getByRole("heading",{name:"1. Thông tin cơ bản"})).toBeVisible();
   await expect(page.getByRole("heading",{name:"2. Học phí & sĩ số"})).toBeVisible();
   await page.getByLabel("Tên khóa học",{exact:true}).fill("Updated Course only");

@@ -40,22 +40,33 @@ test("@course-invitations Teacher manages invitations and refreshes course progr
   });
   await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
   await page.getByRole("button",{name:"Xem chi tiết",exact:true}).click();
-  await page.getByText("Google Calendar của khóa học",{exact:true}).click();
+  const sections=page.getByRole("navigation",{name:"Các phần của khóa học"});
+  await expect(sections.getByRole("button",{name:"Tổng quan",exact:true})).toHaveAttribute("aria-pressed","true");
+  for(const button of await sections.getByRole("button").all())expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await captureReview(page,info,"teacher-course-overview");
+  await sections.getByRole("button",{name:"Học viên",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Học viên khóa học"})).toContainText("Danh sách học viên chưa được cung cấp");
+  await page.getByRole("button",{name:"Google Calendar",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Google Calendar",exact:true})).toHaveAttribute("aria-pressed","true");
   const panel=page.getByRole("region",{name:"Lời mời theo khóa học"});
   const metric=(label:string)=>panel.locator("dl > div").filter({
     has:page.getByText(label,{exact:true})
   }).getByRole("definition");
-  await expect(page.getByRole("button",{name:"Kết nối Google Calendar",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Kết nối Google Calendar",exact:true})).toHaveCount(0);
   await expect(panel.getByText("Chưa có buổi học sắp tới.")).toBeVisible();
   await expect(metric("Học viên đủ điều kiện")).toHaveText("0");
   await expect(panel.getByRole("button",{name:"Đồng bộ lời mời",exact:true})).toHaveCount(0);
   connected=true;
-  await page.getByRole("button",{name:"Tải lại kết nối"}).click();
+  await page.getByRole("button",{name:"Cài đặt",exact:true}).click();
+  await expect(page.getByText("Tài khoản Google: teacher@example.invalid")).toBeVisible();
+  await page.getByRole("button",{name:"Google Calendar",exact:true}).click();
   await expect(page.getByText("Tài khoản Google: teacher@example.invalid")).toBeVisible();
   await expect(metric("Học viên đủ điều kiện")).toHaveText("4");
-  await panel.getByRole("button",{name:"Thử đồng bộ lại lời mời"}).click();
+  await panel.getByRole("button",{name:"Đồng bộ lời mời"}).click();
   await expect(panel.getByRole("status")).toContainText("Đã xếp hàng đồng bộ");
   expect(queued).toBe(1);
+  await panel.getByText("Tiến độ · 1 chờ · 0 lỗi",{exact:true}).click();
   await expect(metric("Chờ đồng bộ")).toHaveText("1");
   synced=true;
   await panel.getByRole("button",{name:"Tải lại trạng thái lời mời"}).click();
@@ -80,7 +91,7 @@ test("owned list filtering pagination detail edit inactive retention and respons
   await page.getByLabel("Trạng thái khóa học").selectOption("ARCHIVED");await expect(page.getByText("Không có khóa học trên trang này.")).toBeVisible();
   await page.getByLabel("Trạng thái khóa học").selectOption("DRAFT");
   await page.getByRole("button",{name:"Xem chi tiết"}).click();
-  await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
+  await page.getByRole("button",{name:"Cài đặt",exact:true}).click();await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
   await expect(page.getByRole("combobox",{name:"Danh mục",exact:true})).toHaveValue("9");
   await page.getByLabel("Tên khóa học",{exact:true}).fill("Đã đổi tên");
   await page.screenshot({path:info.outputPath("teacher-draft.png"),fullPage:true});
@@ -109,7 +120,7 @@ for(const response of [400,409,503,0])test(`mutation ${response} is not retried 
     if(route.request().method()==="PATCH"){writes++;return response?route.fulfill({status:response,json:{code:response===409?"CATEGORY_INACTIVE":response===400?"INVALID_REQUEST":"COURSE_UNAVAILABLE",message:"Failure"}}):route.abort();}
     return route.fulfill({json:new URL(route.request().url()).pathname.endsWith(id)?course:{items:[course],page:0,size:20,hasNext:false}});
   });
-  await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();await page.getByRole("button",{name:"Xem chi tiết"}).click();await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
+  await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();await page.getByRole("button",{name:"Xem chi tiết"}).click();await page.getByRole("button",{name:"Cài đặt",exact:true}).click();await page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true}).click();
   await page.getByRole("button",{name:"Lưu bản nháp"}).click();await expect(page.getByRole("alert").last()).toBeVisible();expect(writes).toBe(1);
   if(response===503||response===0){await expect(page.getByRole("button",{name:"Lưu bản nháp"})).toBeDisabled();await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();await expect(page.getByRole("button",{name:"Chỉnh sửa bản nháp",exact:true})).toBeEnabled();}
 });

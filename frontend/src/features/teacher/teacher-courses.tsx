@@ -10,6 +10,7 @@ import styles from "./teacher-courses.module.css";
 import { useSession } from "../auth/session-provider";
 import { useRouter } from "next/navigation";
 import { TeacherSessions } from "./teacher-sessions";
+import { ConnectionPanel } from "../google-calendar/google-connection";
 import { CourseInvitations } from "./course-invitations";
 import { TeacherCoursePreview } from "./teacher-course-preview";
 
@@ -30,11 +31,12 @@ function valid(c: Course | undefined): c is Course {
 }
 export function TeacherCourses({ session, courseId, section }: { session: Session; courseId?: string; section?: "schedule" | "sessions" }) {
   const router = useRouter();
+  const [tab,setTab]=useState("overview");
   const [sessionsFor, setSessionsFor] = useState("");
   const [previewFor, setPreviewFor] = useState("");
   const preview = !!courseId && previewFor === courseId;
   const schedulePanel = !!courseId && (sessionsFor === courseId || !!section);
-  const onSchedule = () => { setPreviewFor(""); setSessionsFor(courseId ?? ""); };
+  const onSchedule = () => { setTab("overview"); setPreviewFor(""); setSessionsFor(courseId ?? ""); };
   const selectedId = useRef<string | null>(null);
   const { clearSession } = useSession();
   const [page,setPage]=useState<Page<Course>|null>(null), [filter,setFilter]=useState("");
@@ -103,19 +105,25 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
   }
   return <section className={styles.panel} aria-label="Khóa học của tôi" aria-busy={busy}>
     {busy&&<p role="status">Đang xử lý…</p>}{message&&<p className={styles.notice} role="alert">{message}</p>}
-    {(editing || (selected && selected.id === courseId)) && <>
+    {(editing || (tab==="settings" && selected && selected.id === courseId)) && <>
       <ol className={styles.steps} aria-label="Các bước xây dựng khóa học">
         {["Thông tin cơ bản", "Học phí & sĩ số", "Lịch giảng dạy", "Nội dung từng buổi", "Xem trước"].map((label, index) => <li key={label}><span>{index + 1}</span>{label}</li>)}
       </ol>
       <p>Tạo bản nháp → lưu lịch tuần → tạo buổi học → soạn nội dung từng buổi → xem trước thông tin đã lưu.</p>
     </>}
-    {courseId && selected?.id === courseId && !editing && !blocked && <div className={styles.toolbar} aria-label="Các phần của khóa học">
-      <button className="ui-button ui-button-secondary" disabled={busy} aria-pressed={!schedulePanel && !preview} onClick={() => { setPreviewFor(""); setSessionsFor(""); router.replace(`/teacher/courses/${courseId}`); }}>Thông tin & học phí</button>
-      <button className="ui-button ui-button-secondary" disabled={busy} aria-pressed={schedulePanel && !preview} onClick={onSchedule}>Lịch giảng dạy & nội dung</button>
-      <button className="ui-button ui-button-secondary" disabled={busy} aria-pressed={preview} onClick={() => setPreviewFor(courseId)}>Xem trước khóa học</button>
-    </div>}
+    {courseId && selected?.id === courseId && !editing && !blocked && <nav className={styles.courseTabs} aria-label="Các phần của khóa học">
+      {[["overview","Tổng quan"],["sessions","Buổi học"],["students","Học viên"],["calendar","Google Calendar"],["settings","Cài đặt"]].map(([value,label])=>
+        <button key={value} className="ui-button ui-button-secondary" disabled={busy} aria-pressed={!preview && (value==="sessions"?schedulePanel:!schedulePanel&&tab===value)} onClick={()=>{
+          setPreviewFor("");
+          if(value==="sessions")onSchedule();
+          else {setTab(value);setSessionsFor("");router.replace(`/teacher/courses/${courseId}`);}
+        }}>{label}</button>)}
+    </nav>}
+    {selected&&selected.id===courseId&&!editing&&!blocked&&<button className="ui-button ui-button-secondary" onClick={()=>setPreviewFor(courseId!)}>Xem trước khóa học</button>}
+    {selected&&selected.id===courseId&&!editing&&!blocked&&!preview&&!schedulePanel&&tab==="calendar"&&<CourseInvitations key={selected.id} course={selected} session={session}/>}
+    {selected&&selected.id===courseId&&!editing&&!blocked&&!preview&&!schedulePanel&&tab==="students"&&<section aria-label="Học viên khóa học"><h3>Học viên</h3><p>Danh sách học viên chưa được cung cấp trong giao diện quản lý khóa học.</p></section>}
     {preview && courseId && selected?.id === courseId && !blocked && <TeacherCoursePreview key={courseId} session={session} courseId={courseId} />}
-    <div hidden={schedulePanel || preview}>
+    <div hidden={schedulePanel || preview || (!!courseId && tab!=="overview" && tab!=="settings")}>
     <div hidden={!!courseId}>
     <h2>Khóa học của tôi</h2>
     {selected && <button className="ui-button ui-button-secondary" onClick={() => router.push(`/teacher/courses/${selected.id}`)}>Tiếp tục khóa học đã chọn</button>}
@@ -131,9 +139,11 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
     </div>
     {courseId && <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void run(async()=>{await detail(courseId);setBlocked(false);})}>Tải lại khóa học</button>}
     {courseId && selected?.id !== courseId && <p role="status">Chưa tải được chi tiết khóa học.</p>}
-    {selected&&selected.id===courseId&&!editing&&<article><h3>{selected.name}</h3><dl>{Object.entries({"Trạng thái":states[selected.status],"Danh mục":selected.category.name+(selected.category.active?"":" (ngừng hoạt động)"),"Mô tả":selected.description,"Học phí":`${selected.tuition.amount} VND`,"Số học viên":`${selected.minStudents}–${selected.maxStudents}`,"Ngày bắt đầu dự kiến":selected.plannedStartDate,"Múi giờ":selected.timezone,"Số buổi dự kiến":selected.sessionCount,"Giảm giá":selected.discount?`${selected.discount.percent}% · ${selected.discount.startAt} → ${selected.discount.endAt}`:"Không"}).map(([label,text])=><div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
+    {selected&&selected.id===courseId&&!editing&&<article><h3>{selected.name}</h3><div hidden={tab==="settings"}><dl>{Object.entries({"Trạng thái":states[selected.status],"Danh mục":selected.category.name+(selected.category.active?"":" (ngừng hoạt động)"),"Mô tả":selected.description,"Học phí":`${selected.tuition.amount} VND`,"Số học viên":`${selected.minStudents}–${selected.maxStudents}`,"Ngày bắt đầu dự kiến":selected.plannedStartDate,"Múi giờ":selected.timezone,"Số buổi dự kiến":selected.sessionCount,"Giảm giá":selected.discount?`${selected.discount.percent}% · ${selected.discount.startAt} → ${selected.discount.endAt}`:"Không"}).map(([label,text])=><div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl>
       {!blocked && <MeetingAccess key={`${session.accessToken}:${selected.id}:${selected.status}`} endpoint={`${root}/${selected.id}/meeting`} teacher />}
-      {!blocked && <CourseInvitations key={`${session.accessToken}:${selected.id}`} course={selected} session={session}/>}
+
+      </div><div hidden={tab!=="settings"}>
+      {!blocked&&tab==="settings"&&<ConnectionPanel token={session.accessToken} accountId={session.account.id}/>}
       {selected.status==="DRAFT" && <CourseCoverUpload key={selected.id} id={selected.id} session={session}/>}
       {selected.status==="DRAFT" && <details key={selected.id}><summary>Giới thiệu và lộ trình học</summary><OutlineEditor id={selected.id} session={session}/></details>}
       {selected.status==="DRAFT" && <form onSubmit={event=>{
@@ -147,7 +157,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
       }}><label>Liên kết Google Meet<input name="meetUrl" type="url" required placeholder="https://meet.google.com/abc-defg-hij" /></label>
         <button className="ui-button ui-button-primary" disabled={busy||blocked}>Xuất bản khóa học</button>
       </form>}
-      {selected.status==="DRAFT"?<button className="ui-button ui-button-primary" disabled={busy||blocked} onClick={()=>void run(async()=>{await loadCategories();setEditing(true);})}>Chỉnh sửa bản nháp</button>:<p>Chỉ khóa học ở trạng thái bản nháp mới có thể chỉnh sửa thông tin tại đây.</p>}</article>}
+      {selected.status==="DRAFT"?<button className="ui-button ui-button-primary" disabled={busy||blocked} onClick={()=>void run(async()=>{await loadCategories();setEditing(true);})}>Chỉnh sửa bản nháp</button>:<p>Chỉ khóa học ở trạng thái bản nháp mới có thể chỉnh sửa thông tin tại đây.</p>}</div></article>}
     {editing&&(!courseId||selected?.id===courseId)&&<form key={selected?.id??"new"} onSubmit={submit}><h3>{selected?"Chỉnh sửa bản nháp":"Bản nháp mới"}</h3><fieldset disabled={busy||blocked}><legend>Thông tin bản nháp</legend>
 <section className={styles.formSection}><h4>1. Thông tin cơ bản</h4><div className={styles.grid}>
       <label>Danh mục<select name="categoryId" required defaultValue={selected?.category.id??""}><option value="">Chọn danh mục</option>{selected&&!categories.some(c=>c.id===selected.category.id)&&<option value={selected.category.id}>{selected.category.name} (giữ danh mục hiện tại)</option>}{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>

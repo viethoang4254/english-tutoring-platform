@@ -61,7 +61,7 @@ export function ConnectionPanel({token,accountId,courseContent}:{token:string;ac
     finally{flight.current=false;if(alive.current)setBusy(false);}
   }
   return <section aria-label="Kết nối Google Calendar" className="ui-card" style={{padding:"1rem",marginBlock:"1rem",overflowWrap:"anywhere"}}>
-    <h2>Google Calendar</h2><p>{result?.connection.synchronizationAvailable?"Các buổi học đủ điều kiện được đồng bộ vào lịch riêng của ứng dụng.":"Đồng bộ buổi học chưa hoạt động."}</p>
+    <h2>Google Calendar</h2>{!courseContent&&<p>{result?.connection.synchronizationAvailable?"Các buổi học đủ điều kiện được đồng bộ vào lịch riêng của ứng dụng.":"Đồng bộ buổi học chưa hoạt động."}</p>}
     {callback&&<p role="status">{callback}</p>}
     {error&&<p role="alert">{error}</p>}
     {!result&&!error&&<p role="status">Đang tải kết nối…</p>}
@@ -74,10 +74,11 @@ export function ConnectionPanel({token,accountId,courseContent}:{token:string;ac
         {result.sync.state==="FAILED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void retrySync()}>Thử đồng bộ lại</button>}
       </div>}
       {result.connection.email&&<p>Tài khoản Google: {result.connection.email}</p>}
-      {result.connection.status!=="CLEANUP_PENDING"&&<button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void mutate(false)}>{result.connection.status==="DISCONNECTED"?"Kết nối Google Calendar":"Kết nối lại Google Calendar"}</button>}
-      {result.connection.status!=="DISCONNECTED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void mutate(true)}>Ngắt kết nối Google Calendar</button>}
+      {!courseContent&&result.connection.status!=="CLEANUP_PENDING"&&<button className="ui-button ui-button-primary" disabled={busy} onClick={()=>void mutate(false)}>{result.connection.status==="DISCONNECTED"?"Kết nối Google Calendar":"Kết nối lại Google Calendar"}</button>}
+      {!courseContent&&result.connection.status!=="DISCONNECTED"&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>void mutate(true)}>Ngắt kết nối Google Calendar</button>}
     </>}
-    <button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>setAttempt(a=>a+1)}>Tải lại kết nối</button>
+    {(!courseContent||error)&&<button className="ui-button ui-button-secondary" disabled={busy} onClick={()=>setAttempt(a=>a+1)}>Tải lại kết nối</button>}
+    {courseContent&&result?.connection.status!=="CONNECTED"&&<p>Quản lý kết nối Google trong Cài đặt khóa học.</p>}
     {result&&courseContent?.(result.connection.status==="CONNECTED" && result.connection.synchronizationAvailable && !error)}
   </section>;
 }
