@@ -8,6 +8,11 @@ import java.sql.*;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
+import com.englishlearning.features.reminder.SessionReminderWorker;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import static org.mockito.Mockito.*;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -56,8 +61,8 @@ class PaymentPersistenceTests {
         sql("INSERT INTO teacher_payment_accounts(id,teacher_id,bank_code,account_number,account_holder_name,provider,status,created_at,updated_at) VALUES (100,1,'LEGACY','000123','Legacy Holder','VIETQR','INACTIVE',now(),now())");
         sql("INSERT INTO payments(id,enrollment_id,teacher_payment_account_id,payment_code,provider,original_amount,discount_amount,final_amount,currency,status,expires_at,created_at,updated_at) VALUES (100,100,100,'LEGACY','VIETQR',100.50,0.25,100.25,'VND','PENDING',now()-interval '1 hour',now()-interval '2 hours',now())");
         legacyBefore=legacy();
-        var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(6,flyway.migrate().migrationsExecuted);flyway.validate();
-        assertEquals(14,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        var flyway=Flyway.configure().dataSource(url,user,password).cleanDisabled(true).load();assertEquals(7,flyway.migrate().migrationsExecuted);flyway.validate();
+        assertEquals(15,count("SELECT count(*) FROM flyway_schema_history WHERE success"));
         var props=new HashMap<String,Object>();props.put("spring.datasource.url",url);props.put("spring.datasource.username",user);props.put("spring.datasource.password",password);
         props.put("spring.flyway.enabled",false);props.put("spring.jpa.hibernate.ddl-auto","validate");props.put("spring.sql.init.mode","never");
         props.put("spring.datasource.hikari.maximum-pool-size",4);props.put("spring.datasource.hikari.connection-init-sql","SET lock_timeout TO '5s'");
@@ -80,6 +85,124 @@ class PaymentPersistenceTests {
         sql("INSERT INTO teacher_payment_accounts(id,teacher_id,bank_code,bank_bin,bank_name,account_number,account_holder_name,provider,status,review_status,qr_object,qr_sha256,qr_size,submission_key,request_sha256,created_at,updated_at) VALUES ("+id+",1,'VCB','970436','Bank','"+number+"','Teacher','VIETQR','INACTIVE','PENDING','"+key+".png',repeat('a',64),100,'"+key+"',repeat('b',64),now(),now())");
     }
     long reserve(){return enrollments.create(3,200).enrollment().id().value();}
+    private SessionReminderWorker reminderWorker(JavaMailSender sender) {
+        return new SessionReminderWorker(context.getBean(JdbcTemplate.class),sender,"sender@example.invalid",
+                java.net.URI.create("https://site.example.invalid"));
+    }
+
+    @Test void reminderLifecycleRechecksCurrentSessionCourseAndRecipient() {
+        long enrollment=reserve();
+        long payment=payments.create(3,enrollment).payment().id().value();
+        var db=context.getBean(JdbcTemplate.class);
+        var smtp=mock(JavaMailSender.class);
+        var worker=reminderWorker(smtp);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            db.update("UPDATE sessions SET scheduled_start_at=now()+interval '15 minutes',scheduled_end_at=now()+interval '1 hour' WHERE course_id=200");
+            db.update("UPDATE users SET email_verified=true WHERE id=3");
+            db.update("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id=?",enrollment);
+            worker.reconcile();
+            assertEquals(0,db.queryForObject("SELECT count(*) FROM student_session_reminders",Integer.class));
+            db.update("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id=?",payment);
+            // Another Teacher's simultaneous published session has no paid enrollment for this Student.
+            db.update("INSERT INTO users(id,email,password_hash,full_name,role,created_at,updated_at) VALUES (90,'second@example.invalid','unused','Second','TEACHER',now(),now())");
+            db.update("""
+                    INSERT INTO courses(id,teacher_id,category_id,name,description,tuition,currency,min_students,max_students,
+                    planned_start_date,timezone,session_count,status,created_at,updated_at)
+                    SELECT 90,90,category_id,'Independent course',description,tuition,currency,min_students,max_students,
+                    planned_start_date,timezone,1,'PUBLISHED',now(),now() FROM courses WHERE id=200
+                    """);
+            db.update("""
+                    INSERT INTO sessions(course_id,session_number,scheduled_start_at,scheduled_end_at,status,created_at,updated_at)
+                    SELECT 90,1,scheduled_start_at,scheduled_end_at,'SCHEDULED',now(),now() FROM sessions WHERE course_id=200
+                    """);
+            worker.reconcile();
+            worker.reconcile();
+            assertEquals(0,db.queryForObject("SELECT count(*) FROM student_session_reminders r JOIN sessions s ON s.id=r.session_id WHERE s.course_id=90",Integer.class));
+            assertEquals(1,db.queryForObject("SELECT count(*) FROM student_session_reminders WHERE student_id=3 AND starts_at-due_at=interval '15 minutes'",Integer.class));
+            db.update("UPDATE sessions SET scheduled_start_at=scheduled_start_at+interval '1 minute' WHERE course_id=200");
+            worker.reconcile();
+            assertEquals(1,db.queryForObject("SELECT count(*) FROM student_session_reminders WHERE state='CANCELLED'",Integer.class));
+            assertFalse(worker.deliverOne()); // New start is still sixteen minutes away.
+            for (String[] change : List.of(
+                    new String[]{"UPDATE sessions SET status='%s' WHERE course_id=200","CANCELLED","SCHEDULED"},
+                    new String[]{"UPDATE courses SET status='%s' WHERE id=200","CANCELLED","PUBLISHED"},
+                    new String[]{"UPDATE enrollments SET status='%s' WHERE id="+enrollment,"CANCELLED","ACTIVE"},
+                    new String[]{"UPDATE payments SET status='%s' WHERE id="+payment,"CANCELLED","CONFIRMED"},
+                    new String[]{"UPDATE users SET locked=%s WHERE id=3","true","false"})) {
+                db.update(change[0].formatted(change[1]));
+                worker.reconcile();
+                assertEquals(0,db.queryForObject("SELECT count(*) FROM student_session_reminders WHERE state='PENDING'",Integer.class));
+                db.update(change[0].formatted(change[2]));
+                worker.reconcile();
+                assertEquals(1,db.queryForObject("SELECT count(*) FROM student_session_reminders WHERE state='PENDING'",Integer.class));
+            }
+            db.update("UPDATE student_session_reminders SET next_attempt=now() WHERE state='PENDING'");
+            db.update("UPDATE users SET locked=true WHERE id=3");
+            assertTrue(worker.deliverOne());
+            verifyNoInteractions(smtp);
+        });
+    }
+
+    @Test void concurrentReminderClaimsRetryOnlyKnownRejectionsAndSurviveRestart() throws Exception {
+        long enrollment=reserve();
+        long payment=payments.create(3,enrollment).payment().id().value();
+        var smtp=mock(JavaMailSender.class);
+        var worker=reminderWorker(smtp);
+        var pool=Executors.newFixedThreadPool(2);
+        try {
+            sql("UPDATE users SET email_verified=true WHERE id=3");
+            sql("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id="+enrollment);
+            sql("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id="+payment);
+            sql("UPDATE sessions SET scheduled_start_at=now()+interval '14 minutes',scheduled_end_at=now()+interval '1 hour' WHERE course_id=200");
+            worker.reconcile();
+            doThrow(new org.springframework.mail.MailAuthenticationException("synthetic")).doNothing()
+                    .when(smtp).send(any(SimpleMailMessage.class));
+            assertTrue(worker.deliverOne());
+            assertFalse(worker.deliverOne());
+            sql("UPDATE student_session_reminders SET next_attempt=now() WHERE state='PENDING'");
+            var barrier=new CyclicBarrier(2);
+            Callable<Boolean> send=()->{barrier.await(10,TimeUnit.SECONDS);return reminderWorker(smtp).deliverOne();};
+            var first=pool.submit(send);
+            var second=pool.submit(send);
+            assertNotEquals(first.get(15,TimeUnit.SECONDS),second.get(15,TimeUnit.SECONDS));
+            assertEquals(1,count("SELECT count(*) FROM student_session_reminders WHERE state='SENT' AND attempts=2"));
+            var messages=org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+            verify(smtp,times(2)).send(messages.capture());
+            var message=messages.getValue();
+            assertArrayEquals(new String[]{"student@example.invalid"},message.getTo());
+            assertTrue(message.getText().contains(text("SELECT to_char(s.scheduled_start_at AT TIME ZONE c.timezone,'HH24:MI DD/MM/YYYY') FROM sessions s JOIN courses c ON c.id=s.course_id WHERE c.id=200")+" (Asia/Ho_Chi_Minh)"));
+            assertTrue(message.getText().contains("https://site.example.invalid/student/dashboard/schedule"));
+            assertFalse(message.getText().contains("meet.google.com"));
+            worker.tick();
+            verifyNoMoreInteractions(smtp);
+            sql("UPDATE sessions SET scheduled_start_at=scheduled_start_at-interval '1 minute' WHERE course_id=200");
+            doThrow(new org.springframework.mail.MailSendException("synthetic")).when(smtp).send(any(SimpleMailMessage.class));
+            worker.tick();
+            assertEquals(1,count("SELECT count(*) FROM student_session_reminders WHERE state='UNKNOWN'"));
+            sql("UPDATE sessions SET scheduled_start_at=scheduled_start_at-interval '1 minute' WHERE course_id=200");
+            worker.reconcile();
+            sql("UPDATE student_session_reminders SET state='SENDING',attempts=1,attempted_at=now()-interval '6 minutes' WHERE state='PENDING'");
+            reminderWorker(smtp).tick();
+            assertEquals(2,count("SELECT count(*) FROM student_session_reminders WHERE state='UNKNOWN'"));
+            verify(smtp,times(3)).send(any(SimpleMailMessage.class));
+            sql("UPDATE sessions SET scheduled_start_at=scheduled_start_at-interval '1 minute' WHERE course_id=200");
+            doThrow(new org.springframework.mail.MailAuthenticationException("synthetic")).when(smtp).send(any(SimpleMailMessage.class));
+            worker.tick();
+            for (int attempt=2;attempt<=3;attempt++) {
+                sql("UPDATE student_session_reminders SET next_attempt=now() WHERE state='PENDING'");
+                assertTrue(worker.deliverOne());
+            }
+            worker.tick();
+            assertEquals(1,count("SELECT count(*) FROM student_session_reminders WHERE state='FAILED' AND attempts=3"));
+            verify(smtp,times(6)).send(any(SimpleMailMessage.class));
+        } finally {
+            pool.shutdownNow();
+            sql("DELETE FROM student_session_reminders");
+            sql("UPDATE sessions SET scheduled_start_at='"+START.plusSeconds(3600)+"',scheduled_end_at='"+START.plusSeconds(7200)+"' WHERE course_id=200");
+            sql("UPDATE users SET email_verified=false WHERE id=3");
+        }
+    }
     @Test void sessionMeetingRechecksPaidOwnershipStatusAndRescheduling() {
         long e=reserve();var payment=payments.create(3,e).payment();
         var jdbc=context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);

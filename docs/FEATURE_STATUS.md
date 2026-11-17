@@ -75,7 +75,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-040 | Owned-Course Submission inspection and Student result visibility | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-041 | Private Teacher PaymentReceivingInformation | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-042 | Manual Course Meet configuration and protected access | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-043 | Calendar schedule/reminder capability | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
+| TASK-043 | Calendar schedule/reminder capability | IN_PROGRESS | Batch 3 | Reminder worker and fixture prepared; hosted verification pending. |
 | TASK-044 | ParticipantFeedback and rating | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-045 | Continuous cross-feature authorization and trust verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-046 | Teacher certificate persistence and management | IN_PROGRESS | TODO | Documentation and V2 preparation only; deployment/application implementation not performed. See Section 8, TASK-046. |
@@ -1442,3 +1442,34 @@ Batch 2 adds V14 durable course opt-ins, automatic attendee and session reconcil
 conditional cancellation and cleanup before credential revocation. Mocked provider and
 disposable PostgreSQL regressions are prepared for TASK-009. Hosted verification is pending.
 See [invitation lifecycle](TEACHER_CALENDAR_INVITATIONS.md#batch-2-lifecycle).
+
+### Teacher Calendar Batch 3: scheduled Student email reminders (IN_PROGRESS)
+
+V15 adds `student_session_reminders` and the read-only `student_reminder_targets` projection.
+Delivery requires explicit `APP_SESSION_REMINDERS_ENABLED=true`, the existing SMTP sender
+and `SMTP_FROM`, and a trusted `APP_SESSION_REMINDER_SITE_ORIGIN` (HTTPS, or HTTP loopback
+for development). The worker is absent by default. Google credentials and invitation
+opt-ins are independent of reminder eligibility.
+
+With a default 15-second delay between passes, the worker reconciles published, scheduled
+sessions in the next day. Each pass can recover 250 stale claims, cancel 250 invalid
+jobs and schedule 250 eligible reminders, prioritizing the earliest upcoming sessions.
+Each job belongs to one Student, session, start instant and schedule-history version.
+It becomes due 15 minutes before the start. A five-minute grace window accommodates
+late eligibility and worker delays. Superseded jobs and jobs with less than ten minutes
+remaining are cancelled. A previously cancelled unsent job can regain eligibility.
+The worker checks current payment, enrollment, Student login eligibility and session
+state again after claiming the job. Each plain-text email uses the course timezone
+and links to the authenticated Student schedule.
+
+Up to 50 due jobs per pass are claimed individually with PostgreSQL row locks and
+SKIP LOCKED. The claim commits before SMTP submission. Only a definite authentication
+rejection retries (30s then 60s, three attempts total). SENT means SMTP accepted the
+message, not verified mailbox delivery. An uncertain send or a claim left SENDING
+for five minutes becomes UNKNOWN and receives no automatic retry. A crash before
+submission can therefore cost one reminder. Eligibility or timing can change after
+the final database check and an email already submitted cannot be recalled.
+Attempts, last attempt, current outcome and completion time are recorded per job.
+
+TASK-009 payment-persistence exercises the worker against disposable PostgreSQL with a
+mock JavaMailSender. Hosted validation of this batch is pending.
