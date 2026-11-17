@@ -3,11 +3,10 @@ import { googleFixture, openGoogle } from "../support/google-calendar";
 import { captureReview } from "../support/ui-review";
 
 const cases = [
-  ["STUDENT","SYNCED","Đã đồng bộ Google Calendar"],
-  ["STUDENT","PENDING","Đang đồng bộ lịch học"],
-  ["STUDENT","FAILED","Đồng bộ thất bại, vui lòng thử lại"],
   ["TEACHER","SYNCED","Đã đồng bộ Google Calendar"],
-] as const;
+  ["TEACHER","PENDING","Đang đồng bộ lịch học"],
+  ["TEACHER","FAILED","Đồng bộ thất bại, vui lòng thử lại"],
+ ] as const;
 for (const [role,status,message] of cases) {
   test(`@calendar-sync-review ${role} ${status}`,async ({page},info)=>{
     const fixture=await googleFixture(page,role);
@@ -33,6 +32,7 @@ test("connection backfill is pending until the server reports success",async ({p
   fixture.sync={state:"PENDING",pending:2,failed:0,lastSuccess:null};
   await panel.getByRole("button",{name:"Kết nối Google Calendar",exact:true}).click();
   await expect(page).toHaveURL(/\/account\?googleCalendar=CONNECTED$/);
+  await page.locator("summary").filter({hasText:"Kết nối Google Calendar"}).click();
   const account=page.getByRole("region",{name:"Kết nối Google Calendar",exact:true});
   await expect(account.getByText("Đang đồng bộ lịch học",{exact:true})).toBeVisible();
   await expect(account.getByText("Đã đồng bộ Google Calendar",{exact:true})).toHaveCount(0);

@@ -53,7 +53,7 @@ test('@ui-review calendar selection, navigation and enrolled states are responsi
   await expect(page.getByText('Bản xem trước · Dữ liệu minh họa')).toHaveCount(0);
   await expect(page.locator('[data-dashboard-account]')).toHaveCount(0);
   await expect(page.getByRole('group',{name:'Các ngày trong tháng'})).toHaveCount(0);
-  await expect(page.getByRole('region',{name:'Kết nối Google Calendar',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Kết nối Google Calendar',exact:true})).toHaveCount(0);
   await expect(page.locator('summary').filter({hasText:'Kết nối Google Calendar'})).toHaveCount(0);
   await captureReview(page, info, 'student-dashboard');
   await page.getByRole('link',{name:'Xem lịch học đầy đủ',exact:true}).click();

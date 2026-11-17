@@ -1,5 +1,4 @@
 "use client";
-import { GoogleConnection } from "../google-calendar/google-connection";
 
 import Link from "next/link";
 import { MeetingAccess } from "../course/meeting-access";
@@ -75,7 +74,6 @@ export function StudentCalendar({overview=false}:{overview?:boolean}) {
   }
   function navigateMonth(offset: number) { selectDay(shiftMonth(month, offset) + "-01"); }
   return <section aria-label="Lịch học đã đăng ký">
-    <GoogleConnection />
     {overview&&<Link className="ui-button ui-button-secondary" href="/student/dashboard/schedule">Xem lịch học đầy đủ</Link>}
     <div className={styles.sectionHeading}><p>Buổi học từ khóa học đang học, đã xác nhận thanh toán.</p><button className="ui-button ui-button-secondary" disabled={loading} onClick={() => setAttempt(value => value + 1)}>Tải lại lịch học</button></div>
     {error && <div role="alert"><p>{error === "denied" ? "Tài khoản không có quyền xem lịch học." : "Không thể tải lịch học. Vui lòng thử lại."}</p>{error !== "denied" && <button className="ui-button ui-button-secondary" onClick={() => setAttempt(value => value + 1)}>Thử lại lịch học</button>}</div>}

@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { teacherPanel } from "./teacher-navigation";
 import { calendarPage } from "./student-calendar";
 
-export async function googleFixture(page: Page, role: "STUDENT" | "TEACHER" = "STUDENT") {
+export async function googleFixture(page: Page, role: "STUDENT" | "TEACHER" = "TEACHER") {
   await page.clock.setFixedTime(new Date("2026-10-18T03:00:00Z"));
   const state = { sync: undefined as {state:string;pending:number;failed:number;lastSuccess:string|null}|undefined, syncRetries:0, status: "DISCONNECTED", http: 200, gets: 0, connects: 0, disconnects: 0, refreshes: 0, remoteRevoked: true };
   await page.route("**/api/v1/**", route => {
@@ -38,7 +38,7 @@ export async function googleFixture(page: Page, role: "STUDENT" | "TEACHER" = "S
   });
   return state;
 }
-export async function openGoogle(page: Page, role: "STUDENT" | "TEACHER" = "STUDENT") {
+export async function openGoogle(page: Page, role: "STUDENT" | "TEACHER" = "TEACHER") {
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill("synthetic@example.test");
   await page.getByLabel("Mật khẩu", { exact: true }).fill("synthetic-password");

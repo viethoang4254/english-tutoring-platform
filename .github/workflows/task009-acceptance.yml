@@ -119,16 +119,16 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '108'
       - run: python ci/task009/run.py resources
-      - name: Google OAuth connection acceptance (32 cases)
+      - name: Google OAuth and Student UI isolation acceptance
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/google-calendar.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '32'
+          TASK009_EXPECTED_TESTS: '36'
       - name: Google Calendar synchronization acceptance
         working-directory: frontend
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/calendar-sync.spec.ts
         env:
-          TASK009_EXPECTED_TESTS: '16'
+          TASK009_EXPECTED_TESTS: '14'
       - name: Protected meeting access (14 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/meeting-access.spec.ts
         working-directory: frontend
@@ -309,7 +309,7 @@ jobs:
         run: |
           import os, pathlib, struct
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'google-review'
-          for page in ('student-google-disconnected', 'student-google-connected', 'teacher-google-connected'):
+          for page in ('teacher-google-disconnected', 'teacher-google-return', 'teacher-google-connected'):
               for viewport, width in (('desktop', 1440), ('mobile', 390)):
                   data = (root / f'{page}-{viewport}.png').read_bytes()
                   assert data[:8] == b'\x89PNG\r\n\x1a\n'
@@ -328,15 +328,15 @@ jobs:
         working-directory: frontend
         run: npx playwright test --config=playwright.task009.config.ts --grep @calendar-sync-review
         env:
-          TASK009_EXPECTED_TESTS: '8'
+          TASK009_EXPECTED_TESTS: '6'
           TASK009_UI_IMAGES: ${{ runner.temp }}/calendar-sync-review
-      - name: Verify eight Calendar synchronization PNGs
+      - name: Verify six Teacher Calendar synchronization PNGs
         if: ${{ !cancelled() }}
         shell: python
         run: |
           import os, pathlib, struct
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'calendar-sync-review'
-          for page in ('student-sync-synced', 'student-sync-pending', 'student-sync-failed', 'teacher-sync-synced'):
+          for page in ('teacher-sync-synced', 'teacher-sync-pending', 'teacher-sync-failed'):
               for viewport, width in (('desktop', 1440), ('mobile', 390)):
                   data = (root / f'{page}-{viewport}.png').read_bytes()
                   assert data[:8] == b'\x89PNG\r\n\x1a\n'

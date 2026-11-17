@@ -1407,3 +1407,22 @@ sessions while the full calendar lives at /student/dashboard/schedule. Student
 profile and logout remain in the sidebar; other role shells are unchanged.
 Frontend regression fixtures/navigation and screenshot coverage are updated.
 Static diff checks only; hosted TASK-009 validation and visual review are pending.
+
+
+## Student Google connection UI removal — IN_PROGRESS
+
+Supersedes the Student connection-card requirement above. Only Teachers have
+Google account connection controls. Student Overview, /student/dashboard/schedule,
+and /account expose no connection, reconnection, disconnection, status refresh or
+sync retry controls, including for Students with existing stored connections.
+Website schedules, upcoming sessions, enrollment and protected Meet access remain.
+Backend OAuth infrastructure, migrations and credentials are retained unchanged;
+this UI change does not revoke connections or change backend role permissions.
+
+Teacher-managed course invitations and 15-minute reminders are NOT implemented
+by this change and require a separate approved batch. Existing personal-calendar
+sync is not evidence of invitation delivery. Teacher OAuth/security browser tests
+remain, with new Student absence coverage. Google screenshots now cover Teacher
+disconnected, OAuth return and connected states (six PNGs); sync screenshots cover
+Teacher synced/pending/failed states (six PNGs). Other screenshot groups remain.
+Static review only; hosted TASK-009 and desktop/mobile verification pending.

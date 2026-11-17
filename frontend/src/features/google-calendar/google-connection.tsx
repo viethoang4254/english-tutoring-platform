@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import styles from "./google-connection.module.css";
 import { prepareGoogleReturn } from "./google-return";
 import { useSession } from "../auth/session-provider";
 import { apiRequest, ApiRequestError } from "../../lib/api";
@@ -14,12 +13,11 @@ const messages:Record<string,string>={DISCONNECT_FIRST:"Vui lòng ngắt kết n
 export function GoogleConnection(){
   const {session}=useSession();
   const [expanded,setExpanded]=useState(false);
-  if(!session||!["STUDENT","TEACHER"].includes(session.account.role))return null;
-  if(session.account.role==="STUDENT")return <ConnectionPanel key={session.accessToken} accountId={session.account.id} token={session.accessToken}/>;
+  if(!session||session.account.role!=="TEACHER")return null;
   return <details onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Kết nối Google Calendar</summary>{expanded&&<ConnectionPanel key={session.accessToken} accountId={session.account.id} token={session.accessToken}/>}</details>;
 }
 function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
-  const {session,clearSession,googleOutcome}=useSession();
+  const {clearSession,googleOutcome}=useSession();
   const [result,setResult]=useState<Status>();const [error,setError]=useState("");
   const [attempt,setAttempt]=useState(0),[busy,setBusy]=useState(false);
   const flight=useRef(false),alive=useRef(true);
@@ -62,7 +60,7 @@ function ConnectionPanel({token,accountId}:{token:string;accountId:string}){
     }catch(e){if(alive.current){if(e instanceof ApiRequestError&&e.status===401)clearSession();else setError("Chưa xác nhận được kết quả kết nối. Tải lại trạng thái trước khi thử lại.");}}
     finally{flight.current=false;if(alive.current)setBusy(false);}
   }
-  return <section aria-label="Kết nối Google Calendar" className={session?.account.role==="STUDENT"?`ui-card ${styles.card}`:"ui-card"} style={{padding:"1rem",marginBlock:"1rem",overflowWrap:"anywhere"}}>
+  return <section aria-label="Kết nối Google Calendar" className="ui-card" style={{padding:"1rem",marginBlock:"1rem",overflowWrap:"anywhere"}}>
     <h2>Google Calendar</h2><p>{result?.connection.synchronizationAvailable?"Các buổi học đủ điều kiện được đồng bộ vào lịch riêng của ứng dụng.":"Đồng bộ buổi học chưa hoạt động."}</p>
     {callback&&<p role="status">{callback}</p>}
     {error&&<p role="alert">{error}</p>}
