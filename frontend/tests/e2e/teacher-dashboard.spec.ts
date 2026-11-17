@@ -33,7 +33,12 @@ async function login(page: Page, role = "TEACHER", status = "APPROVED", accountS
   await page.getByLabel("Ghi nhớ đăng nhập").check();
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   if (rejection) await rejection;
-  else await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
+  else if (role === "STUDENT") {
+    await expect(page).toHaveURL(/\/student\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Tổng quan", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Điều hướng học viên", exact: true, includeHidden: true })).toBeAttached();
+    await expect(page.locator("[data-dashboard-account]")).toHaveCount(0);
+  } else await expect(page.locator("[data-dashboard-account] summary")).toBeVisible();
   return calls;
 }
 
