@@ -297,6 +297,7 @@ jobs:
           if-no-files-found: error
 
       - name: Capture Teacher course invitation management with synthetic API fixtures
+        id: capture_course_invitations
         if: ${{ !cancelled() }}
         working-directory: frontend
         run: npx playwright test --config=playwright.task009.config.ts --grep @course-invitations
@@ -304,7 +305,8 @@ jobs:
           TASK009_EXPECTED_TESTS: '2'
           TASK009_UI_IMAGES: ${{ runner.temp }}/course-invitations-review
       - name: Verify two Teacher course invitation PNGs
-        if: ${{ !cancelled() }}
+        id: verify_course_invitations
+        if: ${{ !cancelled() && steps.capture_course_invitations.outcome == 'success' }}
         shell: python
         run: |
           import os, pathlib, struct
@@ -316,7 +318,7 @@ jobs:
                   w, h = struct.unpack('>II', data[16:24])
                   assert w == width and h > 0
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.verify_course_invitations.outcome == 'success' }}
         with:
           name: course-invitations-review-screenshots
           path: ${{ runner.temp }}/course-invitations-review/*.png

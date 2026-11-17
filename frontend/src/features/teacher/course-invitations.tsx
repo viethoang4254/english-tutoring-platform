@@ -20,7 +20,7 @@ export function CourseInvitations({course,session}:Props) {
   return <details className={styles.invitationSection} onToggle={e=>setOpen(e.currentTarget.open)}>
     <summary>Google Calendar của khóa học</summary>
     {open&&<ConnectionPanel token={session.accessToken} accountId={session.account.id}
-      courseContent={connected=><InvitationPanel key={String(connected)} course={course} session={session} connected={connected}/>}/>}
+      courseContent={connected=><InvitationPanel key={course.status+":"+connected} course={course} session={session} connected={connected}/>}/>}
   </details>;
 }
 
@@ -38,7 +38,6 @@ function InvitationPanel({course,session,connected}:Props & {connected:boolean})
   useEffect(()=>{
     let current=true;
     const options={headers:{Authorization:"Bearer "+token},credentials:"include",cache:"no-store"} as const;
-    setLoading(true);setError("");setSummary(undefined);setCounts(undefined);
     async function read(){
       const info=await apiRequest<Summary>(root+"/overview",options);
       if(!current)return;
@@ -88,7 +87,10 @@ function InvitationPanel({course,session,connected}:Props & {connected:boolean})
     <div className={styles.toolbar}>
       {counts&&<button className="ui-button ui-button-primary" disabled={sending||loading} onClick={()=>void queue()}>
         {sending?"Đang gửi yêu cầu…":counts.failed>0?"Thử đồng bộ lại lời mời":"Đồng bộ lời mời"}</button>}
-      <button className="ui-button ui-button-secondary" disabled={loading||sending} onClick={()=>{setNotice("");refresh(v=>v+1);}}>Tải lại trạng thái lời mời</button>
+      <button className="ui-button ui-button-secondary" disabled={loading||sending} onClick={()=>{
+        setLoading(true);setError("");setNotice("");setSummary(undefined);setCounts(undefined);
+        refresh(v=>v+1);
+      }}>Tải lại trạng thái lời mời</button>
     </div>
     {summary&&<><h4>Buổi học sắp tới</h4>{summary.sessions.length===0?<p>Chưa có buổi học sắp tới.</p>:
       <ul className={styles.list}>{summary.sessions.map(s=><li key={s.number}><div><strong>Buổi {s.number} · {s.status==="SCHEDULED"?"Đã lên lịch":"Đã hủy"}</strong>

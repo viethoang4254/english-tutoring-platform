@@ -56,7 +56,13 @@ export default class SafeReporter implements Reporter {
       ...(safeLocation(test.location).startsWith('tests/e2e/student-profile.spec.ts:') &&
         /^(STUDENT|TEACHER) profile save (200|400|401|403|500|503) is safe and does not retry$/.test(test.title)
         ? {scenario:test.title,...this.profileProgress.get(result)} : {})});
-    console.log(`${result.status}: declaration=${safeLocation(test.location)} stage=${stage} failure=${failure}`);
+    const project = test.parent.project()?.name;
+    const diagnostic = `${result.status}: declaration=${safeLocation(test.location)} stage=${stage} failure=${failure}`;
+    if (test.tags.includes('@course-invitations')) {
+      const line = `Course invitations [${project === 'desktop' || project === 'mobile' ? project : 'unknown'}] ${diagnostic}`;
+      console.log(line);
+      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+    } else console.log(diagnostic);
   }
   onError() { this.counts.errors++; }
   onStdOut() {}

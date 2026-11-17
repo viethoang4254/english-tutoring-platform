@@ -42,21 +42,25 @@ test("@course-invitations Teacher manages invitations and refreshes course progr
   await page.getByRole("button",{name:"Xem chi tiết",exact:true}).click();
   await page.getByText("Google Calendar của khóa học",{exact:true}).click();
   const panel=page.getByRole("region",{name:"Lời mời theo khóa học"});
+  const metric=(label:string)=>panel.locator("dl > div").filter({
+    has:page.getByText(label,{exact:true})
+  }).getByRole("definition");
   await expect(page.getByRole("button",{name:"Kết nối Google Calendar",exact:true})).toBeVisible();
   await expect(panel.getByText("Chưa có buổi học sắp tới.")).toBeVisible();
+  await expect(metric("Học viên đủ điều kiện")).toHaveText("0");
   await expect(panel.getByRole("button",{name:"Đồng bộ lời mời",exact:true})).toHaveCount(0);
   connected=true;
   await page.getByRole("button",{name:"Tải lại kết nối"}).click();
   await expect(page.getByText("Tài khoản Google: teacher@example.invalid")).toBeVisible();
-  await expect(panel.getByText("Học viên đủ điều kiện").locator("..").locator("dd")).toHaveText("4");
+  await expect(metric("Học viên đủ điều kiện")).toHaveText("4");
   await panel.getByRole("button",{name:"Thử đồng bộ lại lời mời"}).click();
   await expect(panel.getByRole("status")).toContainText("Đã xếp hàng đồng bộ");
   expect(queued).toBe(1);
-  await expect(panel.getByText("Chờ đồng bộ",{exact:true}).first().locator("..").locator("dd")).toHaveText("1");
+  await expect(metric("Chờ đồng bộ")).toHaveText("1");
   synced=true;
   await panel.getByRole("button",{name:"Tải lại trạng thái lời mời"}).click();
   await expect(panel.locator("li").getByText("Đã đồng bộ")).toBeVisible();
-  await expect(panel.getByText("Đã đồng bộ",{exact:true}).first().locator("..").locator("dd")).toHaveText("1");
+  await expect(metric("Đã đồng bộ")).toHaveText("1");
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await captureReview(page,info,"teacher-course-invitations");
 });
