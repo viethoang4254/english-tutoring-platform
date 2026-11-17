@@ -1484,3 +1484,20 @@ and restricted to the approved, unlocked owning Teacher. The existing invitation
 GET and CSRF-protected POST supply queue progress and synchronization requests.
 HTTP 202 indicates queued work. Neither queue state nor reminder configuration
 measures email delivery. TASK-009 desktop/mobile verification is pending.
+
+### Teacher course roster — implementation awaiting hosted CI
+
+- IN_PROGRESS: the Học viên course section now reads the existing owning-Teacher
+  `GET /api/v1/teacher/courses/{courseId}/enrollments` endpoint with bounded paging.
+- Rows expose display name, enrollment status, payment status and current
+  `attendanceEligible`. Payment status is CONFIRMED if any confirmed attempt exists;
+  otherwise it is the latest payment attempt by ID, or null when absent.
+- Eligibility requires an unlocked STUDENT, ACTIVE enrollment, CONFIRMED payment
+  and PUBLISHED course. This is a point-in-time course eligibility summary, not a
+  grant of access; session Join continues to reauthorize and reject cancelled sessions.
+- No emails, banking information or Meet URLs are added. Existing Teacher approval,
+  ownership, no-store, pagination and status-filter rules remain unchanged.
+- Prepared HTTP authorization, disposable PostgreSQL eligibility and desktop/mobile
+  Playwright paging/retry coverage. TASK-009 dashboard/calendar count increases from
+  66 to 68. No local tests/builds executed; hosted CI required before completion.
+- Read-only roster: no enrollment edits, payment confirmation or roster exports.

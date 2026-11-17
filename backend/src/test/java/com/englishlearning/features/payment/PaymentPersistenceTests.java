@@ -90,6 +90,31 @@ class PaymentPersistenceTests {
                 java.net.URI.create("https://site.example.invalid"));
     }
 
+    @Test void ownedRosterUsesPaymentAndCurrentEligibility() {
+        long enrollment=reserve();
+        assertNull(enrollments.roster(1,200,0,20,null).items().get(0).paymentStatus());
+        long payment=payments.create(3,enrollment).payment().id().value();
+        var db=context.getBean(JdbcTemplate.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            assertEquals("PENDING",enrollments.roster(1,200,0,20,null).items().get(0).paymentStatus());
+            assertFalse(enrollments.roster(1,200,0,20,null).items().get(0).attendanceEligible());
+            db.update("UPDATE enrollments SET status='ACTIVE',enrolled_at=now() WHERE id=?",enrollment);
+            assertFalse(enrollments.roster(1,200,0,20,null).items().get(0).attendanceEligible());
+            db.update("UPDATE payments SET status='CONFIRMED',confirmed_at=now() WHERE id=?",payment);
+            assertTrue(enrollments.roster(1,200,0,20,null).items().get(0).attendanceEligible());
+            for(String[] change:List.of(
+                new String[]{"UPDATE users SET locked=%s WHERE id=3","true","false"},
+                new String[]{"UPDATE courses SET status='%s' WHERE id=200","CANCELLED","PUBLISHED"},
+                new String[]{"UPDATE enrollments SET status='%s' WHERE id="+enrollment,"CANCELLED","ACTIVE"})) {
+                db.update(change[0].formatted(change[1]));
+                assertFalse(enrollments.roster(1,200,0,20,null).items().get(0).attendanceEligible());
+                db.update(change[0].formatted(change[2]));
+            }
+            assertEquals(1,enrollments.roster(1,200,0,20,null).items().size());
+        });
+    }
+
     @Test void reminderLifecycleRechecksCurrentSessionCourseAndRecipient() {
         long enrollment=reserve();
         long payment=payments.create(3,enrollment).payment().id().value();

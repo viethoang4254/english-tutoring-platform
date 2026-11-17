@@ -40,13 +40,14 @@ test("@course-invitations Teacher manages invitations and refreshes course progr
   });
   await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
   await page.getByRole("button",{name:"Xem chi tiết",exact:true}).click();
+  await page.route("**/teacher/courses/"+id+"/enrollments?*",r=>r.fulfill({json:{items:[],page:0,size:20,hasNext:false}}));
   const sections=page.getByRole("navigation",{name:"Các phần của khóa học"});
   await expect(sections.getByRole("button",{name:"Tổng quan",exact:true})).toHaveAttribute("aria-pressed","true");
   for(const button of await sections.getByRole("button").all())expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await captureReview(page,info,"teacher-course-overview");
   await sections.getByRole("button",{name:"Học viên",exact:true}).click();
-  await expect(page.getByRole("region",{name:"Học viên khóa học"})).toContainText("Danh sách học viên chưa được cung cấp");
+  await expect(page.getByRole("region",{name:"Học viên khóa học"})).toContainText("Chưa có học viên trên trang này.");
   await page.getByRole("button",{name:"Google Calendar",exact:true}).click();
   await expect(page.getByRole("button",{name:"Google Calendar",exact:true})).toHaveAttribute("aria-pressed","true");
   const panel=page.getByRole("region",{name:"Lời mời theo khóa học"});
@@ -145,4 +146,43 @@ test("expired authentication removes course workspace without refresh retry",asy
   await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Khóa học của tôi"}).last()).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Đăng nhập",exact:true})).toBeVisible();expect(calls).toBe(1);
+});
+
+test("@course-roster Teacher roster reads statuses, paginates and retries safely",async({page},info)=>{
+  await open(page);
+  const published={...course,status:"PUBLISHED"};
+  await page.route(url=>url.pathname==="/api/v1/teacher/courses"||url.pathname==="/api/v1/teacher/courses/"+id,r=>r.fulfill({json:new URL(r.request().url()).pathname.endsWith(id)?published:{items:[published],page:0,size:20,hasNext:false}}));
+  let failure=0;
+  await page.route("**/teacher/courses/"+id+"/enrollments?*",r=>{
+    expect(r.request().headers().authorization).toBe("Bearer fixture");
+    if(failure)return r.fulfill({status:failure,json:{code:"ENROLLMENT_UNAVAILABLE",message:"PRIVATE_FIXTURE_SECRET"}});
+    const number=Number(new URL(r.request().url()).searchParams.get("page"));
+    return r.fulfill({json:{items:number?[]:[
+      {enrollmentId:"1",studentDisplayName:"Học viên A",status:"ACTIVE",paymentStatus:"CONFIRMED",attendanceEligible:true},
+      {enrollmentId:"2",studentDisplayName:"Học viên B",status:"PENDING",paymentStatus:null,attendanceEligible:false}],page:number,size:20,hasNext:number===0}});
+  });
+  await page.getByRole("button",{name:"Tải lại khóa học",exact:true}).click();
+  await page.getByRole("button",{name:"Xem chi tiết",exact:true}).click();
+  await page.getByRole("button",{name:"Học viên",exact:true}).click();
+  const roster=page.getByRole("region",{name:"Học viên khóa học"});
+  await expect(roster.getByRole("listitem").filter({hasText:"Học viên A"})).toContainText("Đã xác nhận");
+  await expect(roster.getByText("Đủ điều kiện",{exact:true})).toBeVisible();
+  await expect(roster.getByText("Chưa có thanh toán",{exact:true})).toBeVisible();
+  await expect(roster.getByText("Chưa đủ điều kiện",{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await captureReview(page,info,"teacher-course-roster");
+  await roster.getByRole("button",{name:"Học viên: trang sau"}).click();
+  await expect(roster.getByText("Chưa có học viên trên trang này.")).toBeVisible();
+  await roster.getByRole("button",{name:"Học viên: trang trước"}).click();
+  await expect(roster.getByText("Học viên A",{exact:true})).toBeVisible();
+  for(const status of [403,503]){
+    failure=status;
+    await roster.getByRole("button",{name:"Tải lại học viên"}).click();
+    await expect(roster.getByRole("alert")).toBeVisible();
+    await expect(roster.getByText("Học viên A",{exact:true})).toHaveCount(0);
+    await expect(page.getByText("PRIVATE_FIXTURE_SECRET",{exact:true})).toHaveCount(0);
+    failure=0;
+    await roster.getByRole("button",{name:"Tải lại học viên"}).click();
+    await expect(roster.getByText("Học viên A",{exact:true})).toBeVisible();
+  }
 });

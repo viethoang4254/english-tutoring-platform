@@ -62,9 +62,21 @@ class EnrollmentHttpTests extends AuthenticationHttpTestSupport {
         actor(Role.STUDENT,false,false);when(enrollmentRepository.list(1,0,1,null,now)).thenReturn(List.of(row(),row()));
         mvc.perform(get("/api/v1/student/enrollments?size=1").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(jsonPath("$.hasNext").value(true)).andExpect(jsonPath("$.items.length()").value(1));
         actor(Role.TEACHER,true,false);when(enrollmentRepository.course(2,false)).thenReturn(Optional.of(new EnrollmentRepository.Course(1,"PUBLISHED",BigDecimal.ONE,1)));
-        when(enrollmentRepository.roster(1,2,0,20,null)).thenReturn(List.of(new EnrollmentRepository.RosterRow(new ApiId(3),new ApiId(7),"Student","PENDING",null)));
-        mvc.perform(get("/api/v1/teacher/courses/2/enrollments").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].studentId").value("7")).andExpect(jsonPath("$.items[0].email").doesNotExist());
+        when(enrollmentRepository.roster(1,2,0,20,null)).thenReturn(List.of(new EnrollmentRepository.RosterRow(new ApiId(3),new ApiId(7),"Student","PENDING",null,null,false)));
+        mvc.perform(get("/api/v1/teacher/courses/2/enrollments").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].studentId").value("7")).andExpect(jsonPath("$.items[0].email").doesNotExist()).andExpect(jsonPath("$.items[0].attendanceEligible").value(false)).andExpect(header().string("Cache-Control","no-store"));
         mvc.perform(get("/api/v1/teacher/courses/99/enrollments").header("Authorization","Bearer access")).andExpect(status().isNotFound());
+    }
+    @Test void rosterRejectsOtherRolesLockedAccountsAndOtherOwners() throws Exception {
+        for(Role role:List.of(Role.STUDENT,Role.ADMIN)) {
+            actor(role,true,false);
+            mvc.perform(get("/api/v1/teacher/courses/2/enrollments").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        }
+        actor(Role.TEACHER,true,true);
+        mvc.perform(get("/api/v1/teacher/courses/2/enrollments").header("Authorization","Bearer access")).andExpect(status().isUnauthorized());
+        actor(Role.TEACHER,true,false);
+        when(enrollmentRepository.course(2,false)).thenReturn(Optional.of(new EnrollmentRepository.Course(99,"PUBLISHED",BigDecimal.ONE,1)));
+        mvc.perform(get("/api/v1/teacher/courses/2/enrollments").header("Authorization","Bearer access")).andExpect(status().isNotFound());
+        verify(enrollmentRepository,never()).roster(anyLong(),anyLong(),anyInt(),anyInt(),any());
     }
     @Test void pendingRejectedTeachersAndUnavailablePersistenceFailSafely() throws Exception {
         actor(Role.TEACHER,true,false);

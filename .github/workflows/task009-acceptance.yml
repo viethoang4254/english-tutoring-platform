@@ -107,11 +107,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '8'
       - run: python ci/task009/run.py resources
-      - name: Mocked Dashboard and Calendar regressions (66 cases)
+      - name: Mocked Dashboard and Calendar regressions (68 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/teacher-calendar.spec.ts tests/e2e/unified-dashboard.spec.ts tests/e2e/teacher-login.spec.ts tests/e2e/teacher-courses.spec.ts tests/e2e/teacher-sessions.spec.ts
         working-directory: frontend
         env:
-          TASK009_EXPECTED_TESTS: '66'
+          TASK009_EXPECTED_TESTS: '68'
       - run: python ci/task009/run.py resources
       - name: Additional feature browser acceptance (108 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/course-registration.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
@@ -296,22 +296,22 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Capture Teacher course invitation management with synthetic API fixtures
+      - name: Capture Teacher course management and roster with synthetic API fixtures
         id: capture_course_invitations
         if: ${{ !cancelled() }}
         working-directory: frontend
-        run: npx playwright test --config=playwright.task009.config.ts --grep @course-invitations
+        run: npx playwright test --config=playwright.task009.config.ts --grep "@course-invitations|@course-roster"
         env:
-          TASK009_EXPECTED_TESTS: '2'
+          TASK009_EXPECTED_TESTS: '4'
           TASK009_UI_IMAGES: ${{ runner.temp }}/course-invitations-review
-      - name: Verify two Teacher course invitation PNGs
+      - name: Verify six Teacher course management PNGs
         id: verify_course_invitations
         if: ${{ !cancelled() && steps.capture_course_invitations.outcome == 'success' }}
         shell: python
         run: |
           import os, pathlib, struct
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'course-invitations-review'
-          for page in ('teacher-course-invitations',):
+          for page in ('teacher-course-overview', 'teacher-course-roster', 'teacher-course-invitations'):
               for viewport, width in (('desktop', 1440), ('mobile', 390)):
                   data = (root / f'{page}-{viewport}.png').read_bytes()
                   assert data[:8] == b'\x89PNG\r\n\x1a\n'

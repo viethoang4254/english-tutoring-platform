@@ -15,7 +15,7 @@ public class EnrollmentRepository {
     public EnrollmentRepository(EntityManager em) { this.em = em; }
     public record Course(long teacherId, String status, BigDecimal tuition, int capacity) {}
     public record RosterRow(ApiId enrollmentId, ApiId studentId, String studentDisplayName,
-                            String status, Instant enrolledAt) {}
+                            String status, Instant enrolledAt, String paymentStatus, boolean attendanceEligible) {}
     private static final String PAID_ENROLLMENT = """
             e.student_id=:student AND e.status='ACTIVE' AND c.status='PUBLISHED'
             AND EXISTS (SELECT 1 FROM public.payments p WHERE p.enrollment_id=e.id AND p.status='CONFIRMED')
@@ -88,11 +88,21 @@ public class EnrollmentRepository {
         return ((List<?>)q.setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(r->dto(r,now)).toList();
     }
     public List<RosterRow> roster(long actor,long course,int page,int size,String status) {
-        var q=em.createNativeQuery("SELECT e.id,e.student_id,u.full_name,e.status,e.enrolled_at FROM public.enrollments e JOIN public.courses c ON c.id=e.course_id JOIN public.users u ON u.id=e.student_id WHERE c.teacher_id=:actor AND c.id=:course"+(status==null?"":" AND e.status=:status")+" ORDER BY e.id DESC")
+        var q=em.createNativeQuery("""
+            SELECT e.id,e.student_id,u.full_name,e.status,e.enrolled_at,p.status,
+                   (u.role='STUDENT' AND NOT u.locked AND e.status='ACTIVE'
+                    AND c.status='PUBLISHED' AND COALESCE(p.status='CONFIRMED',false))
+            FROM public.enrollments e JOIN public.courses c ON c.id=e.course_id
+            JOIN public.users u ON u.id=e.student_id
+            LEFT JOIN LATERAL (SELECT status FROM public.payments WHERE enrollment_id=e.id
+                ORDER BY (status='CONFIRMED') DESC,id DESC LIMIT 1) p ON true
+            WHERE c.teacher_id=:actor AND c.id=:course
+            """+(status==null?"":" AND e.status=:status")+" ORDER BY e.id DESC")
                 .setParameter("actor",actor).setParameter("course",course);
         if(status!=null) q.setParameter("status",status);
-        return ((List<?>)q.setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(value->{Object[] r=(Object[])value;return new RosterRow(new ApiId(((Number)r[0]).longValue()),new ApiId(((Number)r[1]).longValue()),(String)r[2],(String)r[3],instant(r[4]));}).toList();
+        return ((List<?>)q.setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(value->{Object[] r=(Object[])value;return new RosterRow(new ApiId(((Number)r[0]).longValue()),new ApiId(((Number)r[1]).longValue()),(String)r[2],(String)r[3],instant(r[4]),(String)r[5],(Boolean)r[6]);}).toList();
     }
+
     public long create(long actor,long course,Instant deadline,Instant now) {
         return ((Number)em.createNativeQuery("INSERT INTO public.enrollments(student_id,course_id,status,seat_reserved_until,created_at,updated_at) VALUES (:actor,:course,'PENDING',:deadline,:now,:now) RETURNING id")
                 .setParameter("actor",actor).setParameter("course",course).setParameter("deadline",deadline).setParameter("now",now).getSingleResult()).longValue();

@@ -11,6 +11,7 @@ import { useSession } from "../auth/session-provider";
 import { useRouter } from "next/navigation";
 import { TeacherSessions } from "./teacher-sessions";
 import { ConnectionPanel } from "../google-calendar/google-connection";
+import { CourseRoster } from "./course-roster";
 import { CourseInvitations } from "./course-invitations";
 import { TeacherCoursePreview } from "./teacher-course-preview";
 
@@ -121,7 +122,7 @@ export function TeacherCourses({ session, courseId, section }: { session: Sessio
     </nav>}
     {selected&&selected.id===courseId&&!editing&&!blocked&&<button className="ui-button ui-button-secondary" onClick={()=>setPreviewFor(courseId!)}>Xem trước khóa học</button>}
     {selected&&selected.id===courseId&&!editing&&!blocked&&!preview&&!schedulePanel&&tab==="calendar"&&<CourseInvitations key={selected.id} course={selected} session={session}/>}
-    {selected&&selected.id===courseId&&!editing&&!blocked&&!preview&&!schedulePanel&&tab==="students"&&<section aria-label="Học viên khóa học"><h3>Học viên</h3><p>Danh sách học viên chưa được cung cấp trong giao diện quản lý khóa học.</p></section>}
+    {selected&&selected.id===courseId&&!editing&&!blocked&&!preview&&!schedulePanel&&tab==="students"&&<CourseRoster key={`${selected.id}:${session.accessToken}`} courseId={selected.id} session={session}/>}
     {preview && courseId && selected?.id === courseId && !blocked && <TeacherCoursePreview key={courseId} session={session} courseId={courseId} />}
     <div hidden={schedulePanel || preview || (!!courseId && tab!=="overview" && tab!=="settings")}>
     <div hidden={!!courseId}>
