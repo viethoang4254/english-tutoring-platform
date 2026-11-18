@@ -14,6 +14,10 @@ async function readableTables(panel:Locator, expected:number) {
   expect(dimensions.width).toBeGreaterThan(200);
   expect(dimensions.width).toBeGreaterThanOrEqual(dimensions.tableWidth-2);
   expect(dimensions.height).toBeLessThanOrEqual(dimensions.lineHeight*4);
+  for(const value of await table.locator("tbody span").all()) {
+   const box=await value.evaluate(element=>{const range=document.createRange();range.selectNodeContents(element);return {lines:range.getClientRects().length,width:element.getBoundingClientRect().width,parentWidth:element.parentElement!.getBoundingClientRect().width};});
+   expect(box.lines).toBe(1);expect(box.width).toBeLessThanOrEqual(box.parentWidth);
+  }
   await expect(table.locator("tbody tr")).toHaveCount(1);
   await expect(table.locator("tbody tr").first()).toContainText("1.000.000,25 ₫");
  }
@@ -41,6 +45,9 @@ test("@admin-analytics Automatic totals, period filters, payment monitoring and 
  await expect(panel.getByRole("img",{name:"Trạng thái khóa học: 6",exact:true})).toBeVisible();
  await expect(panel.getByRole("region",{name:"Trạng thái khóa học",exact:true})).toContainText("66,7%");
  await expect(panel.getByRole("img",{name:"Trạng thái thanh toán: 13",exact:true})).toBeVisible();
+ for(const name of ["Trạng thái khóa học: 6","Trạng thái thanh toán: 13"]){
+  const box=await panel.getByRole("img",{name,exact:true}).boundingBox();expect(box!.width).toBe(info.project.name==="desktop"?180:160);
+ }
  await expect(panel.getByRole("region",{name:"Trạng thái thanh toán",exact:true})).toContainText("61,5%");
  await panel.locator("summary").click();
  await expect(panel.locator("dt",{hasText:"Tài khoản đã đăng ký"}).locator("..").locator("dd")).toHaveText("12");
