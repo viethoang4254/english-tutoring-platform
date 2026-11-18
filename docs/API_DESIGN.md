@@ -1920,3 +1920,36 @@ Bank review history is platform review, not bank verification or payment confirm
 - No Meet URL, session content, attendee email, payment details or OAuth credentials.
   No mutation endpoint or Admin override of Teacher ownership. Existing 400/401/403/404
   and sanitized infrastructure error contracts apply. No schema changes.
+
+## Admin Batch 3 — read-only analytics
+
+`GET /api/v1/admin/analytics/overview?range=7|30|90|all`
+
+Verified, unlocked ADMIN only; Student/Teacher denied. No write endpoints. Missing
+range defaults to 30; empty/unknown/duplicate ranges, extra parameters and GET bodies
+are HTTP 400. Safe infrastructure errors are HTTP 503; no-store on responses.
+
+One repeatable-read snapshot returns `range`, `timezone`, `from` (null for all),
+`asOf`, `totals`, `period`, `days`, `courseTuition`, `moreCourses`, `teacherTuition`,
+`moreTeachers`. Global totals cover retained records and current statuses. Approved
+Teachers count distinct TEACHER users with any APPROVED application, independently of
+locked status. Pending applications are counted separately. Enrollment totals cover
+all states and do not imply participation eligibility.
+
+Payment record counts distinguish CONFIRMED/PENDING/EXPIRED/CANCELLED (no REJECTED
+payment state). Sum only CONFIRMED `final_amount` as decimal-string ApiMoney/VND.
+Amounts are gross recorded tuition paid directly to Teachers, not platform revenue,
+verified bank balances or refund-adjusted net income. Bank feed transactions are not
+joined, so unmatched bank transfers and repeated attempts do not multiply payments.
+
+For 7/30/90: start at midnight Asia/Ho_Chi_Minh, N-1 days before today's local date;
+include timestamps >= start and < asOf. For all: no lower bound, still < asOf.
+Activity uses created_at for users/courses/enrollments, confirmed_at for currently
+CONFIRMED payments. Daily date grouping uses the same zone; days without activity
+are omitted. No daily series for all-time. Inventory cards ignore the period filter.
+
+Course and Teacher period breakdowns each return at most 20 rows, descending summed
+amount then ascending ID. More flags indicate truncation; global and period totals
+remain exact. Only course/Teacher IDs and names, payment counts and amounts are
+returned. No Student rows, private banking data, Google secrets or Meet URLs.
+No migrations or Admin payment/course mutation authority are introduced.

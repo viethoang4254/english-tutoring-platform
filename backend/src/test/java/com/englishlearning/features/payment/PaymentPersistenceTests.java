@@ -90,6 +90,72 @@ class PaymentPersistenceTests {
                 java.net.URI.create("https://site.example.invalid"));
     }
 
+    @Test void adminAnalyticsCountsPersistedPaymentsWithoutJoinDuplicationAndUsesVietnamDates() {
+        long enrollment=reserve();long payment=payments.create(3,enrollment).payment().id().value();
+        var db=context.getBean(JdbcTemplate.class);
+        var service=context.getBean(com.englishlearning.features.user.service.AdminAnalyticsService.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            tx.setRollbackOnly();
+            db.update("UPDATE users SET created_at='2026-11-02T16:59:59Z'");
+            db.update("UPDATE users SET created_at='2026-11-02T17:00:00Z' WHERE id=3");
+            db.update("UPDATE courses SET created_at='2026-11-02T17:00:00Z'");
+            db.update("UPDATE enrollments SET created_at='2026-11-02T17:00:00Z'");
+            db.update("UPDATE payments SET status='CONFIRMED',confirmed_at='2026-11-02T17:00:00Z' WHERE id=100");
+            db.update("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,created_at,updated_at) VALUES (1,'History','History','History','APPROVED',now(),now(),2,now(),now())");
+            var view=service.overview(2L,"7");
+            assertEquals(5,view.totals().users());assertEquals(3,view.totals().students());assertEquals(1,view.totals().teachers());
+            assertEquals(1,view.totals().approvedTeachers());assertEquals(0,view.totals().pendingApplications());
+            assertEquals(2,view.totals().courses());assertEquals(1,view.totals().draftCourses());assertEquals(1,view.totals().publishedCourses());
+            assertEquals(2,view.totals().enrollments());assertEquals(2,view.totals().payments());
+            assertEquals(1,view.totals().confirmedPayments());assertEquals(1,view.totals().pendingPayments());
+            assertEquals("100.25",view.totals().confirmedTuition().amount());
+            assertEquals(Instant.parse("2026-11-02T17:00:00Z"),view.from());assertEquals(1,view.period().users());
+            assertEquals(2,view.period().enrollments());assertEquals(2,view.period().courses());assertEquals(1,view.period().confirmedPayments());
+            assertEquals("100.25",view.period().confirmedTuition().amount());assertEquals(1,view.days().size());assertEquals("2026-11-03",view.days().get(0).date());
+            assertEquals(1,view.courseTuition().size());assertEquals(100,view.courseTuition().get(0).courseId().value());
+            assertEquals("100.25",view.courseTuition().get(0).confirmedTuition().amount());assertEquals(1,view.courseTuition().get(0).teacherId().value());
+            assertEquals("100.25",view.teacherTuition().get(0).confirmedTuition().amount());
+            assertEquals(1,view.teacherTuition().get(0).confirmedPayments());
+            db.update("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,created_at,updated_at) VALUES (1,'Pending','Pending','Pending','PENDING',now(),now(),now())");
+            assertEquals(1,service.overview(2L,"7").totals().pendingApplications());
+            assertEquals(1,service.overview(2L,"7").totals().approvedTeachers());
+            db.update("UPDATE payments SET status='CONFIRMED',confirmed_at='2026-11-02T17:00:00Z' WHERE id=?",payment);
+            var combined=service.overview(2L,"7");
+            assertEquals(2,combined.totals().confirmedPayments());assertEquals(0,combined.totals().pendingPayments());
+            assertEquals("201.25",combined.period().confirmedTuition().amount());
+            assertEquals(2,combined.courseTuition().size());assertEquals(1,combined.teacherTuition().size());
+            assertEquals("201.25",combined.teacherTuition().get(0).confirmedTuition().amount());
+            db.update("UPDATE payments SET status='PENDING',confirmed_at=NULL WHERE id=?",payment);
+            db.update("UPDATE payments SET confirmed_at='2026-11-02T16:59:59Z' WHERE id=100");
+            assertEquals(0,service.overview(2L,"7").period().confirmedPayments());
+            assertEquals(1,service.overview(2L,"30").period().confirmedPayments());
+            assertEquals(1,service.overview(2L,"90").period().confirmedPayments());
+            assertEquals(5,service.overview(2L,"all").period().users());assertTrue(service.overview(2L,"all").days().isEmpty());
+            db.update("UPDATE payments SET confirmed_at=? WHERE id=100",Timestamp.from(START));
+            assertEquals(0,service.overview(2L,"7").period().confirmedPayments());
+            db.update("UPDATE payments SET status='EXPIRED' WHERE id=?",payment);
+            assertEquals(1,service.overview(2L,"7").totals().expiredPayments());
+            db.update("UPDATE payments SET status='CANCELLED' WHERE id=?",payment);
+            assertEquals(1,service.overview(2L,"7").totals().cancelledPayments());
+
+        });
+    }
+    @Test void adminAnalyticsRechecksPersistedAccountEligibility() {
+        var service=context.getBean(com.englishlearning.features.user.service.AdminAnalyticsService.class);
+        var db=context.getBean(JdbcTemplate.class);
+        assertEquals(403,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->service.overview(1L,"7")).status);
+        assertEquals(403,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->service.overview(3L,"7")).status);
+        for(String column:List.of("locked","email_verified")) {
+            new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+                tx.setRollbackOnly();
+                if(column.equals("locked")) db.update("UPDATE users SET locked=true WHERE id=2");
+                else db.update("UPDATE users SET email_verified=false WHERE id=2");
+                assertEquals(column.equals("locked")?401:403,
+                    assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->service.overview(2L,"7")).status);
+            });
+        }
+        assertNotNull(service.overview(2L,"7"));
+    }
     @Test void ownedRosterUsesPaymentAndCurrentEligibility() {
         long enrollment=reserve();
         assertNull(enrollments.roster(1,200,0,20,null).items().get(0).paymentStatus());

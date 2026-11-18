@@ -59,7 +59,7 @@ Each current active task appears exactly once below. Responsibilities and readin
 | TASK-024 | Admin Course oversight | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-025 | Teacher owned-Course Student/progress monitoring | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-026 | Admin transaction/status monitoring and refund verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
-| TASK-027 | Admin operational statistics | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
+| TASK-027 | Admin operational statistics | IN_PROGRESS | IN_PROGRESS | Admin Batch 3 source and hosted coverage prepared; hosted verification pending. See Batch 3 evidence below. |
 | TASK-028 | Tutoring cross-feature E2E and release verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
 | TASK-029 | Deployment and operational readiness | BLOCKED | DEFERRED | No implementation evidence; see Section 5. |
 | TASK-030 | Safe continuous build/test verification | TODO | TODO | No implementation evidence. Applicable prerequisites/gates remain in TASK_BREAKDOWN. |
@@ -116,7 +116,7 @@ Compatible existing feature IDs retain their current meaning below. Their scope 
 | FEAT-018 | Admin Course oversight | TODO | TASK-024 |
 | FEAT-019 | Teacher owned-Course monitoring | TODO | TASK-025 |
 | FEAT-020 | Admin transaction/status monitoring and refund verification | TODO | TASK-026 |
-| FEAT-021 | Admin operational statistics | TODO | TASK-027 |
+| FEAT-021 | Admin operational statistics | IN_PROGRESS | TASK-027 |
 | FEAT-022 | Tutoring release verification, operations and safe CI | TODO | TASK-028, TASK-029, TASK-030 |
 | FEAT-023 | Teacher certificate management | IN_PROGRESS | TASK-046 |
 
@@ -1607,3 +1607,46 @@ Only static diff checks performed; hosted acceptance and visual review pending.
 No suspension/moderation workflow exists in the inspected course API; no new states
 or Admin delivery authority were introduced. Aggregate transaction statistics remain
 outside this batch. Static review complete; hosted CI and screenshots remain pending. No local build/test or database operation.
+
+
+## Admin Batch 3 — dashboard and analytics (IN_PROGRESS)
+
+Approved scope: read-only aggregate operational monitoring; no payment confirmation,
+course mutations, platform revenue or new migration. Baseline: fda366bd0dcee54ce8a25886cf7025f9c4ccee84.
+
+- `AdminAnalyticsController`, `AdminAnalyticsService`, `AdminAnalyticsDto` and existing
+  `AdminUserRepository` provide `/api/v1/admin/analytics/overview?range=30`.
+- Existing Admin security chain and fresh account checks require verified, unlocked
+  ADMIN. Only GET is allowed. Explicit safe DTO, no-store, no identities of Students,
+  bank details, Meet URLs or OAuth credentials.
+- All-time inventory: current persisted users (including locked), Students, Teachers,
+  distinct Teacher accounts with an APPROVED application (including locked), pending
+  application rows, courses, PUBLISHED/DRAFT courses, and enrollments of every status.
+- Payment totals count payment records/attempts, not bank transaction feed rows or
+  enrollments. Supported states are PENDING/CONFIRMED/EXPIRED/CANCELLED. Confirmed
+  tuition sums exact `final_amount` in VND, gross of refunds. Pending amounts are excluded.
+- Periods: 7/30/90 local calendar days including today, midnight Asia/Ho_Chi_Minh
+  through server snapshot instant (exclusive). Missing range defaults to 30; `all`
+  has no lower bound. Registrations/enrollments/courses use created_at; currently
+  CONFIRMED payments use confirmed_at. Inventory cards are not period filtered.
+- Daily activity aggregates are bounded to 90 days; inactive days are omitted and
+  labelled. All-time daily series is omitted. Exact global totals are independent of
+  top-20 course and top-20 Teacher tuition breakdowns, with truncation indicators.
+- Existing overview/transaction sections load automatically; skeleton, error/retry,
+  empty and optional refresh states. Vietnamese labels, decimal-safe VND formatting,
+  responsive cards and accessible activity tables; no fabricated chart or growth rate.
+- Batch 2 follow-up: Vietnamese enrollment/session status labels and clearer local
+  date display. Teacher/category choices still cover only loaded course pages;
+  comprehensive option discovery and course moderation remain unimplemented.
+- Coverage prepared: AdminAnalyticsHttpTests, disposable CoursePersistenceTests empty
+  aggregates, PaymentPersistenceTests precision/history/timezone and persisted role/lock/verification checks; desktop/mobile
+  admin-analytics.spec.ts. TASK-009 registers both browser executions and strict four-PNG
+  `admin-analytics-review-screenshots`. Existing Admin/Student/Teacher groups retained.
+- Final static review complete for authorized Batch 3 commit/push. No local builds/tests,
+  database operations or real provider operations. Hosted validation and screenshots remain pending.
+
+Limitations: inventory counts reflect retained rows, not lifetime registrations after
+hard deletion. Approved Teachers are not a count of presently eligible Teachers.
+Recorded confirmed tuition is not bank reconciliation, net income or platform funds.
+All-time aggregation scans existing tables; no speculative indexes/caching were added.
+Production-scale query cost requires hosted/staging measurement before optimization.

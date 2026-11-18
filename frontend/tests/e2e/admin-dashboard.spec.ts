@@ -1,9 +1,11 @@
+import {analyticsFixture} from "../support/admin-analytics";
 import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page, role = "ADMIN", modal = false) {
   let remembered = false;
   await page.route("**/api/v1/**", route => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/admin/analytics/overview")) return route.fulfill({json:analyticsFixture()});
     if (path.endsWith("/csrf")) return route.fulfill({ json: { token: "test-csrf" } });
     if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({ json: { accessToken: "test-access", tokenType: "Bearer" } }); }
     if (path.endsWith("/login")) { remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({ json: { accessToken: "test-access", tokenType: "Bearer" } }); }

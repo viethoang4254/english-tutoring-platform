@@ -8,6 +8,7 @@ import { authMutation, safeMessage } from "../auth/browser-api";
 import { ApiRequestError } from "../../lib/api";
 import { AdminApplications } from "../teacher/admin-applications";
 import { AdminReviews } from "../receiving/admin-reviews";
+import { AdminAnalytics } from "./admin-analytics";
 import { AdminCourses } from "./admin-courses";
 import { AdminUsers } from "./admin-users";
 import { AdminCategories } from "./admin-categories";
@@ -57,7 +58,7 @@ function AdminView({initialSection,reviewId}:{initialSection:Section;reviewId?:s
       {busy && <p role="status">Đang xử lý…</p>}
       {section === "overview" && <>
         <section className={styles.card}><span className={styles.badge}>Đã kết nối chức năng</span><h2>Xét duyệt hồ sơ gia sư</h2><p>Xem hồ sơ, phê duyệt hoặc từ chối qua hệ thống xét duyệt hiện có.</p><button className="auth-primary" onClick={() => setSection("reviews")}>Mở danh sách chờ xét duyệt</button></section>
-        <p className={styles.note}>Danh mục và xét duyệt đã có API. Quản lý người dùng đã kết nối API. Chưa có API thống kê tổng hợp.</p>
+        <AdminAnalytics session={session}/>
       </>}
       {section === "account" && <AccountWorkspace embeddedPanel="settings" dashboardPanel="password"/>}
       {section === "reviews" && <div className={`${styles.card} account-workspace`}><AdminApplications session={session} busy={busy} run={run} /></div>}
@@ -65,10 +66,6 @@ function AdminView({initialSection,reviewId}:{initialSection:Section;reviewId?:s
       {section === "categories" && <AdminCategories session={session} busy={busy} run={run} />}
       {section === "receiving" && <div className={styles.card}><AdminReviews key={reviewId ?? "queue"} session={session} id={reviewId}/></div>}
       {section === "courses" && <AdminCourses session={session}/>}
-      {section !== "courses" && section !== "users" && section !== "account" && section !== "overview" && section !== "reviews" && section !== "categories" && section !== "receiving" && <section className={styles.card}>
-        <span className={styles.badge}>Chưa khả dụng</span><h2>Chức năng đang được chuẩn bị</h2>
-        <p>Chưa kết nối API thống kê giao dịch. Học phí được thanh toán trực tiếp cho gia sư; nền tảng không giữ tiền hoặc thực hiện chi trả.</p>
-        <p>Không hiển thị dữ liệu giả hoặc mô phỏng thao tác thành công.</p>
-      </section>}
+      {section === "statistics" && <AdminAnalytics session={session} payments/>}
   </DashboardLayout>;
 }

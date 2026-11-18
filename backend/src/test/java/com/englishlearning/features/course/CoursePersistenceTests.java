@@ -42,6 +42,10 @@ class CoursePersistenceTests {
         context=new SpringApplicationBuilder(EnglishLearningApplication.class).web(WebApplicationType.NONE)
                 .initializers(c->c.getEnvironment().getPropertySources().addFirst(new MapPropertySource("isolated-course-test",props))).run();
         courses=context.getBean(CourseService.class); categories=context.getBean(CategoryService.class);
+        var empty=new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).execute(tx ->
+            context.getBean(com.englishlearning.features.user.repository.AdminUserRepository.class).analytics("all",null,Instant.now()));
+        assertEquals(0,empty.totals().users());assertEquals(0,empty.totals().payments());
+        assertEquals("0.00",empty.totals().confirmedTuition().amount());assertTrue(empty.courseTuition().isEmpty());assertTrue(empty.days().isEmpty());
         sql("INSERT INTO users(email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES ('admin@example.invalid','unused','Fixture','ADMIN',true,false,now(),now()),('teacher@example.invalid','unused','Fixture','TEACHER',true,false,now(),now()),('other@example.invalid','unused','Fixture','TEACHER',true,false,now(),now())");
         admin=count("SELECT id FROM users WHERE role='ADMIN'");teacher=count("SELECT id FROM users WHERE email='teacher@example.invalid'");other=count("SELECT id FROM users WHERE email='other@example.invalid'");
         sql("INSERT INTO teacher_applications(teacher_id,specialization,teaching_experience,introduction,status,submitted_at,reviewed_at,reviewed_by,created_at,updated_at) SELECT id,'Fixture','Fixture','Fixture','APPROVED',now(),now(),"+admin+",now(),now() FROM users WHERE role='TEACHER'");

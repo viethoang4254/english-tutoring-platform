@@ -25,14 +25,14 @@ public class AdminManagementSecurity {
             public void handle(jakarta.servlet.http.HttpServletRequest r,jakarta.servlet.http.HttpServletResponse s,java.util.function.Supplier<CsrfToken> t){xor.handle(r,s,t);}
             public String resolveCsrfTokenValue(jakarta.servlet.http.HttpServletRequest r,CsrfToken t){return r.getHeader(t.getHeaderName())==null?null:xor.resolveCsrfTokenValue(r,t);}
         };
-        http.securityMatcher("/api/v1/admin/courses", "/api/v1/admin/courses/**", "/api/v1/admin/users", "/api/v1/admin/users/**", "/api/v1/admin/teacher-applications", "/api/v1/admin/teacher-applications/**", "/api/v1/admin/csrf", "/api/v1/admin/payment-accounts", "/api/v1/admin/payment-accounts/**")
+        http.securityMatcher("/api/v1/admin/analytics/**","/api/v1/admin/courses", "/api/v1/admin/courses/**", "/api/v1/admin/users", "/api/v1/admin/users/**", "/api/v1/admin/teacher-applications", "/api/v1/admin/teacher-applications/**", "/api/v1/admin/csrf", "/api/v1/admin/payment-accounts", "/api/v1/admin/payment-accounts/**")
             .addFilterAt(BrowserSecurityFilters.cors(browser,mapper),org.springframework.web.filter.CorsFilter.class)
             .addFilterAfter(BrowserSecurityFilters.transport(browser,mapper),org.springframework.web.filter.CorsFilter.class)
             .csrf(c->c.csrfTokenRepository(repository).csrfTokenRequestHandler(handler))
             .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).requestCache(c->c.disable())
             .formLogin(c->c.disable()).httpBasic(c->c.disable()).logout(c->c.disable())
             .authorizeHttpRequests(a->a
-                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/admin/courses","/api/v1/admin/courses/{id}","/api/v1/admin/csrf","/api/v1/admin/users","/api/v1/admin/users/{id}","/api/v1/admin/teacher-applications","/api/v1/admin/teacher-applications/pending","/api/v1/admin/teacher-applications/{id}","/api/v1/admin/payment-accounts","/api/v1/admin/payment-accounts/pending","/api/v1/admin/payment-accounts/{id}","/api/v1/admin/payment-accounts/{id}/qr-image").access(AdminManagementSecurity::admin)
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/admin/analytics/overview","/api/v1/admin/courses","/api/v1/admin/courses/{id}","/api/v1/admin/csrf","/api/v1/admin/users","/api/v1/admin/users/{id}","/api/v1/admin/teacher-applications","/api/v1/admin/teacher-applications/pending","/api/v1/admin/teacher-applications/{id}","/api/v1/admin/payment-accounts","/api/v1/admin/payment-accounts/pending","/api/v1/admin/payment-accounts/{id}","/api/v1/admin/payment-accounts/{id}/qr-image").access(AdminManagementSecurity::admin)
                 .requestMatchers(org.springframework.http.HttpMethod.PATCH,"/api/v1/admin/users/{id}/lock","/api/v1/admin/users/{id}/profile").access(AdminManagementSecurity::admin)
                 .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/admin/users","/api/v1/admin/payment-accounts/{id}/approve","/api/v1/admin/payment-accounts/{id}/reject","/api/v1/admin/teacher-applications/{id}/approve","/api/v1/admin/teacher-applications/{id}/reject").access(AdminManagementSecurity::admin)
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,"/api/v1/admin/users/{id}").access(AdminManagementSecurity::admin)
