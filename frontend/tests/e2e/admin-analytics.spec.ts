@@ -2,6 +2,21 @@ import {test,expect,type Locator} from "@playwright/test";
 import {captureReview} from "../support/ui-review";
 import {analyticsFixture} from "../support/admin-analytics";
 
+async function containedTuitionKpi(panel:Locator) {
+ const card=panel.locator("dt").filter({hasText:/^Học phí xác nhận trong kỳ$/}).locator("..");
+ await expect(card.locator("dd")).toHaveText("1.000.000,25 ₫");
+ const layout=await card.evaluate(element=>{
+  const value=element.querySelector("dd span")!, content=element.querySelector("dd")!;
+  const box=value.getBoundingClientRect(),bounds=content.getBoundingClientRect();
+  const range=document.createRange();range.selectNodeContents(value);
+  return {left:box.left,right:box.right,availableLeft:bounds.left,availableRight:bounds.right,
+   lines:range.getClientRects().length,scroll:element.scrollWidth,width:element.clientWidth};
+ });
+ expect(layout.left).toBeGreaterThanOrEqual(layout.availableLeft);
+ expect(layout.right).toBeLessThanOrEqual(layout.availableRight+1);
+ expect(layout.scroll).toBeLessThanOrEqual(layout.width);
+ expect(layout.lines).toBe(1);
+}
 async function readableTables(panel:Locator, expected:number) {
  const tables=panel.getByRole("table");await expect(tables).toHaveCount(expected);
  for(const table of await tables.all()) {
@@ -56,6 +71,7 @@ test("@admin-analytics Automatic totals, period filters, payment monitoring and 
  await panel.locator("summary").click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await readableTables(panel,1);
+ await containedTuitionKpi(panel);
  await expect(panel.getByRole("img",{name:/Xu hướng đăng ký mới/})).toBeVisible();
  await expect(panel.locator("figure svg circle")).toHaveCount(3);
  await expect(panel.locator("figure svg circle title").first()).toHaveText("2026-11-18: Đăng ký mới 3");
@@ -71,6 +87,7 @@ test("@admin-analytics Automatic totals, period filters, payment monitoring and 
  await expect(panel.getByRole("button",{name:/Xác nhận thanh toán|Chỉnh sửa|Xuất bản/})).toHaveCount(0);
  await expect(panel.locator('a[href*="meet.google.com"]')).toHaveCount(0);
  await readableTables(panel,3);
+ await containedTuitionKpi(panel);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await captureReview(page,info,"admin-payment-statistics");
  await panel.getByRole("button",{name:"7 ngày",exact:true}).click();await expect(panel.getByText("Chưa có hoạt động trong khoảng thời gian này.")).toBeVisible();
  await expect(panel.getByText("Chưa có học phí được xác nhận trong kỳ.")).toBeVisible();
