@@ -185,6 +185,10 @@ def tests(label, suites, flags=()):
                 destination.mkdir(exist_ok=True)
                 (destination / (label + ".json")).write_text(json.dumps(result, indent=2))
                 print(label + ": " + json.dumps(result))
+                print(json.dumps({"event": "test-execution-evidence",
+                                  "group": label if label in GROUPS else "unknown",
+                                  "status": "reported-tests" if any(r["tests"] > 0 for r in result)
+                                  else "no-tests-reported-startup-unconfirmed"}), flush=True)
                 support.require(all(r["tests"] > 0 and not (r["failures"] or r["errors"] or r["skipped"]) for r in result),
                                 "Required feature suite failed, missing or skipped")
         except Exception:

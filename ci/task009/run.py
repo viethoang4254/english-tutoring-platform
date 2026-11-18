@@ -97,12 +97,44 @@ def compiler_locations(output):
 
 
 
-def run(args, *, data=None, cwd=None, timeout=120, compilation=False):
+def maven_diagnostics(output):
+    """Classify fixed Maven markers only; never return arbitrary output text."""
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", output)
+    phase = "unknown"
+    goals = re.findall(r"Failed to execute goal [^\r\n]*?:(compile|testCompile|test)\b", clean)
+    if goals:
+        phase = {"compile": "java-compilation", "testCompile": "test-compilation", "test": "surefire"}[goals[-1]]
+    category = next((category for marker, category in (
+        ("Could not resolve dependencies", "dependency-resolution"),
+        ("Non-resolvable parent POM", "dependency-resolution"),
+        ("could not be resolved", "dependency-or-plugin-resolution"),
+        ("Could not create the Java Virtual Machine", "jvm-startup"),
+        ("The forked VM terminated without properly saying goodbye", "forked-jvm-termination"),
+        ("No tests matching pattern", "test-discovery"),
+        ("No tests were executed", "test-discovery"),
+        ("There was an error in the forked process", "surefire-fork-error"),
+        ("There are test failures", "test-failures"),
+        ("COMPILATION ERROR", "compilation-error"),
+    ) if marker in clean), "unclassified-maven-failure")
+    if category in {"dependency-resolution", "dependency-or-plugin-resolution", "jvm-startup"}:
+        phase = category
+    locations, counts = compiler_diagnostics(clean)
+    return {"phase": phase, "category": category, "locations": locations, **counts}
+
+
+def run(args, *, data=None, cwd=None, timeout=120, compilation=False, maven_diagnostic=False):
     result = subprocess.run(args, input=data, text=True, capture_output=True, cwd=cwd, timeout=timeout)
     if result.returncode != 0:
         failure = CommandFailure(result.returncode)
         if compilation:
             failure.locations, failure.diagnostic_counts = compiler_diagnostics(result.stdout + "\n" + result.stderr)
+        if maven_diagnostic:
+            try:
+                details = maven_diagnostics(result.stdout + "\n" + result.stderr)
+            except Exception:
+                details = {"phase": "unknown", "category": "diagnostics-unavailable"}
+            print(json.dumps({"event": "maven-failure", "exit_code": result.returncode,
+                              **details}), flush=True)
         raise failure
     return result.stdout.strip()
 
@@ -258,7 +290,8 @@ def smtp_check():
 
 def maven(arguments):
     resources()
-    run(["bash", "mvnw", "-B", *arguments], cwd=REPO / "backend", timeout=600, compilation="test-compile" in arguments)
+    run(["bash", "mvnw", "-B", *arguments], cwd=REPO / "backend", timeout=600,
+        compilation="test-compile" in arguments, maven_diagnostic=True)
 
 
 SMTP_STAGES = {"test-compilation", "dependency-classpath", "mockito-agent-resolution",
