@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {api, fixture, mutation, register, expectTeacherDecision} from '../support/live-fixtures';
+import {api, fixture, mutation, register, expectTeacherDecision, adminMutation} from '../support/live-fixtures';
 import {teacherPanel} from '../support/teacher-navigation';
 
 type Item = {sessionId:string;courseId:string;courseTitle:string;sessionNumber:number;sessionTitle:string|null;
@@ -16,9 +16,6 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     const login = await mutation(clients[0], '/auth/login', {email:admin.email,password:admin.password});
     expect(login.status()).toBe(200);
     const adminHeaders = {Authorization:'Bearer '+(await login.json()).accessToken};
-    const csrf=await clients[0].get(api+'/admin/csrf',{headers:adminHeaders});
-    expect(csrf.status()).toBe(200);
-    Object.assign(adminHeaders,{'X-XSRF-TOKEN':(await csrf.json()).token});
     const owner = await register(clients[1], true);
     const other = await register(clients[2], true);
     const rejected = await register(clients[3], true);
@@ -26,8 +23,8 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     for (const [index, account, decision] of [[1,owner,'approve'],[2,other,'approve'],[3,rejected,'reject']] as const) {
       const onboarding = await clients[index].get(api+'/teacher/onboarding',{headers:account.headers});
       expect(onboarding.status()).toBe(200);
-      const result = await clients[0].post(`${api}/admin/teacher-applications/${(await onboarding.json()).applicationId}/${decision}`,
-        {headers:adminHeaders,...(decision==='reject'?{data:{reason:'CI rejection'}}:{})});
+      const result = await adminMutation(clients[0], `/admin/teacher-applications/${(await onboarding.json()).applicationId}/${decision}`,
+        adminHeaders, decision==='reject'?{reason:'CI rejection'}:undefined);
       await expectTeacherDecision(result);
     }
     stage('calendar-fixtures');

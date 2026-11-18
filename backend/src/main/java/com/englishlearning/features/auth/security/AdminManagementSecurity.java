@@ -37,7 +37,10 @@ public class AdminManagementSecurity {
                 .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/v1/admin/users","/api/v1/admin/payment-accounts/{id}/approve","/api/v1/admin/payment-accounts/{id}/reject","/api/v1/admin/teacher-applications/{id}/approve","/api/v1/admin/teacher-applications/{id}/reject").access(AdminManagementSecurity::admin)
                 .requestMatchers(org.springframework.http.HttpMethod.DELETE,"/api/v1/admin/users/{id}").access(AdminManagementSecurity::admin)
                 .anyRequest().denyAll())
-            .exceptionHandling(e->e.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper)).accessDeniedHandler(ApiSecurityErrors.forbidden(mapper)));
+            .exceptionHandling(e->e.authenticationEntryPoint(ApiSecurityErrors.unauthorized(mapper)).accessDeniedHandler((request,response,error)->{
+                response.setHeader("X-Admin-Denial",error instanceof CsrfException ? "csrf" : "authorization");
+                ApiSecurityErrors.forbidden(mapper).handle(request,response,error);
+            }));
         var provider=new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider(decoder);provider.setJwtAuthenticationConverter(accounts);
         var filter=new BearerTokenAuthenticationFilter(new org.springframework.security.authentication.ProviderManager(provider));
         var bearer=new DefaultBearerTokenResolver();

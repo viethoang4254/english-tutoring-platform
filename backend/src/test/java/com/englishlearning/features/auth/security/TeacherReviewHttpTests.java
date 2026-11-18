@@ -30,6 +30,40 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
                 .subject("12").issuedAt(now).expiresAt(now.plusSeconds(900)).build());
         when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true, false)));
     }
+    @Test
+    @org.springframework.test.annotation.DirtiesContext(methodMode=org.springframework.test.annotation.DirtiesContext.MethodMode.BEFORE_METHOD)
+    void realAdminLoginCookieAndApprovalSequence() throws Exception {
+        when(workflows.login(anyString(),anyString())).thenReturn(new com.englishlearning.features.auth.service.AuthenticationResult(
+            new AccessToken("admin-token",now,now.plusSeconds(900)),
+            new com.englishlearning.features.auth.service.RefreshCredential(1L,12L,refresh,now.plusSeconds(604800))));
+        mvc.perform(csrf(postAuth("login"),bootstrap()).contentType(MediaType.APPLICATION_JSON).content(LOGIN))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").value("admin-token"));
+        var response=mvc.perform(get("/api/v1/admin/csrf").header("Authorization","Bearer admin-token"))
+            .andExpect(status().isOk()).andReturn().getResponse();
+        var cookie=org.springframework.mock.web.MockCookie.parse(response.getHeaders("Set-Cookie").stream()
+            .filter(value->value.startsWith("ADMIN-XSRF-TOKEN=")).findFirst().orElseThrow());
+        assertEquals("/api/v1/admin",cookie.getPath());assertTrue(cookie.isHttpOnly());
+        String token=mapper.readTree(response.getContentAsString()).path("token").asText();
+        mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token"))
+            .andExpect(status().isForbidden()).andExpect(header().string("X-Admin-Denial","csrf"));
+        mvc.perform(post(BASE+"/approve").cookie(cookie).header("Authorization","Bearer admin-token").header("X-XSRF-TOKEN","invalid"))
+            .andExpect(status().isForbidden()).andExpect(header().string("X-Admin-Denial","csrf"));
+        mvc.perform(post(BASE+"/approve").cookie(cookie).header("Authorization","Bearer admin-token").header("X-XSRF-TOKEN",token))
+            .andExpect(status().isNoContent());
+        verify(teacherReviews).review(12L,9007199254740993L,true,null);
+        doThrow(new TeacherReviewFailure(TeacherReviewFailure.Reason.ALREADY_REVIEWED))
+            .when(teacherReviews).review(12L,9007199254740993L,true,null);
+        mvc.perform(post(BASE+"/approve").cookie(cookie).header("Authorization","Bearer admin-token").header("X-XSRF-TOKEN",token))
+            .andExpect(status().isConflict());
+        for(var state:List.of(new AccountSnapshot(12L,Role.STUDENT,false,true,false),
+                new AccountSnapshot(12L,Role.TEACHER,false,true,false),new AccountSnapshot(12L,Role.ADMIN,false,false,false),
+                new AccountSnapshot(12L,Role.ADMIN,true,true,false))) {
+            when(accounts.findById(12L)).thenReturn(Optional.of(state));
+            mvc.perform(post(BASE+"/approve").cookie(cookie).header("Authorization","Bearer admin-token").header("X-XSRF-TOKEN",token))
+                .andExpect(status().is(state.locked()?401:403));
+        }
+        verify(teacherReviews,times(2)).review(12L,9007199254740993L,true,null);
+    }
     static final String QUEUE="/api/v1/admin/teacher-applications/pending";
     @Test void historyListUsesStatusAndNoStore() throws Exception {
         when(teacherReviews.list(12L,0,20,"APPROVED")).thenReturn(new com.englishlearning.features.teacher.dto.TeacherApplicationQueue(List.of(),0,20,false));

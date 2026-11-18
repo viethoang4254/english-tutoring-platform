@@ -59,7 +59,7 @@ export default class SafeReporter implements Reporter {
     const decisionStatus = test.annotations.filter(a => a.type === 'task009-decision-status' && /^[1-5][0-9]{2}$/.test(a.description ?? '')).at(-1)?.description;
     const decisionCodes = new Set(['ACCESS_DENIED', 'AUTHENTICATION_REQUIRED', 'INVALID_REQUEST',
       'APPLICATION_NOT_FOUND', 'APPLICATION_ALREADY_REVIEWED', 'TEACHER_PROFILE_CONFLICT',
-      'APPLICATION_NOT_REVIEWABLE', 'INTERNAL_ERROR', 'UNCLASSIFIED']);
+      'APPLICATION_NOT_REVIEWABLE', 'INTERNAL_ERROR', 'UNCLASSIFIED', 'CSRF_REJECTED', 'ADMIN_AUTHORIZATION_REJECTED']);
     const decisionCode = test.annotations.filter(a => a.type === 'task009-decision-code' && decisionCodes.has(a.description ?? '')).at(-1)?.description;
     if (decisionStatus) {
       const line = `Teacher decision: status=${decisionStatus} code=${decisionCode ?? 'none'} declaration=${safeLocation(test.location)}`;

@@ -48,7 +48,20 @@ export async function expectTeacherDecision(response: APIResponse) {
       'APPLICATION_NOT_REVIEWABLE', 'INTERNAL_ERROR']);
     let code = 'UNCLASSIFIED';
     try { const body = await response.json(); if (codes.has(body?.code)) code = body.code; } catch { /* Non-JSON responses remain unclassified. */ }
+    const denial = response.headers()['x-admin-denial'];
+    if (denial === 'csrf') code = 'CSRF_REJECTED';
+    else if (denial === 'authorization') code = 'ADMIN_AUTHORIZATION_REJECTED';
     test.info().annotations.push({type:'task009-decision-code', description:code});
   }
   expect(status).toBe(204);
+}
+
+export async function adminMutation(request: APIRequestContext, route: string, headers: {Authorization:string}, data?: object) {
+  const csrf = await request.get(api + '/admin/csrf', {headers});
+  expect(csrf.status()).toBe(200);
+  const token = (await csrf.json()).token;
+  expect(typeof token === 'string' && token.length > 0).toBe(true);
+  const cookies = (await request.storageState()).cookies;
+  expect(cookies.some(c => c.name === 'ADMIN-XSRF-TOKEN' && c.path === '/api/v1/admin' && c.httpOnly)).toBe(true);
+  return request.post(api + route, {headers: {...headers, 'X-XSRF-TOKEN':token}, ...(data === undefined ? {} : {data})});
 }
