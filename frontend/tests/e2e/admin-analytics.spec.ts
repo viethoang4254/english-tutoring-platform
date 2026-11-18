@@ -1,7 +1,23 @@
-import {test,expect} from "@playwright/test";
+import {test,expect,type Locator} from "@playwright/test";
 import {captureReview} from "../support/ui-review";
 import {analyticsFixture} from "../support/admin-analytics";
 
+async function readableTables(panel:Locator, expected:number) {
+ const tables=panel.getByRole("table");await expect(tables).toHaveCount(expected);
+ for(const table of await tables.all()) {
+  const caption=table.locator("caption");await expect(caption).toBeVisible();
+  const dimensions=await caption.evaluate(element=>{
+   const box=element.getBoundingClientRect(), table=element.closest("table")!.getBoundingClientRect();
+   const style=getComputedStyle(element);
+   return {width:box.width,height:box.height,tableWidth:table.width,lineHeight:parseFloat(style.lineHeight)||parseFloat(style.fontSize)*1.5};
+  });
+  expect(dimensions.width).toBeGreaterThan(200);
+  expect(dimensions.width).toBeGreaterThanOrEqual(dimensions.tableWidth-2);
+  expect(dimensions.height).toBeLessThanOrEqual(dimensions.lineHeight*4);
+  await expect(table.locator("tbody tr")).toHaveCount(1);
+  await expect(table.locator("tbody tr").first()).toContainText("1.000.000,25 ₫");
+ }
+}
 test("@admin-analytics Automatic totals, period filters, payment monitoring and recovery",async({page},info)=>{
  let release!:()=>void;const initial=new Promise<void>(resolve=>{release=resolve;});let first=true,fail=false;const reads:string[]=[];
  await page.route("**/api/v1/**",async route=>{
@@ -26,6 +42,7 @@ test("@admin-analytics Automatic totals, period filters, payment monitoring and 
  await expect(panel.locator("dt",{hasText:"Tổng học phí đã xác nhận"}).locator("..").locator("dd")).toHaveText("1.000.000,25 ₫");
  await expect(panel.getByRole("table")).toContainText("18/11/2026");expect(reads).toEqual(["30"]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await readableTables(panel,1);
  await captureReview(page,info,"admin-dashboard");
  const toggle=page.locator("[data-dashboard-toggle]");if(await toggle.isVisible())await toggle.click();
  await page.getByRole("link",{name:"Thống kê giao dịch",exact:true}).click();await expect(page).toHaveURL(/section=statistics$/);
@@ -33,6 +50,7 @@ test("@admin-analytics Automatic totals, period filters, payment monitoring and 
  await expect(panel.getByRole("table",{name:"Khóa học và gia sư nhận học phí"})).toContainText("Gia sư kiểm thử");
  await expect(panel.getByRole("button",{name:/Xác nhận thanh toán|Chỉnh sửa|Xuất bản/})).toHaveCount(0);
  await expect(panel.locator('a[href*="meet.google.com"]')).toHaveCount(0);
+ await readableTables(panel,3);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await captureReview(page,info,"admin-payment-statistics");
  await panel.getByRole("combobox",{name:"Khoảng thời gian"}).selectOption("7");await expect(panel.getByText("Chưa có hoạt động trong khoảng thời gian này.")).toBeVisible();
  await expect(panel.getByText("Chưa có học phí được xác nhận trong kỳ.")).toBeVisible();
