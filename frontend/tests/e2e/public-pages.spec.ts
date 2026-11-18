@@ -52,9 +52,9 @@ test("@public-pages public navigation and contact validation, failure and confir
   await expect(page.getByRole('link',{name:'0905700682',exact:true})).toHaveAttribute('href','tel:+84905700682');
   await expect(page.getByRole('link',{name:'viehoang21104@gmail.com',exact:true})).toHaveAttribute('href','mailto:viehoang21104@gmail.com');
   const map=page.getByRole('region',{name:'Vị trí liên hệ',exact:true});
-  await expect(map).toContainText('Tiếng Anh Cùng Gia Sư');
-  await expect(map).toContainText('566 Núi Thành, phường Hòa Cường, thành phố Đà Nẵng, Việt Nam');
-  await expect(map.getByRole('link',{name:/Mở Google Maps/})).toHaveAttribute('href','https://www.google.com/maps/place/566+N%C3%BAi+Th%C3%A0nh,+H%C3%B2a+C%C6%B0%E1%BB%9Dng,+%C4%90%C3%A0+N%E1%BA%B5ng,+Vi%E1%BB%87t+Nam/@16.0321534,108.219591,17z/data=!3m1!4b1!4m6!3m5!1s0x314219ee4554218d:0x7ff6c1a286a840!8m2!3d16.0321534!4d108.2221659!16s%2Fg%2F11wr155fsn?hl=vi&entry=ttu&g_ep=EgoyMDI2MTExNS4wIKXMDSoASAFQAw%3D%3D');
+  await expect(map.locator(':scope > *')).toHaveCount(1);
+  await expect(map.locator(':scope > iframe')).toBeVisible();
+  await expect(map).toHaveText('');
   const mapBox=await map.boundingBox();expect(mapBox).not.toBeNull();expect(mapBox!.width).toBeGreaterThan(250);
   await expect(page.locator('main')).not.toContainText('{{CONTACT_');
   await expect(page.locator('footer a[href="/become-a-teacher"]')).toHaveCount(1);

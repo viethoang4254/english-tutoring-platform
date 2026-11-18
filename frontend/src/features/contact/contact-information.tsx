@@ -22,6 +22,7 @@ export function ContactMap({address,embedUrl}:{address:string;embedUrl:string}){
     const url=new URL(embedUrl);
     if(url.origin==="https://www.google.com" && !url.username && !url.password &&
       (url.pathname==="/maps/embed" || url.pathname.startsWith("/maps/embed/")))embed=embedUrl;
-  }catch{/* An absent or invalid embed keeps the address/link fallback. */}
-  return <section className={`${styles.map} ${styles.card}`} aria-label="Vị trí liên hệ"><h2>Vị trí liên hệ</h2><p>{contactInformation.websiteName}</p><p>{address}</p>{embed&&<iframe src={embed} width="100%" title="Bản đồ địa chỉ 566 Núi Thành, Đà Nẵng" loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/>}<div className={styles.actions}><a href={contactInformation.mapsUrl} target="_blank" rel="noopener noreferrer">Mở Google Maps<span> (thẻ mới)</span></a></div></section>;
+  }catch{/* An absent or invalid embed is omitted. */}
+  if(!embed)return null;
+  return <section className={styles.map} aria-label="Vị trí liên hệ"><iframe src={embed} width="100%" title="Bản đồ địa chỉ 566 Núi Thành, Đà Nẵng" loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/></section>;
 }
