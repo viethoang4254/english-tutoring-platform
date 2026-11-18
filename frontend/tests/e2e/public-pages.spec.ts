@@ -2,6 +2,8 @@ import {expect,test} from "@playwright/test";
 import {captureReview} from "../support/ui-review";
 
 test("@public-pages public navigation and contact validation, failure and confirmed submission",async({page},info)=>{
+  // Assert our iframe contract without depending on the external Google response.
+  await page.route("https://www.google.com/maps/embed?*",route=>route.fulfill({contentType:"text/html",body:"<!doctype html><html lang='vi'><body></body></html>"}));
   let submissions=0,available=false;
   await page.route("**/api/v1/**",async route=>{
     const path=new URL(route.request().url()).pathname;
@@ -39,7 +41,12 @@ test("@public-pages public navigation and contact validation, failure and confir
   const contact=page.getByRole("region",{name:"Gửi tin nhắn",exact:true});
   await expect(page.getByLabel("Số điện thoại (không bắt buộc)")).toBeVisible();
   await expect(page.getByRole('heading',{name:'Đăng ký nhận tư vấn',exact:true})).toBeVisible();
-  await expect(page.locator('main iframe')).toHaveCount(0);
+  const mapFrame=page.locator('main iframe');
+  await expect(mapFrame).toBeVisible();
+  await expect(mapFrame).toHaveAttribute('src','https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3834.639338406222!2d108.22228985!3d16.03227955!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x314219ee598df9c5%3A0x3109ad2f035819b5!2zNTY2IE7DumkgVGjDoG5oLCBIw7JhIEPGsOG7nW5nLCDEkMOgIE7hurVuZywgVmnhu4d0IE5hbQ!5e0!3m2!1svi!2s!4v1795005936915!5m2!1svi!2s');
+  await expect(mapFrame).toHaveAttribute('src',/^https:\/\/www\.google\.com\/maps\/embed\?pb=/);
+  await expect(mapFrame).toHaveAttribute('title','Bản đồ địa chỉ 566 Núi Thành, Đà Nẵng');
+  const frameBox=await mapFrame.boundingBox();expect(frameBox).not.toBeNull();expect(frameBox!.height).toBe(info.project.name==="mobile"?300:420);
   await expect(page.locator('main dt')).toHaveCount(3);
   await expect(page.locator('main dd').filter({hasText:'566 Núi Thành, phường Hòa Cường, thành phố Đà Nẵng, Việt Nam'})).toBeVisible();
   await expect(page.getByRole('link',{name:'0905700682',exact:true})).toHaveAttribute('href','tel:+84905700682');
