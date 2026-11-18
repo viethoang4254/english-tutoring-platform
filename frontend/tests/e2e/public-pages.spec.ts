@@ -27,6 +27,7 @@ test("@public-pages public navigation and contact validation, failure and confir
   await expect(page.getByRole("heading",{level:1})).toHaveText("Liên hệ");
   await expect(page.getByRole("navigation",{name:"Đường dẫn"})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Thông tin liên hệ",exact:true})).toBeVisible();
+  const contact=page.getByRole("region",{name:"Gửi lời nhắn",exact:true});
   await expect(page.getByLabel("Số điện thoại (không bắt buộc)")).toBeVisible();
   await page.getByRole("button",{name:"Gửi lời nhắn"}).click();expect(submissions).toBe(0);
   await page.getByLabel("Họ và tên",{exact:true}).fill("Học viên demo");
@@ -36,9 +37,10 @@ test("@public-pages public navigation and contact validation, failure and confir
   await page.getByRole("button",{name:"Gửi lời nhắn"}).click();expect(submissions).toBe(0);
   await page.getByLabel("Email",{exact:true}).fill("demo@example.invalid");
   await page.getByRole("button",{name:"Gửi lời nhắn"}).click();
-  await expect(page.getByRole("alert")).toContainText("Chưa gửi lời nhắn");
+  // Next.js also exposes a page-level route-announcement alert.
+  await expect(contact.getByRole("alert")).toContainText("Chưa gửi lời nhắn");
   available=true;await page.getByRole("button",{name:"Gửi lời nhắn"}).click();
-  await expect(page.getByRole("status")).toContainText("Máy chủ thư đã tiếp nhận");expect(submissions).toBe(2);
+  await expect(contact.getByRole("status")).toContainText("Máy chủ thư đã tiếp nhận");expect(submissions).toBe(2);
   await expect(page.getByLabel("Nội dung",{exact:true})).toHaveValue("");
   await expect(page.locator("footer").getByRole("link",{name:"Gửi lời nhắn",exact:true})).toHaveAttribute("href","/contact");
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

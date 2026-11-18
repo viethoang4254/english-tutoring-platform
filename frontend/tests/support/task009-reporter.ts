@@ -14,6 +14,7 @@ function safeLocation(location: TestCase['location'] | undefined): string {
   for (const file of ['tests/e2e/calendar-sync.spec.ts', 'tests/e2e/google-calendar.spec.ts', 'tests/support/google-calendar.ts', 'tests/e2e/meeting-access.spec.ts', 'tests/e2e/student-calendar.spec.ts', 'tests/support/student-calendar.ts', 'tests/e2e/course-checkout.spec.ts', 'tests/support/course-checkout.ts', 'tests/e2e/receiving-accounts.spec.ts', 'tests/e2e/course-registration.spec.ts', 'tests/e2e/student-enrollments.spec.ts', 'tests/live/profile.spec.ts', 'tests/e2e/student-profile.spec.ts', 'tests/support/account-navigation.ts',
     'tests/live/calendar.spec.ts', 'tests/live/course-publication.spec.ts', 'tests/support/live-fixtures.ts', 'tests/support/teacher-navigation.ts', 'tests/e2e/teacher-calendar.spec.ts',
     'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
+    'tests/e2e/public-pages.spec.ts', 'tests/e2e/demo-courses.spec.ts',
     'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts',
     'tests/e2e/admin-analytics.spec.ts', 'tests/e2e/admin-courses.spec.ts', 'tests/e2e/admin-management.spec.ts', 'tests/e2e/admin-categories.spec.ts', 'tests/e2e/admin-dashboard.spec.ts', 'tests/e2e/course-discovery.spec.ts',
     'tests/e2e/student-dashboard.spec.ts', 'tests/e2e/teacher-dashboard.spec.ts']) {
