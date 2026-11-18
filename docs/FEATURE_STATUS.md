@@ -1428,6 +1428,32 @@ Teacher synced/pending/failed states (six PNGs). Other screenshot groups remain.
 Static review only; hosted TASK-009 and desktop/mobile verification pending.
 
 
+## Public About/Contact and four demo courses — IN_PROGRESS
+
+Public /about and /contact pages, shared navigation, CSRF-protected default-off
+SMTP contact submission and hosted regression coverage are prepared. Four synthetic
+draft courses with five sessions each are defined for disposable CI only, using
+existing Teacher ownership and Course services. No fake Meet links or payments,
+schema migrations, real emails or TEST records are introduced. Publication and
+real contact delivery remain separately configured/authorized operations.
+See [contracts, exact schedule and deployment gates](PUBLIC_PAGES_DEMO_COURSES.md).
+Demo definitions now include distinct learning outcomes, entry prerequisites and
+twenty session objectives mapped to existing outline and Session fields. The shared
+Student/public detail exposes “Lộ trình khóa học” with API-derived planned durations;
+hosted Student-shell roadmap assertions and desktop/mobile screenshots are prepared.
+Static review only; TASK-009 has not been dispatched for these changes.
+
+## Calendar Batch 5 demo readiness — IN_PROGRESS
+
+Readiness audit recorded in [the Batch 5 and Meet checklist](GOOGLE_BATCH5_DEMO_READINESS.md).
+TASK-009 run 44288298805 passed all mandatory jobs for source commit
+3c44323a62a7681a337c12759c9f50892552bcba; Windows packaging was skipped.
+This supersedes earlier pending-hosted-verification notes for that source snapshot,
+but does not establish real TEST deployment or provider delivery. The inspected local
+manifest is an older OAuth-only package. V13–V15, recovery capability, recipient
+isolation, launcher support and live delivery approvals remain outstanding.
+No database or external-provider operations were performed during this audit.
+
 ## Teacher-managed Calendar invitations — IN_PROGRESS
 
 The protected course invitation action and session status API are prepared behind

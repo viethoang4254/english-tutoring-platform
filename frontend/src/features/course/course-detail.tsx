@@ -9,6 +9,10 @@ import styles from './discovery.module.css';
 import { CourseRegistration } from './course-registration';
 
 const links=[["tong-quan","Tổng quan"],["lo-trinh","Lộ trình"],["chi-tiet","Chi tiết"],["dang-ky","Đăng ký"]];
+function durationMinutes(start:string,end:string){
+  const minutes=(value:string)=>{const [hours,minutes]=value.split(':').map(Number);return hours*60+minutes;};
+  return minutes(end)-minutes(start);
+}
 
 export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;basePath?:string}) {
   const [section,setSection]=useState("tong-quan");
@@ -50,7 +54,9 @@ export function CourseDetail({courseId,basePath="/courses"}: {courseId: string;b
       <nav className={styles.sectionTabs} aria-label="Nội dung khóa học">{links.map(([id,label])=><a key={id} href={'#'+id} aria-current={section===id?'location':undefined}>{label}</a>)}</nav>
       <section id="tong-quan" className={styles.panel}><h2>Về khóa học</h2><p>{course.description}</p>
         {outline && <div className={styles.goalGrid}>{(["objectives","audience","outcomes"] as OutlineField[]).map(key=>outline[key] && <article key={key}><Icon kind={key==="audience"?"person":"check"}/><h3>{outlineFields[key]}</h3><p>{outline[key]}</p></article>)}</div>}</section>
-      <section id="lo-trinh" className={styles.panel}><h2>Lộ trình học</h2>
+      <section id="lo-trinh" className={styles.panel} aria-labelledby="roadmap-heading"><h2 id="roadmap-heading">Lộ trình khóa học</h2>
+        {rules.length>0 && <><p>Lịch dự kiến · {course.timezone}. Lịch học trong tài khoản cập nhật thời gian cụ thể khi có thay đổi.</p>
+          <ul>{rules.map(rule=><li key={rule.id}>{rule.dayOfWeek===7?'Chủ nhật':`Thứ ${rule.dayOfWeek+1}`} · {rule.startTime}–{rule.endTime} · {durationMinutes(rule.startTime,rule.endTime)} phút/buổi</li>)}</ul></>}
         {outline?.stages.length ? <><p>{outline.stages.length} giai đoạn · {outline.stages.reduce((n,s)=>n+s.topics.length,0)} chủ đề · {course.sessionCount} buổi học dự kiến</p>
           {outline.stages.map((stage,i)=><details className={styles.stage} key={i}><summary>{i+1}. {stage.title}</summary><ol>{stage.topics.map((topic,j)=><li key={j}><strong>{topic.title}</strong><p>{topic.description}</p></li>)}</ol></details>)}</> : <p>Chưa có đề cương công khai.</p>}</section>
       <section id="chi-tiet" className={styles.panel}><h2>Chi tiết lớp học</h2><p>{course.sessionCount} buổi học · Múi giờ: {course.timezone}</p><p>Mã khóa học: {course.id}</p><Link href={basePath}>← Khám phá khóa học khác</Link></section>

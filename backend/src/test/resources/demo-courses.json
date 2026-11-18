@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Tiếng Anh giao tiếp cơ bản",
+    "amount": "500000.00",
+    "level": "Beginner",
+    "category": "Giao tiếp",
+    "startDate": "2026-11-19",
+    "weekday": 4,
+    "startTime": "17:00",
+    "endTime": "18:30",
+    "description": "Luyện giao tiếp trong những tình huống quen thuộc, từ chào hỏi đến hỏi đường và mua sắm.",
+    "objectives": "Giới thiệu bản thân, đặt câu hỏi đơn giản và duy trì hội thoại ngắn.",
+    "topics": [
+      "Chào hỏi và giới thiệu bản thân",
+      "Gia đình và thói quen hằng ngày",
+      "Hỏi đường và phương tiện đi lại",
+      "Mua sắm và gọi món",
+      "Thực hành hội thoại tổng hợp"
+    ],
+    "requirements": "Beginner: nhận biết bảng chữ cái và một số từ tiếng Anh thông dụng; không yêu cầu kinh nghiệm hội thoại. Chuẩn bị thiết bị có micro và Internet.",
+    "outcomes": "Tự giới thiệu trong một phút, hỏi và trả lời về sinh hoạt, thực hiện hội thoại ngắn khi đi lại, mua sắm và gọi món.",
+    "sessionObjectives": [
+      "Giới thiệu tên, nghề nghiệp và sở thích; hỏi thông tin cơ bản của người đối thoại.",
+      "Mô tả gia đình và một ngày điển hình bằng câu hiện tại đơn.",
+      "Hỏi và chỉ đường, lựa chọn phương tiện và xác nhận điểm đến.",
+      "Hỏi giá, số lượng và gọi món bằng lời đề nghị lịch sự.",
+      "Kết hợp chào hỏi, hỏi thông tin và phản hồi trong hội thoại hai phút."
+    ]
+  },
+  {
+    "name": "Luyện thi TOEIC nền tảng",
+    "amount": "650000.00",
+    "level": "Beginner / Intermediate",
+    "category": "Luyện thi",
+    "startDate": "2026-11-20",
+    "weekday": 5,
+    "startTime": "17:00",
+    "endTime": "18:30",
+    "description": "Làm quen cấu trúc TOEIC và rèn chiến lược nghe, đọc qua chủ đề học tập và công việc.",
+    "objectives": "Nhận diện dạng câu hỏi, xây dựng từ vựng nền tảng và phân bổ thời gian làm bài.",
+    "topics": [
+      "Cấu trúc bài thi và kế hoạch học",
+      "Mô tả tranh và hỏi đáp",
+      "Hội thoại và bài nói ngắn",
+      "Ngữ pháp và hoàn thành câu",
+      "Đọc hiểu và tổng kết chiến lược"
+    ],
+    "requirements": "Beginner / Intermediate: đọc được câu đơn giản và biết các thì cơ bản. Chuẩn bị tai nghe, thiết bị có micro và Internet.",
+    "outcomes": "Phân biệt các dạng câu hỏi TOEIC nghe và đọc, tìm từ khóa và giải thích cách chọn đáp án trong bài luyện tập; không cam kết điểm thi.",
+    "sessionObjectives": [
+      "Nhận diện các phần nghe và đọc, tự xây dựng kế hoạch ôn tập phù hợp.",
+      "Xác định hành động trong tranh và chọn phản hồi phù hợp cho câu hỏi ngắn.",
+      "Ghi nhận người nói, mục đích và chi tiết quan trọng trong đoạn nghe.",
+      "Nhận diện từ loại và dấu hiệu thì để hoàn thành câu có giải thích.",
+      "Tìm ý chính và thông tin cụ thể, phân bổ thời gian cho bài đọc luyện tập."
+    ]
+  },
+  {
+    "name": "IELTS Speaking cơ bản",
+    "amount": "750000.00",
+    "level": "Intermediate",
+    "category": "Luyện thi",
+    "startDate": "2026-11-21",
+    "weekday": 6,
+    "startTime": "09:00",
+    "endTime": "10:30",
+    "description": "Rèn cách triển khai ý và nói rõ ràng trong ba phần IELTS Speaking, với phản hồi từ giáo viên.",
+    "objectives": "Mở rộng câu trả lời, sắp xếp ý và dùng ví dụ phù hợp khi nói.",
+    "topics": [
+      "Tiêu chí và câu hỏi Part 1",
+      "Mở rộng ý về chủ đề quen thuộc",
+      "Lập dàn ý và trình bày Part 2",
+      "Thảo luận và giải thích Part 3",
+      "Thực hành phỏng vấn và phản hồi"
+    ],
+    "requirements": "Intermediate: có thể trả lời câu hỏi quen thuộc bằng vài câu liên tiếp. Chuẩn bị thiết bị có micro và Internet; không yêu cầu điểm IELTS đầu vào.",
+    "outcomes": "Tổ chức câu trả lời Part 1, trình bày bài nói Part 2 có mở đầu và ví dụ, giải thích quan điểm Part 3; không cam kết band điểm.",
+    "sessionObjectives": [
+      "Hiểu tiêu chí đánh giá và trả lời trực tiếp câu hỏi Part 1.",
+      "Mở rộng câu trả lời bằng lý do và ví dụ về học tập, sở thích và nơi ở.",
+      "Lập dàn ý trong một phút và trình bày bài nói theo trình tự rõ ràng.",
+      "So sánh lựa chọn, giải thích quan điểm và đưa ví dụ trong Part 3.",
+      "Hoàn thành phỏng vấn thử và xác định hai điểm cần cải thiện từ phản hồi."
+    ]
+  },
+  {
+    "name": "Tiếng Anh giao tiếp công sở",
+    "amount": "600000.00",
+    "level": "Intermediate",
+    "category": "Công sở",
+    "startDate": "2026-11-22",
+    "weekday": 7,
+    "startTime": "09:00",
+    "endTime": "10:30",
+    "description": "Thực hành giao tiếp chuyên nghiệp khi trao đổi với đồng nghiệp, họp nhóm và trình bày kế hoạch.",
+    "objectives": "Trao đổi công việc rõ ràng, đặt lịch họp và trình bày đề xuất ngắn.",
+    "topics": [
+      "Giới thiệu công việc và đồng nghiệp",
+      "Trao đổi qua điện thoại",
+      "Đặt lịch và tham gia cuộc họp",
+      "Trình bày kế hoạch và phản hồi",
+      "Xử lý tình huống công sở"
+    ],
+    "requirements": "Intermediate: có thể giới thiệu bản thân và hiểu câu hỏi giao tiếp cơ bản. Chuẩn bị thiết bị có micro và Internet.",
+    "outcomes": "Thực hiện cuộc gọi công việc ngắn, thống nhất lịch họp, trình bày đề xuất và xác nhận nhiệm vụ tiếp theo bằng tiếng Anh.",
+    "sessionObjectives": [
+      "Giới thiệu vai trò, trách nhiệm và đặt câu hỏi làm quen với đồng nghiệp.",
+      "Mở đầu cuộc gọi, ghi nhận yêu cầu và xác nhận lại thông tin công việc.",
+      "Đề xuất thời gian, xác nhận lịch và đóng góp ý kiến trong cuộc họp.",
+      "Trình bày mục tiêu, các bước thực hiện và phản hồi câu hỏi về kế hoạch.",
+      "Làm rõ hiểu nhầm, đề nghị hỗ trợ và tóm tắt hành động tiếp theo."
+    ]
+  }
+]

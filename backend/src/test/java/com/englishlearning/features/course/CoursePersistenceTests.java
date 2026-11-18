@@ -58,6 +58,50 @@ class CoursePersistenceTests {
         category=categories.create(admin,Map.of("name","Category")).id().value();
     }
     Map<String,Object> fields() { var f=CourseInputTests.fields(); f.put("categoryId",Long.toString(category));return f; }
+    @Test void fourDemoCoursesHaveTwentyOwnedSessionsAndSeedIdempotently() throws Exception {
+        var target=org.springframework.test.util.AopTestUtils.getUltimateTargetObject(courses);
+        var previous=org.springframework.test.util.ReflectionTestUtils.getField(target,"clock");
+        org.springframework.test.util.ReflectionTestUtils.setField(target,"clock",java.time.Clock.fixed(Instant.parse("2026-11-18T00:00:00Z"),java.time.ZoneOffset.UTC));
+        try {
+            var categoryIds=new HashMap<String,Long>();
+            for(String name:List.of("Giao tiếp","Luyện thi","Công sở"))categoryIds.put(name,categories.create(admin,Map.of("name",name)).id().value());
+            var unrelated=courses.create(other,fields());
+            var ids=DemoCourseFixture.seed(context,teacher,categoryIds);
+            assertEquals(ids,DemoCourseFixture.seed(context,teacher,categoryIds));
+            assertEquals(4,ids.size());assertEquals(5,count("SELECT count(*) FROM courses"));
+            assertEquals(20,count("SELECT count(*) FROM sessions"));assertEquals(0,count("SELECT count(*) FROM payments"));
+            var all=new ArrayList<com.englishlearning.features.course.dto.SessionDto.Summary>();
+            for(long id:ids){
+                assertEquals("DRAFT",courses.get(teacher,id).status());
+                var outline=courses.outline(teacher,id);
+                assertFalse(outline.requirements().isBlank());assertFalse(outline.outcomes().isBlank());
+                assertNotEquals(outline.objectives(),outline.outcomes());
+                assertEquals(5,outline.stages().get(0).topics().size());
+                assertThrows(CourseFailure.class,()->courses.get(other,id));
+                assertEquals(CourseFailure.Reason.MEET_URL_INVALID,assertThrows(CourseFailure.class,()->courses.publish(teacher,id,null)).reason());
+                var sessions=courses.sessions(teacher,id,0,20,null).items();assertEquals(5,sessions.size());
+                assertEquals(List.of(1,2,3,4,5),sessions.stream().map(s->s.sessionNumber()).toList());
+                for(var session:sessions){
+                    assertEquals("SCHEDULED",session.status());assertNotNull(session.title());
+                    assertFalse(session.scheduledStartAt().isBefore(Instant.parse("2026-11-18T17:00:00Z")));
+                    assertEquals(90,java.time.Duration.between(session.scheduledStartAt(),session.scheduledEndAt()).toMinutes());
+                    var topic=outline.stages().get(0).topics().get(session.sessionNumber()-1);
+                    assertEquals("Buổi "+session.sessionNumber()+": "+session.title(),topic.title());
+                    assertEquals(topic.description(),courses.session(teacher,id,session.id().value()).content());
+                }
+                all.addAll(sessions);
+            }
+            all.sort(Comparator.comparing(s->s.scheduledStartAt()));
+            for(int i=1;i<all.size();i++)assertFalse(all.get(i).scheduledStartAt().isBefore(all.get(i-1).scheduledEndAt()));
+            assertEquals(unrelated,courses.get(other,unrelated.id().value()));
+            assertTrue(context.getBean(PublicCourseService.class).list(0,20).items().isEmpty());
+            var collision=fields();collision.put("name","Tiếng Anh giao tiếp cơ bản");
+            var protectedCourse=courses.create(teacher,collision);
+            assertThrows(IllegalStateException.class,()->DemoCourseFixture.seed(context,teacher,categoryIds));
+            assertEquals(protectedCourse,courses.get(teacher,protectedCourse.id().value()));
+            assertEquals(20,count("SELECT count(*) FROM sessions"));
+        } finally {org.springframework.test.util.ReflectionTestUtils.setField(target,"clock",previous);}
+    }
     @Test void adminOversightFiltersAllOwnersWithoutParticipationSecrets() throws Exception {
         var first=courses.create(teacher,fields());var second=courses.create(other,fields());
         sql("UPDATE courses SET status='PUBLISHED',meet_url='https://meet.google.com/abc-defg-hij' WHERE id="+second.id().value());

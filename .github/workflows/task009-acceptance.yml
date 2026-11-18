@@ -369,6 +369,64 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: Capture public-pages with synthetic fixtures
+        id: capture_public_pages
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @public-pages
+        env:
+          TASK009_EXPECTED_TESTS: '2'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/public-pages-review
+      - name: Verify public-pages PNGs
+        id: verify_public_pages
+        if: ${{ !cancelled() && steps.capture_public_pages.outcome == 'success' }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'public-pages-review'
+          for page in ('about', 'contact'):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() && steps.verify_public_pages.outcome == 'success' }}
+        with:
+          name: public-pages-review-screenshots
+          path: ${{ runner.temp }}/public-pages-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Capture demo-courses with synthetic fixtures
+        id: capture_demo_courses
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @demo-courses
+        env:
+          TASK009_EXPECTED_TESTS: '2'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/demo-courses-review
+      - name: Verify demo-courses PNGs
+        id: verify_demo_courses
+        if: ${{ !cancelled() && steps.capture_demo_courses.outcome == 'success' }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'demo-courses-review'
+          for page in ('course-discovery', 'demo-course-detail', 'student-course-roadmap'):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() && steps.verify_demo_courses.outcome == 'success' }}
+        with:
+          name: demo-courses-review-screenshots
+          path: ${{ runner.temp }}/demo-courses-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Capture Admin management with synthetic fixtures
         id: capture_admin_management
         if: ${{ !cancelled() }}
