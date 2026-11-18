@@ -5,6 +5,24 @@ No actual TEST or production records were created.
 
 ## Public pages and contact contract
 
+Visual follow-up: About uses existing SVG icons and CSS educational illustrations,
+not photographs of purported Teachers. All Teacher-registration CTAs are omitted
+on About; other routes retain the existing footer link. Contact now uses “Giữ liên
+lạc với chúng tôi”, “Gửi tin nhắn” and a “Đăng ký nhận tư vấn” anchor to the same form.
+No callback promise or additional submission endpoint is introduced.
+
+Public contact configuration is centralized in
+`frontend/src/features/contact/contact-information.tsx`: `address`, `phone`, `email`,
+and `mapEmbedUrl`, plus `websiteName`, `phoneHref` and `mapsUrl`. Owner-supplied
+public contact details and the exact Google Maps place link are now populated.
+SMTP settings and delivery flags are separate and unchanged. Empty detail rows
+remain omitted. With no validated embed URL, the map section displays the address
+and a “Mở Google Maps” link; it makes no automatic Google request. The optional lazy-loaded map
+requires both an address and an HTTPS www.google.com/maps/embed URL, with no
+username/password; no paid API package is added. Enabling it will contact Google
+from visitors' browsers, so verify the destination and approve that configuration
+before adding the real embed URL. These public constants are not SMTP credentials.
+
 `/about` explains whole-course learning, scheduled Meet classes, Teacher onboarding,
 and Student-to-Teacher tuition. `/contact` offers name, email, subject and message.
 The existing public header, mobile menu and footer link to both pages. Contact uses

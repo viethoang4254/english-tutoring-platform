@@ -25,13 +25,13 @@ export function ContactForm(){
     }finally{setBusy(false);}
   }
   return <form className={styles.form} onSubmit={submit} aria-busy={busy}>
-    <label>Họ và tên<input name="fullName" autoComplete="name" required maxLength={120}/></label>
-    <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254}/></label>
+    <div className={styles.formRow}><label>Họ và tên <span aria-hidden="true">*</span><input aria-label="Họ và tên" name="fullName" autoComplete="name" required maxLength={120}/></label>
+    <label>Email <span aria-hidden="true">*</span><input aria-label="Email" name="email" type="email" autoComplete="email" required maxLength={254}/></label></div>
     <label>Số điện thoại (không bắt buộc)<input name="phone" type="tel" autoComplete="tel" maxLength={24} pattern="[+]?[0-9 ]{7,23}"/></label>
-    <label>Chủ đề<input name="subject" required maxLength={160}/></label>
-    <label>Nội dung<textarea name="message" rows={6} required maxLength={5000}/></label>
+    <label>Tiêu đề <span aria-hidden="true">*</span><input aria-label="Tiêu đề" name="subject" required maxLength={160}/></label>
+    <label>Nội dung <span aria-hidden="true">*</span><textarea aria-label="Nội dung" name="message" rows={7} required maxLength={5000}/></label>
     <p>Thông tin được dùng để tiếp nhận và phản hồi yêu cầu của bạn.</p>
     {error&&<p role="alert">{error}</p>}{success&&<p role="status">Máy chủ thư đã tiếp nhận lời nhắn. Điều này chưa xác nhận thư đã đến hộp thư hỗ trợ.</p>}
-    <button type="submit" disabled={busy}>{busy?"Đang gửi…":"Gửi lời nhắn"}</button>
+    <button type="submit" disabled={busy}>{busy?"Đang gửi…":"Gửi tin nhắn"}</button>
   </form>;
 }

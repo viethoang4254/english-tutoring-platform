@@ -1430,6 +1430,16 @@ Static review only; hosted TASK-009 and desktop/mobile verification pending.
 
 ## Public About/Contact and four demo courses — IN_PROGRESS
 
+Public-page visual follow-up: About now has editorial introduction/illustrations,
+four value cards, benefits and informational Teacher content. Teacher registration
+CTA is omitted on About only, including its shared footer. Contact has a two-column
+form, optional verified details/map configuration and a consultation anchor to the
+same form. Backend submission/security and demo fixtures are unchanged.
+Owner-supplied public contact details are configured with clickable phone/email
+and a Google Maps address/link fallback; embedding and SMTP delivery are not enabled.
+Updated desktop/mobile assertions retain the four public-page screenshots; hosted validation
+is pending. No build, application test or external operation was run locally.
+
 Public /about and /contact pages, shared navigation, CSRF-protected default-off
 SMTP contact submission and hosted regression coverage are prepared. Four synthetic
 draft courses with five sessions each are defined for disposable CI only, using
