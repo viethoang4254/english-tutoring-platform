@@ -4,9 +4,8 @@ import styles from "./admin-analytics.module.css";
 const colors=["var(--ui-accent)","var(--ui-highlight)","var(--ui-warning)","var(--ui-danger)"];
 const number=(value:number)=>value.toLocaleString("vi-VN");
 function Donut({title,total,items}:{title:string;total:number;items:[string,number][]}){
- let offset=0;
  return <section className={styles.chartCard} aria-label={title}><h2>{title}</h2><p>Phân bố toàn thời gian</p><div className={styles.distribution}>
- <div className={styles.donut}><svg viewBox="0 0 120 120" role="img" aria-label={`${title}: ${number(total)}`}><circle cx="60" cy="60" r="45" fill="none" stroke="var(--ui-border)" strokeWidth="18"/>{items.map(([label,value],i)=>{const portion=total?value/total*100:0;const start=offset;offset+=portion;return <circle key={label} cx="60" cy="60" r="45" fill="none" stroke={colors[i]} strokeWidth="18" pathLength="100" strokeDasharray={`${portion} ${100-portion}`} strokeDashoffset={-start} transform="rotate(-90 60 60)"/>;})}</svg><strong>{number(total)}</strong></div>
+ <div className={styles.donut}><svg viewBox="0 0 120 120" role="img" aria-label={`${title}: ${number(total)}`}><circle cx="60" cy="60" r="45" fill="none" stroke="var(--ui-border)" strokeWidth="18"/>{items.map(([label,value],i)=>{const portion=total?value/total*100:0;const start=items.slice(0,i).reduce((sum,[,previous])=>sum+(total?previous/total*100:0),0);return <circle key={label} cx="60" cy="60" r="45" fill="none" stroke={colors[i]} strokeWidth="18" pathLength="100" strokeDasharray={`${portion} ${100-portion}`} strokeDashoffset={-start} transform="rotate(-90 60 60)"/>;})}</svg><strong>{number(total)}</strong></div>
  <ul className={styles.legend}>{items.map(([label,value],i)=><li key={label}><span className={styles.dot} style={{background:colors[i]}}/><span>{label}</span><b>{number(value)}</b><span>{new Intl.NumberFormat("vi-VN",{maximumFractionDigits:1}).format(total?value/total*100:0)}%</span></li>)}</ul></div>{total===0&&<p>Chưa có dữ liệu.</p>}</section>;
 }
 export function OverviewSummary({data}:{data:Analytics}){
