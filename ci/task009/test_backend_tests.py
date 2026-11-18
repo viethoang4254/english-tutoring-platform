@@ -26,6 +26,22 @@ class FeatureReportChecks(unittest.TestCase):
                         feature.tests("sample", ["ExampleTests"])
             self.assertTrue((root / "reports/sample.json").exists())
 
+    def test_admin_diagnostics_redact_messages_and_unknown_methods(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "backend/src/test/java/com/englishlearning/features/auth/security"
+            source.mkdir(parents=True)
+            (source / "AdminUserHttpTests.java").write_text("void knownCase() {}")
+            report = root / "report.xml"
+            report.write_text('<testsuite><testcase name="knownCase"><error type="java.util.NoSuchElementException" message="SECRET">at com.englishlearning.features.auth.security.AdminUserHttpTests.knownCase(AdminUserHttpTests.java:35)</error></testcase><testcase name="SECRET"><failure type="SECRET" message="SECRET"/></testcase></testsuite>')
+            with patch.object(feature.support, "REPO", root):
+                result = feature.admin_failure_report("AdminUserHttpTests", [report])
+            self.assertEqual(result[0]["method"], "knownCase")
+            self.assertEqual(result[0]["location"], "AdminUserHttpTests.java:35")
+            self.assertEqual(result[0]["exception"], "java.util.NoSuchElementException")
+            self.assertEqual(result[1]["method"], "redacted")
+            self.assertNotIn("SECRET", json.dumps(result))
+
     def test_success(self):
         self.check_report('tests="2" failures="0" errors="0" skipped="0"', True)
 

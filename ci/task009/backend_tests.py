@@ -113,6 +113,35 @@ def reconciliation_report(files):
     return report
 
 
+
+ADMIN_DIAGNOSTIC_SUITES = {"AdminUserHttpTests", "AuthenticationHttpTests", "ReceivingAccountHttpTests"}
+
+
+def admin_failure_report(suite, files):
+    if suite not in ADMIN_DIAGNOSTIC_SUITES or len(files) != 1:
+        return []
+    source = support.REPO / "backend/src/test/java/com/englishlearning/features/auth/security" / (suite + ".java")
+    methods = set(re.findall(r"\bvoid\s+(\w+)\s*\(", source.read_text(encoding="utf-8")))
+    cases = []
+    for case in ET.parse(files[0]).getroot().findall("testcase"):
+        for node in case:
+            if node.tag not in {"failure", "error"}:
+                continue
+            name = case.get("name", "")
+            item = {"suite": suite, "method": name if name in methods else "redacted",
+                    "category": node.tag, "exception": node.get("type") if node.get("type") in
+                    EXCEPTIONS | {"java.util.NoSuchElementException", "jakarta.servlet.ServletException", "java.lang.IllegalStateException"} else "unclassified"}
+            status = re.fullmatch(r"Status expected:<(\d{3})> but was:<(\d{3})>", node.get("message", ""))
+            if status and all(100 <= int(v) <= 599 for v in status.groups()):
+                item.update(expected_status=int(status[1]), actual_status=int(status[2]))
+            frame = re.search(r"at com\.englishlearning\.features\.auth\.security\." + re.escape(suite) +
+                              r"\.(\w+)\(" + re.escape(suite) + r"\.java:([1-9][0-9]{0,3})\)", node.text or "")
+            if frame and frame[1] in methods:
+                item["location"] = suite + ".java:" + frame[2]
+            cases.append(item)
+    return cases
+
+
 def tests(label, suites, flags=()):
     reports = support.REPO / "backend/target/surefire-reports"
     with stage(label, "report-preparation"):
@@ -142,6 +171,12 @@ def tests(label, suites, flags=()):
                 result = []
                 for suite in suites:
                     files = list(reports.glob("TEST-*." + suite + ".xml"))
+                    if suite in ADMIN_DIAGNOSTIC_SUITES:
+                        details = admin_failure_report(suite, files)
+                        destination = support.root() / "reports"
+                        destination.mkdir(exist_ok=True)
+                        (destination / (suite + "-diagnostics.json")).write_text(json.dumps(details))
+                        print("Admin diagnostics: " + json.dumps(details), flush=True)
                     counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
                     if len(files) == 1:
                         counts = {key: int(ET.parse(files[0]).getroot().attrib[key]) for key in counts}

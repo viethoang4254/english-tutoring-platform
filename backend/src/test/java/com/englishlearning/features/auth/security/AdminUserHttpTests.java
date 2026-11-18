@@ -29,6 +29,8 @@ class AdminUserHttpTests extends AuthenticationHttpTestSupport {
   mvc.perform(patch("/api/v1/admin/users/1/lock").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access").contentType("application/json").content("{\"locked\":true}")).andExpect(status().isForbidden());
   mvc.perform(patch("/api/v1/admin/users/2/lock").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access").contentType("application/json").content("{\"locked\":true,\"role\":\"ADMIN\"}")).andExpect(status().isBadRequest());verify(adminUsers,never()).setLocked(anyLong(),anyBoolean());
  }
+ // MockMvc csrf() replaces the shared filter repository; this test must exercise the real cookie repository.
+ @org.springframework.test.annotation.DirtiesContext(methodMode=org.springframework.test.annotation.DirtiesContext.MethodMode.BEFORE_METHOD)
  @Test void realAdminCsrfCookieHeaderAllowsLockAndRejectsMissingCookie() throws Exception {
   actor(Role.ADMIN,false);
   var response=mvc.perform(get("/api/v1/admin/csrf").header("Authorization","Bearer access")).andExpect(status().isOk()).andReturn().getResponse();

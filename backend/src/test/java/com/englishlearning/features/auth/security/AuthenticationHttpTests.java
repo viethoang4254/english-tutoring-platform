@@ -179,6 +179,8 @@ class AuthenticationHttpTests extends AuthenticationHttpTestSupport {
                     .header("Access-Control-Request-Method","POST")).andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
         }
+        mvc.perform(options(api()+"/api/v1/admin/users/2").header("Origin",origin())
+                .header("Access-Control-Request-Method","DELETE")).andExpect(status().isOk());
         mvc.perform(options(api()+"/api/v1/auth/login").header("Origin",origin())
                 .header("Access-Control-Request-Method","DELETE")).andExpect(status().isForbidden());
         verifyNoInteractions(workflows);

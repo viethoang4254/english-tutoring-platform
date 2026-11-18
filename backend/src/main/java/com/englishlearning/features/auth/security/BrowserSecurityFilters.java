@@ -26,7 +26,8 @@ final class BrowserSecurityFilters {
         google.setAllowedMethods(List.of("GET","POST","DELETE","OPTIONS"));
         source.registerCorsConfiguration("/api/v1/integrations/google-calendar/**",google);
         source.registerCorsConfiguration("/api/v1/integrations/google-calendar",google);
-        var admin=new CorsConfiguration(configuration);admin.addAllowedMethod("DELETE");
+        var admin=new CorsConfiguration(configuration);
+        admin.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         source.registerCorsConfiguration("/api/v1/admin/**",admin);
         source.registerCorsConfiguration("/**", configuration);
         var filter = new CorsFilter(source);

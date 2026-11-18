@@ -33,8 +33,8 @@ export function AdminUsers({session}:{session:Session}) {
  {deleting&&<UserDialog title="Xóa vĩnh viễn người dùng" busy={busy} close={()=>setDeleting(undefined)}><p>Xóa tài khoản {deleting.fullName}? Không thể hoàn tác. Tài khoản có dữ liệu nghiệp vụ sẽ không được xóa.</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} onClick={()=>void save(deleting)}>Xác nhận xóa vĩnh viễn</button><button disabled={busy} onClick={()=>setDeleting(undefined)}>Hủy</button></UserDialog>}
  <form className={styles.filters} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);load({page:0,search:String(f.get("search")??"").trim(),role:String(f.get("role")??""),locked:String(f.get("locked")??""),attempt:0});}}>
  <label>Tìm theo tên hoặc email<input name="search" maxLength={100}/></label>
- <label>Vai trò<select name="role"><option value="">Tất cả</option>{["STUDENT","TEACHER","ADMIN"].map(r=><option key={r}>{r}</option>)}</select></label>
- <label>Trạng thái tài khoản<select name="locked"><option value="">Tất cả</option><option value="false">Hoạt động</option><option value="true">Đã khóa</option></select></label>
+ <label>Vai trò<select name="role" aria-label="Vai trò"><option value="">Tất cả</option>{["STUDENT","TEACHER","ADMIN"].map(r=><option key={r}>{r}</option>)}</select></label>
+ <label>Trạng thái tài khoản<select name="locked" aria-label="Trạng thái tài khoản"><option value="">Tất cả</option><option value="false">Hoạt động</option><option value="true">Đã khóa</option></select></label>
  <button disabled={busy}>Tìm kiếm</button><button type="button" disabled={busy} onClick={()=>load()}>Tải lại người dùng</button></form>
  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}{!result&&!error&&<p role="status" className={styles.loading}>Đang tải người dùng…</p>}
  {confirm&&<section aria-label="Xác nhận trạng thái tài khoản"><p>{confirm.locked?"Mở khóa":"Khóa"} tài khoản {confirm.fullName}?</p><button disabled={busy} onClick={()=>void action(confirm,true)}>Xác nhận</button><button disabled={busy} onClick={()=>setConfirm(undefined)}>Hủy</button></section>}

@@ -33,7 +33,7 @@ class ReceivingAccountHttpTests extends AuthenticationHttpTestSupport {
     @Test void onlyOwnerAndVerifiedAdminCanViewImageWithoutPaymentAuthority()throws Exception {
         when(receivingRepository.get(9)).thenReturn(Optional.of(row(1)));when(qrStorage.read(anyString())).thenReturn(ReceivingImageTests.png());actor(Role.TEACHER,true,false);
         mvc.perform(get("/api/v1/teacher/payment-accounts/9/qr-image").header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(content().contentType("image/png")).andExpect(header().string("Cache-Control","no-store")).andExpect(header().string("X-Content-Type-Options","nosniff"));
-        actor(Role.ADMIN,true,false);mvc.perform(get("/api/v1/admin/payment-accounts/9/qr-image").header("Authorization","Bearer access")).andExpect(status().isOk());
+        actor(Role.ADMIN,true,false);mvc.perform(get("/api/v1/admin/payment-accounts/9/qr-image").secure(true).header("Authorization","Bearer access")).andExpect(status().isOk());
         for(String path:List.of("/api/v1/teacher/courses/2/payments/9/confirm-manually","/api/v1/student/enrollments/9/activate"))mvc.perform(post(path).header("Authorization","Bearer access")).andExpect(status().isForbidden());
     }
     @Test void submissionIsPendingAndRejectsAuthorityFields()throws Exception {
