@@ -54,6 +54,7 @@ jobs:
           TEST_RUNNER_KIND: ${{ runner.environment }}
         shell: powershell
         run: |
+          & ./tools/google-test/Test-MigrationValidation.ps1
           $dir = Join-Path $env:RUNNER_TEMP 'google-private-ci'
           function Read-Host { param($Prompt,[switch]$AsSecureString) ConvertTo-SecureString 'synthetic-ci-input' -AsPlainText -Force }
           & ./tools/google-test/Configure-Secrets.ps1 -Directory $dir -KeyProtection AclOnly -Confirm:$false
@@ -97,6 +98,10 @@ jobs:
           Expand-Archive -LiteralPath "$dir/runtime.zip" -DestinationPath $root
           $config = @{ artifactReceipt="$dir/receipt.json"; runtimeDirectory=$root; approvedCommit=$env:GITHUB_SHA; approvedPackageRunId=$env:GITHUB_RUN_ID }
           $null = & ./tools/google-test/Verify-TestArtifact.ps1 -Config $config
+          $config.approvedCommit = ('0' * 40)
+          $rejected = $false
+          try { $null = & ./tools/google-test/Verify-TestArtifact.ps1 -Config $config } catch { $rejected = $true }
+          if (-not $rejected) { throw 'Mismatched revision accepted' }
           Push-Location "$root/frontend"
           node node_modules/next/dist/bin/next start --help
           if ($LASTEXITCODE) { throw 'Packaged Next CLI unavailable' }

@@ -45,7 +45,7 @@ $receipt = & (Join-Path $PSScriptRoot 'Verify-TestArtifact.ps1') -Config $config
 $config | Add-Member -NotePropertyName backendJar -NotePropertyValue (Join-Path $config.runtimeDirectory 'backend/application.jar') -Force
 Require (Test-Path -LiteralPath $config.databaseCaFile -PathType Leaf) 'Trusted TEST database CA file is required; TLS verification will not be disabled.'
 Get-Command psql, java -ErrorAction Stop | Out-Null
-Write-Output 'Local preflight passed. Database identity and V12 readiness must still be checked. Sync remains disabled.'
+Write-Output 'Local preflight passed. Database identity and V1-V15 readiness must still be checked. Sync remains disabled.'
 if ($DryRun -or (-not $StartBackend -and -not $VerifyDatabase)) {
     Write-Output 'DRY RUN: no database access, processes, migrations or demo records. Execution requires -StartBackend and confirmation.'
     return
@@ -83,13 +83,8 @@ Require ($check.ExitCode -eq 0) 'TEST database read-only preflight failed; priva
 $result = $read.GetAwaiter().GetResult() | ConvertFrom-Json
 Require ($result.database -ceq 'postgres' -and $result.user -ceq 'postgres') 'Unexpected active database or database role.'
 $history = @($result.history)
-Require ($history.Count -in @(12,13)) 'Complete V12 or V13 history required; no automatic migrations.'
-for ($i=0; $i -lt $history.Count; $i++) {
-    $row=$history[$i]
-    $expected=$receipt.migrations.PSObject.Properties[$row.script]
-    Require ($row.success -eq $true -and [string]$row.version -ceq [string]($i+1) -and $null -ne $expected -and [long]$expected.Value -eq [long]$row.checksum) 'Migration history/checksum mismatch.'
-}
-Write-Output "TEST identity verified; V12 present; V13 present: $($history.Count -eq 13); eligible Students: $($result.students); approved Teachers: $($result.teachers)."
+& (Join-Path $PSScriptRoot 'Verify-TestMigrations.ps1') -Receipt $receipt -History $history
+Write-Output "TEST identity verified; complete V1-V15 history verified; delivery remains disabled."
 if (-not $StartBackend) { return }
 $start = [Diagnostics.ProcessStartInfo]::new('java')
 $start.UseShellExecute = $false; $start.CreateNoWindow = $true
@@ -108,6 +103,7 @@ $values = @{
     APP_SECURITY_JWT_PUBLICKEY = ([Uri]([IO.Path]::GetFullPath($config.jwtPublicKeyFile))).AbsoluteUri
     APP_SECURITY_PASSWORDRESET_HMACSECRET = (Secret $config.resetHmacFile)
     APP_GOOGLE_CALENDAR_ENABLED = 'true'; APP_GOOGLE_CALENDAR_SYNC_ENABLED = 'false'
+    APP_GOOGLE_CALENDAR_INVITATIONS_ENABLED = 'false'; APP_SESSION_REMINDERS_ENABLED = 'false'; APP_CONTACT_ENABLED = 'false'
     APP_GOOGLE_CALENDAR_CLIENT_ID = (Secret $config.clientIdFile); APP_GOOGLE_CALENDAR_CLIENT_SECRET = (Secret $config.clientSecretFile)
     APP_GOOGLE_CALENDAR_REDIRECT_URI = 'http://localhost:8081/api/v1/integrations/google-calendar/callback'
     APP_GOOGLE_CALENDAR_SCOPES = 'openid email https://www.googleapis.com/auth/calendar.app.created'

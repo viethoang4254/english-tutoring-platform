@@ -26,7 +26,7 @@ Meet remains the Teacher-provided course-level URL. Student access requires elig
 
 1. Installed package provenance is older than Batches 1–4. Current process provenance was not established.
 2. Actual V13–V15 history/checksums and a usable backup are unverified. Previous V12 verification is historical evidence only.
-3. `Start-TestEnvironment.ps1` is intentionally OAuth-only: it accepts complete V12/V13 histories and forces sync off. It must not be used as an invitation/reminder launcher unchanged. A separately reviewed update must validate the complete package migration history, keep automatic migrations disabled, and require explicit delivery configuration.
+3. `Start-TestEnvironment.ps1` now requires complete V1-V15 history matching the verified package receipt. Missing, duplicate, unexpected, failed or mismatched entries fail closed. Automatic migrations remain disabled. Sync, invitations, reminders and Contact delivery are explicitly disabled; the Contact page can render while submission remains unavailable. Hosted validation of this launcher update is pending.
 4. No recipient allowlist enforcement was found in Calendar/reminder delivery code. Google OAuth consent test users are not an invitation-recipient allowlist. Reminder eligibility is global and independent of course invitation opt-in. Enabling reminders may reach every eligible upcoming Student in TEST.
 5. SMTP sender credentials, sender permission, approved recipient inventory and actual mailbox delivery are unverified. Do not inspect or print secret contents to resolve these checks.
 6. Existing OAuth ciphertext must retain its original token key file/key ID and client configuration across deployment. Do not regenerate keys, overwrite secrets or reconnect unnecessarily.
