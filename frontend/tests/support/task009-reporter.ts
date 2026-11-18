@@ -15,7 +15,7 @@ function safeLocation(location: TestCase['location'] | undefined): string {
     'tests/live/calendar.spec.ts', 'tests/live/course-publication.spec.ts', 'tests/support/live-fixtures.ts', 'tests/support/teacher-navigation.ts', 'tests/e2e/teacher-calendar.spec.ts',
     'tests/e2e/unified-dashboard.spec.ts', 'tests/e2e/teacher-login.spec.ts',
     'tests/e2e/teacher-courses.spec.ts', 'tests/e2e/teacher-sessions.spec.ts',
-    'tests/e2e/admin-categories.spec.ts', 'tests/e2e/admin-dashboard.spec.ts', 'tests/e2e/course-discovery.spec.ts',
+    'tests/e2e/admin-management.spec.ts', 'tests/e2e/admin-categories.spec.ts', 'tests/e2e/admin-dashboard.spec.ts', 'tests/e2e/course-discovery.spec.ts',
     'tests/e2e/student-dashboard.spec.ts', 'tests/e2e/teacher-dashboard.spec.ts']) {
     if (path.resolve(location.file) === path.resolve(__dirname, '../../', file)) return `${file}:${location.line}`;
   }

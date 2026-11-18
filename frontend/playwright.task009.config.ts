@@ -9,7 +9,7 @@ export default defineConfig({
   testMatch: ['e2e/calendar-sync.spec.ts', 'e2e/google-calendar.spec.ts', 'e2e/meeting-access.spec.ts', 'e2e/student-calendar.spec.ts', 'e2e/course-checkout.spec.ts', 'e2e/receiving-accounts.spec.ts', 'e2e/course-registration.spec.ts', 'e2e/student-enrollments.spec.ts', 'e2e/student-profile.spec.ts', 'live/profile.spec.ts', 'live/calendar.spec.ts', 'live/course-publication.spec.ts',
     'e2e/teacher-calendar.spec.ts', 'e2e/unified-dashboard.spec.ts', 'e2e/teacher-login.spec.ts',
     'e2e/teacher-courses.spec.ts', 'e2e/teacher-sessions.spec.ts',
-    'e2e/admin-categories.spec.ts', 'e2e/admin-dashboard.spec.ts', 'e2e/course-discovery.spec.ts',
+    'e2e/admin-management.spec.ts', 'e2e/admin-categories.spec.ts', 'e2e/admin-dashboard.spec.ts', 'e2e/course-discovery.spec.ts',
     'e2e/student-dashboard.spec.ts', 'e2e/teacher-dashboard.spec.ts'],
   workers: 1, retries: 0, forbidOnly: true, timeout: 60_000,
   reporter: './tests/support/task009-reporter.ts',
