@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { teacherPanel } from '../support/teacher-navigation';
 import { randomUUID } from 'node:crypto';
-import { api, fixture, mutation, register } from '../support/live-fixtures';
+import { api, fixture, mutation, register, expectTeacherDecision } from '../support/live-fixtures';
 
 test('owner publishes a draft visible across public and Student catalogs', async ({page,request}) => {
   test.setTimeout(180_000);
@@ -18,7 +18,7 @@ test('owner publishes a draft visible across public and Student catalogs', async
   const owner = await register(request,true);
   const application = await request.get(api+'/teacher/onboarding',{headers:owner.headers});
   expect(application.status()).toBe(200);
-  expect((await request.post(api+'/admin/teacher-applications/'+(await application.json()).applicationId+'/approve',{headers:adminHeaders})).status()).toBe(204);
+  await expectTeacherDecision(await request.post(api+'/admin/teacher-applications/'+(await application.json()).applicationId+'/approve',{headers:adminHeaders}));
   const title = 'Publication '+randomUUID();
   const category = await request.post(api+'/admin/categories',{headers:adminHeaders,data:{name:title}});
   expect(category.status()).toBe(201);
@@ -33,7 +33,7 @@ test('owner publishes a draft visible across public and Student catalogs', async
   const other = await register(request,true);
   const otherApplication = await request.get(api+'/teacher/onboarding',{headers:other.headers});
   expect(otherApplication.status()).toBe(200);
-  expect((await request.post(api+'/admin/teacher-applications/'+(await otherApplication.json()).applicationId+'/approve',{headers:adminHeaders})).status()).toBe(204);
+  await expectTeacherDecision(await request.post(api+'/admin/teacher-applications/'+(await otherApplication.json()).applicationId+'/approve',{headers:adminHeaders}));
   expect((await request.post(course+'/publish',{headers:other.headers,data:{meetUrl:'https://meet.google.com/abc-defg-hij'}})).status()).toBe(404);
   expect((await request.put(course+'/schedule',{headers:owner.headers,data:{rules:[{dayOfWeek:2,startTime:'09:00',endTime:'10:00'}]}})).status()).toBe(200);
   expect((await request.post(course+'/sessions/generate',{headers:owner.headers})).status()).toBe(201);

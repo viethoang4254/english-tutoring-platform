@@ -1,4 +1,4 @@
-import {expect, type APIRequestContext} from '@playwright/test';
+import {expect, test, type APIResponse, type APIRequestContext} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import path from 'node:path';
@@ -36,4 +36,19 @@ export async function register(request: APIRequestContext, teacher: boolean) {
   const me = await request.get(api + '/users/me', {headers});
   expect(me.status()).toBe(200);
   return {...account, token, headers, id: (await me.json()).id as string};
+}
+
+// Only status and fixed API codes reach the sanitized reporter; never response messages.
+export async function expectTeacherDecision(response: APIResponse) {
+  const status = response.status();
+  test.info().annotations.push({type:'task009-decision-status', description:String(status)});
+  if (status !== 204) {
+    const codes = new Set(['ACCESS_DENIED', 'AUTHENTICATION_REQUIRED', 'INVALID_REQUEST',
+      'APPLICATION_NOT_FOUND', 'APPLICATION_ALREADY_REVIEWED', 'TEACHER_PROFILE_CONFLICT',
+      'APPLICATION_NOT_REVIEWABLE', 'INTERNAL_ERROR']);
+    let code = 'UNCLASSIFIED';
+    try { const body = await response.json(); if (codes.has(body?.code)) code = body.code; } catch { /* Non-JSON responses remain unclassified. */ }
+    test.info().annotations.push({type:'task009-decision-code', description:code});
+  }
+  expect(status).toBe(204);
 }

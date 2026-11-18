@@ -56,6 +56,16 @@ export default class SafeReporter implements Reporter {
       ...(safeLocation(test.location).startsWith('tests/e2e/student-profile.spec.ts:') &&
         /^(STUDENT|TEACHER) profile save (200|400|401|403|500|503) is safe and does not retry$/.test(test.title)
         ? {scenario:test.title,...this.profileProgress.get(result)} : {})});
+    const decisionStatus = test.annotations.filter(a => a.type === 'task009-decision-status' && /^[1-5][0-9]{2}$/.test(a.description ?? '')).at(-1)?.description;
+    const decisionCodes = new Set(['ACCESS_DENIED', 'AUTHENTICATION_REQUIRED', 'INVALID_REQUEST',
+      'APPLICATION_NOT_FOUND', 'APPLICATION_ALREADY_REVIEWED', 'TEACHER_PROFILE_CONFLICT',
+      'APPLICATION_NOT_REVIEWABLE', 'INTERNAL_ERROR', 'UNCLASSIFIED']);
+    const decisionCode = test.annotations.filter(a => a.type === 'task009-decision-code' && decisionCodes.has(a.description ?? '')).at(-1)?.description;
+    if (decisionStatus) {
+      const line = `Teacher decision: status=${decisionStatus} code=${decisionCode ?? 'none'} declaration=${safeLocation(test.location)}`;
+      console.log(line);
+      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, line + '\n');
+    }
     const project = test.parent.project()?.name;
     const diagnostic = `${result.status}: declaration=${safeLocation(test.location)} stage=${stage} failure=${failure}`;
     if (test.tags.includes('@course-invitations')) {

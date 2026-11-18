@@ -1,5 +1,5 @@
 import {expect, test} from '@playwright/test';
-import {api, fixture, mutation, register} from '../support/live-fixtures';
+import {api, fixture, mutation, register, expectTeacherDecision} from '../support/live-fixtures';
 import {teacherPanel} from '../support/teacher-navigation';
 
 type Item = {sessionId:string;courseId:string;courseTitle:string;sessionNumber:number;sessionTitle:string|null;
@@ -28,7 +28,7 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
       expect(onboarding.status()).toBe(200);
       const result = await clients[0].post(`${api}/admin/teacher-applications/${(await onboarding.json()).applicationId}/${decision}`,
         {headers:adminHeaders,...(decision==='reject'?{data:{reason:'CI rejection'}}:{})});
-      expect(result.status()).toBe(204);
+      await expectTeacherDecision(result);
     }
     stage('calendar-fixtures');
     const seeded = JSON.parse(fixture('calendar-fixture',{owner:owner.id,other:other.id}));
