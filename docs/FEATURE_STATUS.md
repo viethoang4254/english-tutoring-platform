@@ -1587,3 +1587,23 @@ Admin Batch 1 implementation/review file inventory:
 - `frontend/src/features/admin/admin-users.tsx`
 - `frontend/src/features/admin/create-user.tsx`
 - `frontend/tests/e2e/admin-management.spec.ts`
+
+
+### Admin Batch 2 — read-only course oversight (IN_PROGRESS)
+
+Prepared at user request on baseline faa630b3dd10644a8f26e832649678574f2151a2.
+New AdminCourseController/Service/Dto reuse CourseRepository, current-account lookup,
+Admin security chain and existing course error handling. List/detail expose only safe
+course metadata, Teacher name/ID, category, base tuition, enrollment aggregates and
+scheduled-session date range. ID-ordered pagination and literal title search support
+Teacher ID/category ID/status filters. No course mutations or migrations.
+AdminCourses replaces the dashboard courses placeholder, using existing Admin table,
+mobile card and detail styles. Named Teacher/category selectors reuse options from course pages already loaded and
+retain IDs in requests. The UI labels this coverage; searchable global pickers are not included. Counts do not imply attendance eligibility.
+TASK-009 registers AdminCourseHttpTests, extends disposable CoursePersistenceTests,
+and adds two browser executions plus four directory/detail desktop/mobile screenshots
+in admin-course-review-screenshots. Existing groups and screenshots remain unchanged.
+Only static diff checks performed; hosted acceptance and visual review pending.
+No suspension/moderation workflow exists in the inspected course API; no new states
+or Admin delivery authority were introduced. Aggregate transaction statistics remain
+outside this batch. Static review complete; hosted CI and screenshots remain pending. No local build/test or database operation.

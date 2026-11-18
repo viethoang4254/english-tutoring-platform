@@ -8,6 +8,7 @@ import { authMutation, safeMessage } from "../auth/browser-api";
 import { ApiRequestError } from "../../lib/api";
 import { AdminApplications } from "../teacher/admin-applications";
 import { AdminReviews } from "../receiving/admin-reviews";
+import { AdminCourses } from "./admin-courses";
 import { AdminUsers } from "./admin-users";
 import { AdminCategories } from "./admin-categories";
 import styles from "./admin-dashboard.module.css";
@@ -63,9 +64,10 @@ function AdminView({initialSection,reviewId}:{initialSection:Section;reviewId?:s
       {section === "users" && <AdminUsers session={session}/> }
       {section === "categories" && <AdminCategories session={session} busy={busy} run={run} />}
       {section === "receiving" && <div className={styles.card}><AdminReviews key={reviewId ?? "queue"} session={session} id={reviewId}/></div>}
-      {section !== "users" && section !== "account" && section !== "overview" && section !== "reviews" && section !== "categories" && section !== "receiving" && <section className={styles.card}>
+      {section === "courses" && <AdminCourses session={session}/>}
+      {section !== "courses" && section !== "users" && section !== "account" && section !== "overview" && section !== "reviews" && section !== "categories" && section !== "receiving" && <section className={styles.card}>
         <span className={styles.badge}>Chưa khả dụng</span><h2>Chức năng đang được chuẩn bị</h2>
-        <p>{section === "courses" ? "Chưa kết nối API tổng quan khóa học. Gia sư sở hữu và tạo khóa học; quản trị viên không tạo khóa học." : "Chưa kết nối API thống kê giao dịch. Học phí được thanh toán trực tiếp cho gia sư; nền tảng không giữ tiền hoặc thực hiện chi trả."}</p>
+        <p>Chưa kết nối API thống kê giao dịch. Học phí được thanh toán trực tiếp cho gia sư; nền tảng không giữ tiền hoặc thực hiện chi trả.</p>
         <p>Không hiển thị dữ liệu giả hoặc mô phỏng thao tác thành công.</p>
       </section>}
   </DashboardLayout>;

@@ -1,0 +1,30 @@
+import {test,expect} from "@playwright/test";
+import {captureReview} from "../support/ui-review";
+test("@admin-courses Read-only oversight filters, pagination, detail and recovery",async({page},info)=>{
+ const course={id:"11",name:"Khóa học giao tiếp",description:"Mô tả khóa học",teacher:{id:"2",fullName:"Gia sư kiểm thử"},category:{id:"3",name:"Giao tiếp"},tuition:{amount:"1000000.00",currency:"VND"},status:"PUBLISHED",timezone:"Asia/Ho_Chi_Minh",enrollmentCount:7,activeEnrollmentCount:4,plannedSessions:3,recordedSessions:3,scheduledSessions:2,firstSessionAt:"2026-12-01T02:00:00Z",lastSessionAt:"2026-12-08T03:00:00Z"};
+ let fail=false;const reads:string[]=[];
+ await page.route("**/api/v1/**",r=>{const u=new URL(r.request().url());
+  if(u.pathname.endsWith("/csrf"))return r.fulfill({json:{token:"fixture-csrf"}});
+  if(u.pathname.endsWith("/login"))return r.fulfill({json:{accessToken:"admin-token",tokenType:"Bearer"}});
+  if(u.pathname.endsWith("/users/me"))return r.fulfill({json:{id:"1",role:"ADMIN",emailVerified:true}});
+  if(u.pathname.startsWith("/api/v1/admin/courses")){
+   expect(r.request().method()).toBe("GET");expect(r.request().headers().authorization).toBe("Bearer admin-token");reads.push(u.search);
+   if(fail)return r.fulfill({status:503,json:{code:"UNAVAILABLE",message:"PRIVATE"}});
+   if(u.pathname.endsWith("/11"))return r.fulfill({json:course});
+   const n=Number(u.searchParams.get("page"));return r.fulfill({json:{items:n?[]:[course],page:n,size:20,hasNext:n===0}});
+  }return r.fulfill({status:404,json:{code:"NOT_FOUND"}});
+ });
+ await page.goto("/login");await page.getByLabel("Email",{exact:true}).fill("admin@example.invalid");await page.getByLabel("Mật khẩu",{exact:true}).fill("fixture-password");await page.getByRole("button",{name:"Đăng nhập",exact:true}).click();await expect(page).toHaveURL(/admin\/dashboard$/);
+ await expect(page.getByRole("heading",{level:1})).toBeVisible();const toggle=page.locator("[data-dashboard-toggle]");if(await toggle.isVisible())await toggle.click();await page.getByRole("link",{name:"Tổng quan khóa học",exact:true}).click();
+ const panel=page.getByRole("region",{name:"Danh sách khóa học"});await expect(panel.getByText(course.name,{exact:true})).toBeVisible();
+ await panel.getByLabel("Tên khóa học").fill("giao tiếp");await panel.getByRole("combobox",{name:"Gia sư",exact:true}).selectOption({label:"Gia sư kiểm thử (#2)"});await panel.getByRole("combobox",{name:"Danh mục",exact:true}).selectOption({label:"Giao tiếp"});await panel.getByRole("combobox",{name:"Trạng thái khóa học"}).selectOption("PUBLISHED");
+ await panel.getByRole("button",{name:"Tìm khóa học",exact:true}).click();await expect.poll(()=>reads.some(v=>new URLSearchParams(v).get("teacherId")==="2"&&new URLSearchParams(v).get("categoryId")==="3"&&new URLSearchParams(v).get("status")==="PUBLISHED"&&new URLSearchParams(v).get("search")==="giao tiếp")).toBe(true);
+ await expect(panel.getByRole("button",{name:"Xem khóa học 11"})).toBeVisible();
+ await captureReview(page,info,"admin-course-directory");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await panel.getByRole("button",{name:"Trang sau"}).click();await expect(panel.getByText("Không tìm thấy khóa học.")).toBeVisible();await panel.getByRole("button",{name:"Trang trước"}).click();
+ await panel.getByRole("button",{name:"Xem khóa học 11"}).click();const detail=panel.getByRole("article",{name:"Chi tiết khóa học"});await expect(detail).toContainText("Mô tả khóa học");await expect(detail).toContainText("Asia/Ho_Chi_Minh");await expect(detail).toContainText("7");
+ await expect(panel.getByRole("button",{name:/Xuất bản|Chỉnh sửa|Đồng bộ|Tham gia/})).toHaveCount(0);await expect(panel.locator('a[href*="meet.google.com"]')).toHaveCount(0);
+ await captureReview(page,info,"admin-course-detail");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ fail=true;await panel.getByRole("button",{name:"Tải lại khóa học"}).click();await expect(panel.getByRole("alert")).toBeVisible();await expect(page.getByText("PRIVATE",{exact:true})).toHaveCount(0);
+ fail=false;await panel.getByRole("button",{name:"Thử lại"}).click();await expect(detail).toBeVisible();
+});

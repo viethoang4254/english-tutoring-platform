@@ -1903,3 +1903,20 @@ shapes or incoming references to those auth tables fail closed. No SQL migration
 or external credential revocation is performed. Missing/deleted accounts fail
 normal authentication lookup. Account audit logs retain IDs/action only.
 Bank review history is platform review, not bank verification or payment confirmation.
+
+
+### Admin Batch 2 — course oversight
+
+- GET /api/v1/admin/courses: page (default 0), size (1–100, default 20),
+  search (literal title substring, max 100), teacherId, categoryId, status
+  (DRAFT/PUBLISHED/COMPLETED/CANCELLED/ARCHIVED). Unknown/duplicate parameters rejected.
+  Stable course-ID ordering; items/page/size/hasNext; no-store.
+- GET /api/v1/admin/courses/{id}: same safe course projection for one course;
+  404 when absent. Authenticated, verified, unlocked ADMIN required by filter and service.
+- Projection: ID/name/description/base tuition, Teacher ID/name, category ID/name,
+  status/timezone, all enrollment count, ACTIVE count, planned/recorded/SCHEDULED session
+  counts and earliest start/latest end of SCHEDULED sessions. Includes historical
+  enrollments; does not claim payment confirmation, attendance permission or delivery.
+- No Meet URL, session content, attendee email, payment details or OAuth credentials.
+  No mutation endpoint or Admin override of Teacher ownership. Existing 400/401/403/404
+  and sanitized infrastructure error contracts apply. No schema changes.

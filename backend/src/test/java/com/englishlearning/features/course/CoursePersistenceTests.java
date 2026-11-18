@@ -54,6 +54,20 @@ class CoursePersistenceTests {
         category=categories.create(admin,Map.of("name","Category")).id().value();
     }
     Map<String,Object> fields() { var f=CourseInputTests.fields(); f.put("categoryId",Long.toString(category));return f; }
+    @Test void adminOversightFiltersAllOwnersWithoutParticipationSecrets() throws Exception {
+        var first=courses.create(teacher,fields());var second=courses.create(other,fields());
+        sql("UPDATE courses SET status='PUBLISHED',meet_url='https://meet.google.com/abc-defg-hij' WHERE id="+second.id().value());
+        var oversight=context.getBean(AdminCourseService.class);
+        var page=oversight.list(admin,0,1,"",null,null,null);
+        assertEquals(first.id(),page.items().get(0).id());assertTrue(page.hasNext());
+        var next=oversight.list(admin,1,1,"",null,null,null);assertEquals(second.id(),next.items().get(0).id());assertFalse(next.hasNext());
+        assertEquals(List.of(second.id()),oversight.list(admin,0,20,"",other,category,"PUBLISHED").items().stream().map(c->c.id()).toList());
+        assertTrue(oversight.list(admin,0,20,"no-match",null,null,null).items().isEmpty());
+        var detail=oversight.detail(admin,first.id().value());assertEquals(0,detail.enrollmentCount());assertEquals(0,detail.recordedSessions());assertNull(detail.firstSessionAt());
+        assertFalse(Arrays.stream(detail.getClass().getRecordComponents()).anyMatch(c->c.getName().toLowerCase().matches(".*(meet|token|email|student).*")));
+        assertThrows(CourseFailure.class,()->oversight.list(teacher,0,20,"",null,null,null));
+        assertThrows(CourseFailure.class,()->oversight.detail(other,first.id().value()));
+    }
     @Test void publicDiscoveryUsesPublishedRowsAcrossOwnersAndStablePagination() throws Exception {
         var first=courses.create(teacher,fields());var second=courses.create(other,fields());
         var hidden=courses.create(teacher,fields());

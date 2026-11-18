@@ -32,6 +32,34 @@ public class CourseRepository {
             new ApiId(((Number)r[0]).longValue()),new ApiId(((Number)r[1]).longValue()),(String)r[2],
             ((Number)r[3]).intValue(),(String)r[4],instant(r[5]),instant(r[6]),(String)r[7],(String)r[8])).toList();
     }
+    public List<com.englishlearning.features.course.dto.AdminCourseDto> oversight(int page,int size,String search,Long teacher,Long category,String status,Long id) {
+        var query=em.createNativeQuery("""
+            SELECT c.id,c.name,c.description,c.tuition,c.currency,u.id,u.full_name,k.id,k.name,c.status,c.timezone,
+              (SELECT count(*) FROM public.enrollments e WHERE e.course_id=c.id),
+              (SELECT count(*) FROM public.enrollments e WHERE e.course_id=c.id AND e.status='ACTIVE'),
+              c.session_count,(SELECT count(*) FROM public.sessions s WHERE s.course_id=c.id),
+              (SELECT count(*) FROM public.sessions s WHERE s.course_id=c.id AND s.status='SCHEDULED'),
+              (SELECT min(s.scheduled_start_at) FROM public.sessions s WHERE s.course_id=c.id AND s.status='SCHEDULED'),
+              (SELECT max(s.scheduled_end_at) FROM public.sessions s WHERE s.course_id=c.id AND s.status='SCHEDULED')
+            FROM public.courses c JOIN public.users u ON u.id=c.teacher_id JOIN public.course_categories k ON k.id=c.category_id
+            WHERE strpos(lower(c.name),:search)>0
+            """+(teacher==null?"":" AND c.teacher_id=:teacher")+(category==null?"":" AND c.category_id=:category")
+              +(status==null?"":" AND c.status=:status")+(id==null?"":" AND c.id=:id")+" ORDER BY c.id")
+            .setParameter("search",search.toLowerCase(Locale.ROOT));
+        if(teacher!=null)query.setParameter("teacher",teacher);
+        if(category!=null)query.setParameter("category",category);
+        if(status!=null)query.setParameter("status",status);
+        if(id!=null)query.setParameter("id",id);
+        return ((List<?>)query.setFirstResult(page*size).setMaxResults(size+1).getResultList()).stream().map(value->{
+            Object[] r=(Object[])value;
+            return new com.englishlearning.features.course.dto.AdminCourseDto(new ApiId(((Number)r[0]).longValue()),(String)r[1],(String)r[2],
+                ApiMoney.from(((BigDecimal)r[3]).setScale(2),(String)r[4]),
+                new PublicCourseDto.Teacher(new ApiId(((Number)r[5]).longValue()),(String)r[6]),
+                new PublicCourseDto.Category(new ApiId(((Number)r[7]).longValue()),(String)r[8]),(String)r[9],(String)r[10],
+                ((Number)r[11]).longValue(),((Number)r[12]).longValue(),((Number)r[13]).intValue(),((Number)r[14]).longValue(),
+                ((Number)r[15]).longValue(),r[16]==null?null:instant(r[16]),r[17]==null?null:instant(r[17]));
+        }).toList();
+    }
     private static final String PUBLIC_SELECT = """
         SELECT c.id,c.name,c.description,c.tuition,c.currency,k.id,k.name,u.id,u.full_name,
                c.planned_start_date,c.timezone,c.session_count,c.thumbnail_path IS NOT NULL
