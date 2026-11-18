@@ -4,7 +4,7 @@ param([Parameter(Mandatory)][string]$Manifest, [switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 # This entry point deliberately cannot mutate until the fixture authority is resolved.
 & (Join-Path $PSScriptRoot 'Start-TestEnvironment.ps1') -Manifest $Manifest -DryRun
-Write-Output 'Demo plan: synthetic approved Teacher and Student; Tiếng Anh giao tiếp thực tế; 1000000 VND; Asia/Ho_Chi_Minh; three future sessions.'
+Write-Output 'Demo plan: four courses from backend/src/test/resources/demo-courses.json; five 90-minute sessions each; Asia/Ho_Chi_Minh. Use an existing approved TEST Teacher.'
 Write-Output 'Publication must use an approved TEST receiving account and a Teacher-provided real Meet URL. No Meet URL is generated.'
 Write-Output 'Enrollment/payment creation and Teacher confirmation must use the existing authenticated APIs. No SQL payment activation.'
-if (-not $DryRun) { throw 'BLOCKED: initial TEST Admin/account provisioning, synthetic receiving-account fixture and real Teacher Meet URL must be resolved before an executable demo mutator is supplied.' }
+if (-not $DryRun) { throw 'BLOCKED: use the reviewed authenticated Teacher API procedure only after separate TEST write authorization, identity/TLS verification and hosted acceptance. This script does not create records.' }

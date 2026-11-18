@@ -30,7 +30,7 @@
   {
     "name": "Luyện thi TOEIC nền tảng",
     "amount": "650000.00",
-    "level": "Beginner / Intermediate",
+    "level": "Beginner",
     "category": "Luyện thi",
     "startDate": "2026-11-20",
     "weekday": 5,
@@ -45,7 +45,7 @@
       "Ngữ pháp và hoàn thành câu",
       "Đọc hiểu và tổng kết chiến lược"
     ],
-    "requirements": "Beginner / Intermediate: đọc được câu đơn giản và biết các thì cơ bản. Chuẩn bị tai nghe, thiết bị có micro và Internet.",
+    "requirements": "Beginner: đọc được câu đơn giản và biết các thì cơ bản. Chuẩn bị tai nghe, thiết bị có micro và Internet.",
     "outcomes": "Phân biệt các dạng câu hỏi TOEIC nghe và đọc, tìm từ khóa và giải thích cách chọn đáp án trong bài luyện tập; không cam kết điểm thi.",
     "sessionObjectives": [
       "Nhận diện các phần nghe và đọc, tự xây dựng kế hoạch ôn tập phù hợp.",
@@ -58,7 +58,7 @@
   {
     "name": "IELTS Speaking cơ bản",
     "amount": "750000.00",
-    "level": "Intermediate",
+    "level": "Beginner",
     "category": "Luyện thi",
     "startDate": "2026-11-21",
     "weekday": 6,
@@ -73,7 +73,7 @@
       "Thảo luận và giải thích Part 3",
       "Thực hành phỏng vấn và phản hồi"
     ],
-    "requirements": "Intermediate: có thể trả lời câu hỏi quen thuộc bằng vài câu liên tiếp. Chuẩn bị thiết bị có micro và Internet; không yêu cầu điểm IELTS đầu vào.",
+    "requirements": "Beginner: có thể trả lời câu hỏi quen thuộc bằng vài câu liên tiếp. Chuẩn bị thiết bị có micro và Internet; không yêu cầu điểm IELTS đầu vào.",
     "outcomes": "Tổ chức câu trả lời Part 1, trình bày bài nói Part 2 có mở đầu và ví dụ, giải thích quan điểm Part 3; không cam kết band điểm.",
     "sessionObjectives": [
       "Hiểu tiêu chí đánh giá và trả lời trực tiếp câu hỏi Part 1.",
@@ -86,7 +86,7 @@
   {
     "name": "Tiếng Anh giao tiếp công sở",
     "amount": "600000.00",
-    "level": "Intermediate",
+    "level": "Beginner",
     "category": "Công sở",
     "startDate": "2026-11-22",
     "weekday": 7,
@@ -101,7 +101,7 @@
       "Trình bày kế hoạch và phản hồi",
       "Xử lý tình huống công sở"
     ],
-    "requirements": "Intermediate: có thể giới thiệu bản thân và hiểu câu hỏi giao tiếp cơ bản. Chuẩn bị thiết bị có micro và Internet.",
+    "requirements": "Beginner: có thể giới thiệu bản thân và hiểu câu hỏi giao tiếp cơ bản. Chuẩn bị thiết bị có micro và Internet.",
     "outcomes": "Thực hiện cuộc gọi công việc ngắn, thống nhất lịch họp, trình bày đề xuất và xác nhận nhiệm vụ tiếp theo bằng tiếng Anh.",
     "sessionObjectives": [
       "Giới thiệu vai trò, trách nhiệm và đặt câu hỏi làm quen với đồng nghiệp.",

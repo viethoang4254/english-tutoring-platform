@@ -65,9 +65,9 @@ All dates use Asia/Ho_Chi_Minh. Each course has five 90-minute weekly sessions:
 | Course | Tuition VND | Level | Five session dates | Local time |
 | --- | ---: | --- | --- | --- |
 | Tiếng Anh giao tiếp cơ bản | 500000.00 | Beginner | Nov 19, Nov 26, Dec 3, Dec 10, Dec 17, 2026 | 17:00–18:30 |
-| Luyện thi TOEIC nền tảng | 650000.00 | Beginner / Intermediate | Nov 20, Nov 27, Dec 4, Dec 11, Dec 18, 2026 | 17:00–18:30 |
-| IELTS Speaking cơ bản | 750000.00 | Intermediate | Nov 21, Nov 28, Dec 5, Dec 12, Dec 19, 2026 | 09:00–10:30 |
-| Tiếng Anh giao tiếp công sở | 600000.00 | Intermediate | Nov 22, Nov 29, Dec 6, Dec 13, Dec 20, 2026 | 09:00–10:30 |
+| Luyện thi TOEIC nền tảng | 650000.00 | Beginner | Nov 20, Nov 27, Dec 4, Dec 11, Dec 18, 2026 | 17:00–18:30 |
+| IELTS Speaking cơ bản | 750000.00 | Beginner | Nov 21, Nov 28, Dec 5, Dec 12, Dec 19, 2026 | 09:00–10:30 |
+| Tiếng Anh giao tiếp công sở | 600000.00 | Beginner | Nov 22, Nov 29, Dec 6, Dec 13, Dec 20, 2026 | 09:00–10:30 |
 
 Descriptions, distinct objectives/outcomes, level-specific prerequisites and five
 lesson objectives are included in JSON. Numbered roadmap topics and their objectives
@@ -140,6 +140,41 @@ were performed while preparing this implementation.
 
 ### Resumable TEST creation procedure (not executed)
 
+November 18 readiness follow-up: the owner's requested level is Beginner for all
+four courses. The shared JSON level and prerequisite prefixes now agree; existing
+descriptions, objectives, outcomes, topics and prerequisite skills are preserved.
+Prices and all twenty dates already match the requested November/December schedule.
+The legacy Prepare-Demo.ps1 plan now references this dataset; it still refuses
+mutation and must not be described as an executable seeder.
+
+Read-only local inspection found the stage-c5-22a29b7 manifest and receipt both pin
+22a29b7d5b77ccaf4ce1cea10d351a2cb0b98f22, with 13 packaged migration files. The
+configured TEST project/user match zobxcixrxsazmngcthvg. These are configuration
+observations, not live TLS, database, migration-history or backup verification.
+No listener was found on 3000/8081 during this inspection. No database was queried.
+This local observation does not establish availability of any remote TEST website.
+Teacher approval, receiving account, Student identity, existing course IDs and
+genuine Meet URLs remain unverified. No courses/enrollments/payments were created.
+
+Before execution, separately approve TEST read-only identity/TLS/history and backup
+verification, then the exact four-course write plan and approved Teacher/category
+IDs. Confirm capacity (the CI fixture uses min 1/max 12; not presumed approved for
+TEST). Use a legitimate Teacher login locally; never paste passwords/tokens into
+chat or the execution journal. Require green hosted acceptance and a matching
+backend/frontend package before separately approved installation; review any
+missing migrations against that package, never auto-migrate. The latest investigated
+backend Maven failure's cause remains unknown. TASK-009 run 44319295710 passed at
+ee4b4b8145745127adcf6cdb92bc14f5c7180b77 (SMTP, backend, UI screenshots and profile
+browser jobs; optional packaging skipped). The new preparation revision still
+requires its own hosted acceptance before packaging/deployment.
+
+Student demo follow-up is separate from creation/publication: authorize one existing
+Student's normal registration and PENDING payment workflow, inspect the generated
+VietQR without transferring money, and verify protected Meet denial. A CONFIRMED
+demo requires actual authorized Teacher attestation after payment or a separately
+reviewed isolated simulation mechanism. No such simulation is supplied here; never
+claim a fake bank transfer. Keep all outgoing email and Calendar delivery disabled.
+
 After the preceding approvals, use one authorized Teacher session and one operator.
 Record the approved Teacher ID, category IDs, dataset checksum and returned course
 IDs in a private execution journal outside Git; never store bearer tokens there.
@@ -147,6 +182,28 @@ Paginate `GET /api/v1/teacher/courses` before creating anything. Stop on ambiguo
 name/owner matches; never adopt or edit an unrelated course by name alone.
 
 For each of the four definitions:
+
+Use the authenticated Teacher browser/API workflow and its existing CSRF bootstrap,
+cookie and X-XSRF-TOKEN handling for every mutation. Never supply a client-selected
+teacherId. Payload mapping from each JSON definition `d` is:
+
+- Create: `name=d.name`, `description=d.description`, approved `categoryId` as a
+  decimal string, `tuition={amount:d.amount,currency:"VND"}`, approved `minStudents`
+  and `maxStudents`, `sessionCount=5`, `plannedStartDate=d.startDate`,
+  `timezone="Asia/Ho_Chi_Minh"`.
+- Outline: `introduction=d.description`, `objectives=d.objectives`, `audience=d.level`,
+  `requirements=d.requirements`, `outcomes=d.outcomes`; one stage named
+  `Năm buổi thực hành` with five topics, each `title="Buổi N: "+d.topics[N-1]`
+  and `description=d.sessionObjectives[N-1]`.
+- Schedule: `{"rules":[{"dayOfWeek":d.weekday,"startTime":d.startTime,"endTime":d.endTime}]}`.
+- Generate sessions: no body. Session PATCH: `title=d.topics[sessionNumber-1]`,
+  `content=d.sessionObjectives[sessionNumber-1]`.
+- Publication (separate approval): `{"meetUrl": <genuine Teacher-provided URL>}`.
+
+Read all pages of Teacher courses (`page`, `size`, optionally `status`) and sessions
+before reconciliation. Course creation has no global idempotency key: the journal,
+single operator and read-back checks prevent blind retries, not concurrent atomic
+creation. If identity or a prior response cannot be resolved, stop for review.
 
 1. If no journaled or matching marked course exists, call `POST /api/v1/teacher/courses`
    with the approved category, tuition, capacity, start date, timezone and count five.
