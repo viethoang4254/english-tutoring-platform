@@ -24,5 +24,9 @@ public interface TeacherApplicationRepository extends Repository<TeacherApplicat
             ORDER BY submitted_at ASC, id ASC LIMIT :limit OFFSET :offset
             """, nativeQuery = true)
     java.util.List<PendingRow> findPending(int offset, int limit);
+    @org.springframework.data.jpa.repository.Query(value = "SELECT id,teacher_id AS \"teacherId\",status,submitted_at AS \"submittedAt\" FROM public.teacher_applications WHERE status=:status ORDER BY submitted_at,id LIMIT :limit OFFSET :offset", nativeQuery=true)
+    java.util.List<PendingRow> findStatus(String status,int offset,int limit);
+    @org.springframework.data.jpa.repository.Query(value="SELECT a.id,a.teacher_id AS \"teacherId\",a.status,a.submitted_at AS \"submittedAt\" FROM public.teacher_applications a JOIN public.users u ON u.id=a.teacher_id WHERE a.status=:status AND (strpos(lower(u.full_name),:search)>0 OR strpos(lower(u.email),:search)>0) ORDER BY a.submitted_at,a.id LIMIT :limit OFFSET :offset",nativeQuery=true)
+    java.util.List<PendingRow> searchStatus(String status,String search,int offset,int limit);
     boolean existsByTeacherIdAndStatus(Long teacherId, String status);
 }

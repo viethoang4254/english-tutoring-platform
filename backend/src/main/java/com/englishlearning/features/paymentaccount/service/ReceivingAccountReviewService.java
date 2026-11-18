@@ -26,7 +26,7 @@ public class ReceivingAccountReviewService {
             UserCredentialService users, TeacherBusinessEligibility teachers, @Qualifier("refreshSessionClock") Clock clock) {
         this.rows=rows; this.accounts=accounts; this.users=users; this.teachers=teachers; this.clock=clock;
     }
-    public record Item(ApiId id, ApiId teacherId, String bankName, Instant submittedAt) {}
+    public record Item(ApiId id, ApiId teacherId, String bankName, Instant submittedAt, String holderName, String accountNumber, String status) {}
     public record Page(List<Item> items, int page, int size, boolean hasNext) {}
     @Transactional(readOnly=true)
     public Page pending(long actor, int page, int size) {
@@ -34,14 +34,21 @@ public class ReceivingAccountReviewService {
         if(page<0 || size<1 || size>100 || (long)page*size>Integer.MAX_VALUE) throw new ReceivingFailure(INVALID);
         var found=rows.pendingPage(page,size);
         return new Page(found.stream().limit(size).map(r -> new Item(r.account().id(),new ApiId(r.teacher()),
-                r.account().bankName(),r.account().createdAt())).toList(),page,size,found.size()>size);
+                r.account().bankName(),r.account().createdAt(),r.account().holderName(),ReceivingAccountService.mask(r.account()).accountNumber(),r.account().reviewStatus())).toList(),page,size,found.size()>size);
+    }
+    @Transactional(readOnly=true)
+    public Page list(long actor,int page,int size,String status) {
+        admin(accounts.findById(actor).orElse(null));
+        if(!Set.of("PENDING","APPROVED","REJECTED").contains(status)||page<0||size<1||size>100||(long)page*size>Integer.MAX_VALUE)throw new ReceivingFailure(INVALID);
+        var found=rows.statusPage(status,page,size);
+        return new Page(found.stream().limit(size).map(r->new Item(r.account().id(),new ApiId(r.teacher()),r.account().bankName(),r.account().createdAt(),r.account().holderName(),ReceivingAccountService.mask(r.account()).accountNumber(),r.account().reviewStatus())).toList(),page,size,found.size()>size);
     }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public ReceivingAccountReview detail(long actor, long id) {
         admin(accounts.findById(actor).orElse(null));
         var row=rows.get(id).orElseThrow(() -> new ReceivingFailure(MISSING));
         var audit=rows.audit(id);
-        return new ReceivingAccountReview(new ApiId(row.teacher()),row.account(),audit.reviewer(),audit.at(),audit.reason());
+        return new ReceivingAccountReview(new ApiId(row.teacher()),ReceivingAccountService.mask(row.account()),audit.reviewer(),audit.at(),audit.reason());
     }
     @Transactional(isolation=Isolation.READ_COMMITTED)
     public void review(long actor, long id, boolean approve, String reason) {

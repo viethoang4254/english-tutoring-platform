@@ -42,6 +42,20 @@ public class TeacherApplicationReviewService {
                 new ApiId(row.getId()), new ApiId(row.getTeacherId()), row.getStatus(), row.getSubmittedAt())).toList();
         return new TeacherApplicationQueue(items, page, size, rows.size() > size);
     }
+    @Transactional(readOnly=true)
+    public TeacherApplicationQueue list(Long reviewerId,int page,int size,String status) {
+        requireReviewer(accounts.findById(reviewerId).orElse(null));
+        if(!Set.of("PENDING","APPROVED","REJECTED").contains(status)||page<0||size<1||size>100||(long)page*size>Integer.MAX_VALUE)throw new TeacherReviewFailure(INVALID_REQUEST);
+        var rows=applications.findStatus(status,page*size,size+1);
+        return new TeacherApplicationQueue(rows.stream().limit(size).map(row->new TeacherApplicationQueue.Item(new ApiId(row.getId()),new ApiId(row.getTeacherId()),row.getStatus(),row.getSubmittedAt())).toList(),page,size,rows.size()>size);
+    }
+    @Transactional(readOnly=true)
+    public TeacherApplicationQueue search(Long actor,int page,int size,String status,String search) {
+        requireReviewer(accounts.findById(actor).orElse(null));
+        if(search==null||search.length()>100||search.codePoints().anyMatch(Character::isISOControl)||!Set.of("PENDING","APPROVED","REJECTED").contains(status)||page<0||size<1||size>100||(long)page*size>Integer.MAX_VALUE)throw new TeacherReviewFailure(INVALID_REQUEST);
+        var rows=applications.searchStatus(status,search.strip().toLowerCase(Locale.ROOT),page*size,size+1);
+        return new TeacherApplicationQueue(rows.stream().limit(size).map(row->new TeacherApplicationQueue.Item(new ApiId(row.getId()),new ApiId(row.getTeacherId()),row.getStatus(),row.getSubmittedAt())).toList(),page,size,rows.size()>size);
+    }
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void review(Long reviewerId, Long applicationId, boolean approve, String reason) {
         if (!approve && (reason == null || reason.isBlank() || reason.indexOf(0) >= 0))

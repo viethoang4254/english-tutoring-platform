@@ -7,13 +7,14 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes = {StudentRegistrationController.class, TeacherRegistrationController.class, PasswordRecoveryController.class})
+@RestControllerAdvice(assignableTypes = {AdminRegistrationController.class, StudentRegistrationController.class, TeacherRegistrationController.class, PasswordRecoveryController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class VerificationExceptionHandler {
     @ExceptionHandler(VerificationFailure.class)
     ResponseEntity<ApiError> failure(VerificationFailure failure, jakarta.servlet.http.HttpServletRequest request) {
         int status; String code, message;
         switch (failure.reason()) {
+            case DENIED -> { status = 403; code = "ACCESS_DENIED"; message = "Access denied."; }
             case CONFLICT -> { status = 409; code = "REGISTRATION_CONFLICT"; message = "Registration conflicts with an existing account."; }
             case INVALID -> { status = 400; code = request.getRequestURI().startsWith("/api/v1/auth/password/") ? "INVALID_RESET_CREDENTIAL" : "INVALID_VERIFICATION_CREDENTIAL"; message = "Invalid credential."; }
             case RATE_LIMITED -> { status = 429; code = "VERIFICATION_RATE_LIMITED"; message = "Verification resend limit reached."; }

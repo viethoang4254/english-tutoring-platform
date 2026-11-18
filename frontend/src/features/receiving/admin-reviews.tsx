@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import {useCallback, useEffect, useRef, useState} from "react";
-import {authorized, type Session} from "../auth/browser-api";
+import {adminMutation} from "../admin/admin-api";
+import {type Session} from "../auth/browser-api";
 import {adminPath, read, reasonError, statuses, type Page, type QueueItem, type Review} from "./receiving";
 import {message, PrivateQr, useAccess, useLoad} from "./private-view";
 import styles from "./receiving.module.css";
@@ -15,16 +16,19 @@ export function AdminReviews({session,id}:{session:Session;id?:string}) {
   return id?<ReviewDetail key={id} token={session.accessToken} id={id} handle={handle}/>:<Queue token={session.accessToken} handle={handle}/>;
 }
 function Queue({token,handle}:{token:string;handle:(e:unknown)=>void}) {
+  const [status,setStatus]=useState("PENDING");
   const [page,setPage]=useState(0),[version,setVersion]=useState(0);
   const load=useCallback((signal:AbortSignal)=>{
-    return read<Page<QueueItem>>(token,`${adminPath}/pending?page=${page}&size=20`,signal);
-  },[token,page]);
+    return read<Page<QueueItem>>(token,status==="PENDING"?`${adminPath}/pending?page=${page}&size=20`:`${adminPath}?status=${status}&page=${page}&size=20`,signal);
+  },[token,page,status]);
   const result=useLoad(load,handle,version);
-  return <section className={styles.panel}><h2>Hồ sơ chờ xét duyệt</h2>
+  return <section className={styles.panel}><h2>{status==="PENDING"?"Hồ sơ chờ xét duyệt":"Lịch sử xét duyệt tài khoản nhận tiền"}</h2>
+    <nav aria-label="Trạng thái xét duyệt ngân hàng">{[["PENDING","Chờ duyệt"],["APPROVED","Đã duyệt"],["REJECTED","Đã từ chối"]].map(([value,label])=><button key={value} aria-pressed={status===value} onClick={()=>{setStatus(value);setPage(0);}}>{label}</button>)}</nav>
     <button onClick={()=>setVersion(v=>v+1)}>Cập nhật danh sách</button>
     {!result?<p role="status">Đang tải danh sách…</p>:result.error?<p role="alert">{result.error}</p>:<>
-      {!result.value?.items.length && <p>Không có hồ sơ chờ trên trang này.</p>}
-      {result.value?.items.map(a=><article key={a.id}><strong>{a.bankName}</strong><span>Gia sư {a.teacherId}</span>
+      <p>{result.value?.items.length??0} hồ sơ trên trang này</p>
+      {!result.value?.items.length && <p>{status==="PENDING"?"Không có hồ sơ chờ trên trang này.":"Không có hồ sơ trên trang này."}</p>}
+      {result.value?.items.map(a=><article key={a.id}><strong>{a.bankName}</strong><p>{a.holderName} · {a.accountNumber}</p><span>Gia sư {a.teacherId}</span>
         <time dateTime={a.submittedAt}>{new Date(a.submittedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})} (GMT+7)</time>
         <Link href={`${queueUrl}&id=${a.id}`}>Xem hồ sơ {a.id}</Link></article>)}
     </>}
@@ -54,7 +58,7 @@ function ReviewDetail({token,id,handle}:{token:string;id:string;handle:(e:unknow
     if(invalid){setError(invalid);return;}
     flight.current=true;setBusy(true);setError("");setNotice("");
     try {
-      await authorized(token,`${path}/${mode}`,mode==="reject"?{reason:reason.trim()}:undefined,"POST");
+      await adminMutation(token,`${path}/${mode}`,mode==="reject"?{reason:reason.trim()}:undefined,"POST");
       setNotice("Đã ghi nhận quyết định xét duyệt.");
     } catch(e){handle(e);setError(message(e));}
     finally {

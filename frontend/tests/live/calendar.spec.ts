@@ -16,6 +16,9 @@ test('live populated Calendar ownership, boundaries and Dashboard', async ({page
     const login = await mutation(clients[0], '/auth/login', {email:admin.email,password:admin.password});
     expect(login.status()).toBe(200);
     const adminHeaders = {Authorization:'Bearer '+(await login.json()).accessToken};
+    const csrf=await clients[0].get(api+'/admin/csrf',{headers:adminHeaders});
+    expect(csrf.status()).toBe(200);
+    Object.assign(adminHeaders,{'X-XSRF-TOKEN':(await csrf.json()).token});
     const owner = await register(clients[1], true);
     const other = await register(clients[2], true);
     const rejected = await register(clients[3], true);

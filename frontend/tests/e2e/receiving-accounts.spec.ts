@@ -13,7 +13,7 @@ async function login(page:Page,role:"ADMIN"|"TEACHER"|"STUDENT",bank:(route:Rout
       expect(route.request().headers().authorization).toBe("Bearer fixture");
       return bank(route,path);
     }
-    if(path==="/auth/csrf")return route.fulfill({json:{token:"csrf-fixture"}});
+    if(path==="/auth/csrf"||path==="/admin/csrf")return route.fulfill({json:{token:"csrf-fixture"}});
     if (path.endsWith("/refresh") && remembered) { remembered = false; return route.fulfill({json:{accessToken:"fixture",tokenType:"Bearer"}}); }
     if(path==="/auth/login"){ remembered = !!route.request().postDataJSON()?.rememberMe; return route.fulfill({json:{accessToken:"fixture",tokenType:"Bearer"}}); }
     if(path==="/users/me")return route.fulfill({json:{id:"1",role,emailVerified:true}});

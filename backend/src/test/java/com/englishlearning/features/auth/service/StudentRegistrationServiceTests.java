@@ -87,4 +87,19 @@ class StudentRegistrationServiceTests {
                 ()->service.registerTeacher("teacher@example.invalid","password","Teacher","English","Experience","Intro")).reason());
         verify(manager).commit(status); verify(manager,never()).rollback(any());
     }
+
+    @Test void adminProvisioningRechecksLockedAuthorityBeforeCreation() {
+        var service=service();
+        when(users.lockAccountById(12L)).thenReturn(Optional.of(new com.englishlearning.features.user.service.AccountSnapshot(12L,com.englishlearning.features.user.entity.User.Role.ADMIN,true,true,false)));
+        assertEquals(VerificationFailure.Reason.DENIED,assertThrows(VerificationFailure.class,()->service.register(12L,"new@example.invalid","password","Student","student_name","0912345678")).reason());
+        verify(users,never()).createStudent(any(),any(),any(),any(),any(),any());verifyNoInteractions(mail,applications);
+    }
+    @Test void adminTeacherCreationStillCreatesPendingApplicationAndVerification() {
+        var service=service();
+        when(users.lockAccountById(12L)).thenReturn(Optional.of(new com.englishlearning.features.user.service.AccountSnapshot(12L,com.englishlearning.features.user.entity.User.Role.ADMIN,false,true,false)));
+        when(users.createTeacher(any(),any(),any(),any())).thenReturn(Optional.of(2L));
+        service.registerTeacher(12L,"teacher@example.invalid","password","Teacher","English","Experience","Introduction");
+        verify(applications).saveAndFlush(argThat(a->a.getTeacherId()==2L&&a.getStatus().equals("PENDING")));
+        verify(credentials).saveAndFlush(any());verify(mail).send(eq("teacher@example.invalid"),anyString());
+    }
 }

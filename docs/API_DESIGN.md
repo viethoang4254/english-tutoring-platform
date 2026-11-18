@@ -1877,3 +1877,29 @@ A disconnect commits REVOCATION_PENDING, erases local credentials and retains th
 ## Stage C4 personal calendar synchronization
 
 The owner status GET may include sync.state, pending, failed and lastSuccess. An eligible connected Student or Teacher may POST /api/v1/integrations/google-calendar/sync with the integration CSRF token to retry exhausted work (202). See [implementation and operations](STAGE_C4_CALENDAR_SYNC.md).
+
+### Admin Batch 1 CRUD extension (hosted verification pending)
+
+All endpoints require a current unlocked, verified ADMIN. Mutations additionally
+require the HttpOnly `ADMIN-XSRF-TOKEN` cookie and masked `X-XSRF-TOKEN` header
+obtained from `GET /api/v1/admin/csrf`; responses are no-store.
+
+| Method / path (under /api/v1) | Contract |
+| --- | --- |
+| POST /admin/users | STUDENT registration or TEACHER PENDING onboarding; supplied password/confirmation; no ADMIN role |
+| GET /admin/users | page/size/search/role/locked; stable user ID order, hasNext |
+| GET /admin/users/{id} | safe identity/status fields only |
+| PATCH /admin/users/{id}/profile | fullName only; rejects security/role fields |
+| PATCH /admin/users/{id}/lock | locked boolean; revokes refresh sessions on lock |
+| DELETE /admin/users/{id} | 204 only after permanent transactional deletion; 409 USER_DEPENDENCIES_EXIST on protected dependencies |
+| GET /admin/teacher-applications | status/page/size and optional literal name/email search; pending endpoint retained |
+| GET /admin/payment-accounts | status/page/size; pending endpoint retained; masked account numbers and holder name |
+
+Existing Teacher and receiving-account detail/approve/reject routes are reused.
+Self and other ADMIN accounts cannot be edited, locked or deleted. Deletion checks
+all incoming user FKs and the non-FK Calendar outbox, preserves business history,
+and cleans only the three reviewed auth credential tables. Unknown composite FK
+shapes or incoming references to those auth tables fail closed. No SQL migration
+or external credential revocation is performed. Missing/deleted accounts fail
+normal authentication lookup. Account audit logs retain IDs/action only.
+Bank review history is platform review, not bank verification or payment confirmation.

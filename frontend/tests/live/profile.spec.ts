@@ -21,6 +21,9 @@ for (const state of ['STUDENT', 'PENDING', 'REJECTED', 'APPROVED']) {
         const onboarding = await context.request.get(api + '/teacher/onboarding', {headers: account.headers});
         expect(onboarding.status()).toBe(200);
         const id = (await onboarding.json()).applicationId;
+        const csrf=await adminRequest.get(api+'/admin/csrf',{headers:adminHeaders});
+        expect(csrf.status()).toBe(200);
+        Object.assign(adminHeaders,{'X-XSRF-TOKEN':(await csrf.json()).token});
         const result = await adminRequest.post(`${api}/admin/teacher-applications/${id}/${state === 'APPROVED' ? 'approve' : 'reject'}`,
           {headers: adminHeaders, ...(state === 'REJECTED' ? {data: {reason: 'Cần bổ sung thông tin'}} : {})});
         expect(result.status()).toBe(204);

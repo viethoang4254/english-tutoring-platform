@@ -205,6 +205,10 @@ class ReceivingAccountPersistenceTests {
         var page=reviews.pending(2,0,1);assertEquals(1,page.items().size());assertTrue(page.hasNext());assertEquals(first,page.items().get(0).id().value());
         assertEquals(other,reviews.pending(2,1,1).items().get(0).id().value());assertFalse(reviews.pending(2,1,1).hasNext());
         reviews.review(2,first,true,null);assertEquals(1,reviews.pending(2,0,20).items().size());
+        assertEquals(first,reviews.list(2,0,20,"APPROVED").items().get(0).id().value());
+        assertTrue(reviews.list(2,0,20,"REJECTED").items().isEmpty());
+        reviews.review(2,other,false,"Review rejected");assertEquals(other,reviews.list(2,0,20,"REJECTED").items().get(0).id().value());
+        assertTrue(reviews.pending(2,0,20).items().isEmpty());
         assertThrows(ReceivingFailure.class,()->reviews.pending(2,0,101));assertThrows(ReceivingFailure.class,()->reviews.pending(2,-1,20));
         assertEquals(ReceivingFailure.Reason.ALREADY_REVIEWED,assertThrows(ReceivingFailure.class,()->reviews.review(2,100,true,null)).reason());
     }
@@ -228,7 +232,7 @@ class ReceivingAccountPersistenceTests {
             assertEquals("APPROVED",detail.account().reviewStatus());assertEquals("ACTIVE",detail.account().selectionStatus());
             assertEquals(winner,detail.reviewedBy().value());assertNotNull(detail.reviewedAt());assertNull(detail.rejectionReason());
             assertEquals(1,activeCount());assertEquals(0,count("SELECT count(*) FROM teacher_payment_accounts WHERE review_status='PENDING'"));
-            assertEquals(submitted.accountNumber(),detail.account().accountNumber());assertEquals(submitted.holderName(),detail.account().holderName());
+            assertEquals("****5678",detail.account().accountNumber());assertEquals(submitted.accountNumber(),service.detail(1,id).accountNumber());assertEquals(submitted.holderName(),detail.account().holderName());
             assertEquals(evidence,text("SELECT qr_object||'|'||qr_sha256 FROM teacher_payment_accounts WHERE id="+id));
             assertEquals(1,objects.size());assertArrayEquals(QrImage.sanitize(ReceivingImageTests.png()),service.image(1,id,false));
         } finally {go.countDown();pool.shutdownNow();assertTrue(pool.awaitTermination(10,TimeUnit.SECONDS));}
@@ -250,12 +254,12 @@ class ReceivingAccountPersistenceTests {
             // Both serial outcomes are valid: preflight conflicts, or a new pending row follows approval.
             assertEquals(next==0?0:1,count("SELECT count(*) FROM teacher_payment_accounts WHERE teacher_id=1 AND review_status='PENDING'"));
             assertEquals(next==0?1:2,objects.size());assertEquals(next==0?2:3,count("SELECT count(*) FROM teacher_payment_accounts"));
-            assertEquals(original.accountNumber(),approved.account().accountNumber());assertEquals(original.holderName(),approved.account().holderName());
+            assertEquals("****5678",approved.account().accountNumber());assertEquals(original.accountNumber(),service.detail(1,id).accountNumber());assertEquals(original.holderName(),approved.account().holderName());
             assertEquals(evidence,text("SELECT qr_object||'|'||qr_sha256 FROM teacher_payment_accounts WHERE id="+id));
             assertArrayEquals(QrImage.sanitize(ReceivingImageTests.png()),service.image(1,id,false));
             if(next!=0) {
                 var pending=reviews.detail(2,next);assertEquals("PENDING",pending.account().reviewStatus());assertEquals("INACTIVE",pending.account().selectionStatus());
-                assertEquals("Next Holder",pending.account().holderName());assertEquals("0098765432",pending.account().accountNumber());assertNull(pending.reviewedBy());assertNull(pending.reviewedAt());
+                assertEquals("Next Holder",pending.account().holderName());assertEquals("****5432",pending.account().accountNumber());assertEquals("0098765432",service.detail(1,next).accountNumber());assertNull(pending.reviewedBy());assertNull(pending.reviewedAt());
                 assertNotEquals(evidence,text("SELECT qr_object||'|'||qr_sha256 FROM teacher_payment_accounts WHERE id="+next));
                 assertArrayEquals(QrImage.sanitize(ReceivingImageTests.png()),service.image(1,next,false));
             }

@@ -28,6 +28,11 @@ public class ReceivingAccountReviewController {
         if (size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE) throw invalid();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.pending(principal.id(), page, size));
     }
+    @GetMapping
+    public ResponseEntity<ReceivingAccountReviewService.Page> list(@AuthenticationPrincipal AccountPrincipal actor,HttpServletRequest request) throws IOException {
+        if(!java.util.Set.of("page","size","status").containsAll(request.getParameterMap().keySet())||request.getParameterMap().values().stream().anyMatch(v->v.length!=1)||request.getInputStream().read()!=-1)throw invalid();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list(actor.id(),unsignedParameter(request,"page",0),unsignedParameter(request,"size",20),request.getParameter("status")==null?"PENDING":request.getParameter("status")));
+    }
     private static int unsignedParameter(HttpServletRequest request, String name, int fallback) {
         String[] values = request.getParameterValues(name);
         if (values == null) return fallback;

@@ -6,7 +6,7 @@ export interface Account {
   selectionStatus: "ACTIVE" | "INACTIVE"; hasQrImage: boolean; createdAt: string;
 }
 export interface Page<T> { items: T[]; page: number; size: number; hasNext: boolean }
-export interface QueueItem { id: string; teacherId: string; bankName: string; submittedAt: string }
+export interface QueueItem { id: string; teacherId: string; bankName: string; submittedAt: string; holderName: string; accountNumber: string; status: string }
 export interface Review { teacherId: string; account: Account; reviewedBy: string | null; reviewedAt: string | null; rejectionReason: string | null }
 export const statuses = {PENDING:"Chờ xét duyệt", APPROVED:"Đã phê duyệt", REJECTED:"Đã từ chối", UNREVIEWED:"Chưa xét duyệt"};
 export const teacherPath = "/teacher/payment-accounts", adminPath = "/admin/payment-accounts";

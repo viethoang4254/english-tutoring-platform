@@ -1501,3 +1501,89 @@ measures email delivery. TASK-009 desktop/mobile verification is pending.
   Playwright paging/retry coverage. TASK-009 dashboard/calendar count increases from
   66 to 68. No local tests/builds executed; hosted CI required before completion.
 - Read-only roster: no enrollment edits, payment confirmation or roster exports.
+
+### Admin Batch 1 — complete CRUD and approvals (IN_PROGRESS)
+
+Implementation prepared on `codex/calendar-google-integration`; hosted validation
+and screenshot review are pending. No local builds/tests or database operations.
+
+- Admin user directory: deterministic ID pagination, literal name/email search,
+  role/locked filters, safe detail DTO, name-only editing, confirmed lock/unlock.
+- Admin creation reuses registration services: STUDENT or PENDING TEACHER only,
+  supplied masked password, no default/generated password or ADMIN creation.
+  Existing Student login and Teacher verification/approval rules remain intact.
+- Hard delete rejects self/ADMIN targets and all business references. Ordered user
+  locks serialize mutations. PostgreSQL FK metadata includes CASCADE references;
+  pending Calendar outbox user/connection references also block deletion. Only
+  refresh, verification and password-reset credentials are disposable. No migration.
+- After-commit account audit logs contain actor/target IDs and action only; these
+  are not a durable database audit ledger. Teacher/bank decision history is retained.
+- Teacher review loads pending automatically; status tabs, applicant search,
+  detail and transactional approval/rejection reuse the existing profile workflow.
+- Bank review loads pending automatically, adds approved/rejected history, and
+  returns masked bank numbers. Existing private evidence and decision workflow
+  remain; platform review does not constitute bank ownership verification.
+- Admin CSRF cookie/header protects CRUD and both approval mutations. Existing
+  frontend and live fixture callers are updated; backend authority is unchanged.
+- TASK-009 adds Admin service/HTTP/registration and disposable PostgreSQL coverage,
+  six desktop/mobile management executions and six PNGs in
+  `admin-management-review-screenshots`. Existing acceptance groups remain.
+
+Known limits: conservative deletion blocks any retained Teacher application or
+profile and pending Calendar outbox work; no history erasure, role editing, email
+editing, bulk actions or total-count API. Page counts are not global totals.
+Course oversight/statistics remain separate scope. Static review completed; hosted
+TASK-009 acceptance and screenshot verification remain pending.
+
+Admin Batch 1 implementation/review file inventory:
+
+- `.github/workflows/task009-acceptance.yml`
+- `backend/src/main/java/com/englishlearning/features/auth/controller/VerificationExceptionHandler.java`
+- `backend/src/main/java/com/englishlearning/features/auth/security/BrowserSecurityFilters.java`
+- `backend/src/main/java/com/englishlearning/features/auth/service/RegistrationService.java`
+- `backend/src/main/java/com/englishlearning/features/auth/service/VerificationFailure.java`
+- `backend/src/main/java/com/englishlearning/features/paymentaccount/controller/ReceivingAccountReviewController.java`
+- `backend/src/main/java/com/englishlearning/features/paymentaccount/repository/ReceivingAccountRepository.java`
+- `backend/src/main/java/com/englishlearning/features/paymentaccount/service/ReceivingAccountReviewService.java`
+- `backend/src/main/java/com/englishlearning/features/paymentaccount/service/ReceivingAccountService.java`
+- `backend/src/main/java/com/englishlearning/features/teacher/controller/TeacherApplicationReviewController.java`
+- `backend/src/main/java/com/englishlearning/features/teacher/repository/TeacherApplicationRepository.java`
+- `backend/src/main/java/com/englishlearning/features/teacher/service/TeacherApplicationReviewService.java`
+- `backend/src/test/java/com/englishlearning/EnglishLearningApplicationTests.java`
+- `backend/src/test/java/com/englishlearning/common/api/ApiBoundaryTests.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/AuthenticationHttpTestSupport.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/ReceivingAccountReviewHttpTests.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/SecurityBoundaryTests.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/StudentRegistrationHttpTests.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/TeacherReviewHttpTests.java`
+- `backend/src/test/java/com/englishlearning/features/auth/service/StudentRegistrationServiceTests.java`
+- `backend/src/test/java/com/englishlearning/features/enrollment/EnrollmentPersistenceTests.java`
+- `backend/src/test/java/com/englishlearning/features/paymentaccount/ReceivingAccountPersistenceTests.java`
+- `backend/src/test/java/com/englishlearning/features/teacher/service/TeacherApplicationQueueTests.java`
+- `ci/task009/backend_tests.py`
+- `docs/API_DESIGN.md`
+- `docs/FEATURE_STATUS.md`
+- `frontend/src/features/admin/admin-dashboard.tsx`
+- `frontend/src/features/receiving/admin-reviews.tsx`
+- `frontend/src/features/receiving/receiving.ts`
+- `frontend/src/features/teacher/admin-applications.tsx`
+- `frontend/tests/e2e/admin-dashboard.spec.ts`
+- `frontend/tests/e2e/receiving-accounts.spec.ts`
+- `frontend/tests/e2e/student-admin.spec.ts`
+- `frontend/tests/live/calendar.spec.ts`
+- `frontend/tests/live/course-publication.spec.ts`
+- `frontend/tests/live/profile.spec.ts`
+- `backend/src/main/java/com/englishlearning/features/auth/controller/AdminCsrfController.java`
+- `backend/src/main/java/com/englishlearning/features/auth/controller/AdminRegistrationController.java`
+- `backend/src/main/java/com/englishlearning/features/auth/security/AdminManagementSecurity.java`
+- `backend/src/main/java/com/englishlearning/features/user/controller/AdminUserController.java`
+- `backend/src/main/java/com/englishlearning/features/user/dto/AdminUserDto.java`
+- `backend/src/main/java/com/englishlearning/features/user/repository/AdminUserRepository.java`
+- `backend/src/main/java/com/englishlearning/features/user/service/AdminUserService.java`
+- `backend/src/test/java/com/englishlearning/features/auth/security/AdminUserHttpTests.java`
+- `backend/src/test/java/com/englishlearning/features/user/AdminUserServiceTests.java`
+- `frontend/src/features/admin/admin-api.ts`
+- `frontend/src/features/admin/admin-users.module.css`
+- `frontend/src/features/admin/admin-users.tsx`
+- `frontend/src/features/admin/create-user.tsx`
+- `frontend/tests/e2e/admin-management.spec.ts`

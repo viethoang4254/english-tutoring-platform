@@ -23,53 +23,64 @@ class ReceivingAccountReviewHttpTests extends AuthenticationHttpTestSupport {
     }
     @Test void adminPendingAndDetailsArePrivateAndDoNotExposeObjectPaths()throws Exception {
         actor(Role.ADMIN,true,false);
-        when(reviews.pending(2,0,20)).thenReturn(new ReceivingAccountReviewService.Page(List.of(new ReceivingAccountReviewService.Item(new ApiId(9),new ApiId(1),"Bank",now)),0,20,false));
-        var account=new ReceivingAccount(new ApiId(9),"970436","VCB","Bank","Teacher","0012345678","PENDING","INACTIVE",true,now);
+        when(reviews.pending(2,0,20)).thenReturn(new ReceivingAccountReviewService.Page(List.of(new ReceivingAccountReviewService.Item(new ApiId(9),new ApiId(1),"Bank",now,"Teacher","****5678","PENDING")),0,20,false));
+        var account=new ReceivingAccount(new ApiId(9),"970436","VCB","Bank","Teacher","****5678","PENDING","INACTIVE",true,now);
         when(reviews.detail(2,9)).thenReturn(new ReceivingAccountReview(new ApiId(1),account,null,null,null));
-        mvc.perform(get("/api/v1/admin/payment-accounts/pending").header("Authorization","Bearer access"))
-            .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.items[0].teacherId").value("1")).andExpect(jsonPath("$.items[0].accountNumber").doesNotExist());
-        mvc.perform(get("/api/v1/admin/payment-accounts/9").header("Authorization","Bearer access"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.account.accountNumber").value("0012345678")).andExpect(jsonPath("$.account.qrObject").doesNotExist());
+        mvc.perform(get("/api/v1/admin/payment-accounts/pending").secure(true).header("Authorization","Bearer access"))
+            .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.items[0].teacherId").value("1")).andExpect(jsonPath("$.items[0].accountNumber").value("****5678"));
+        mvc.perform(get("/api/v1/admin/payment-accounts/9").secure(true).header("Authorization","Bearer access"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.account.accountNumber").value("****5678")).andExpect(jsonPath("$.account.qrObject").doesNotExist());
     }
     @Test void approveAndRejectUseAuthenticatedReviewer()throws Exception {
         actor(Role.ADMIN,true,false);
-        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").header("Authorization","Bearer access")).andExpect(status().isNoContent());
-        mvc.perform(post("/api/v1/admin/payment-accounts/10/reject").contentType("application/json").content("{\"reason\":\"Details mismatch\"}").header("Authorization","Bearer access")).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/admin/payment-accounts/10/reject").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).contentType("application/json").content("{\"reason\":\"Details mismatch\"}").header("Authorization","Bearer access")).andExpect(status().isNoContent());
         verify(reviews).review(2,9,true,null);verify(reviews).review(2,10,false,"Details mismatch");
         verifyNoInteractions(receivingRepository,qrStorage);
     }
     @Test void anonymousStudentTeacherLockedAndUnverifiedAdminDenied()throws Exception {
-        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader())).andExpect(status().isUnauthorized());
         for(Role role:List.of(Role.STUDENT,Role.TEACHER)) {
             actor(role,true,false);
-            mvc.perform(get("/api/v1/admin/payment-accounts/pending").header("Authorization","Bearer access")).andExpect(status().isForbidden());
-            mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").header("Authorization","Bearer access")).andExpect(status().isForbidden());
-            mvc.perform(post("/api/v1/admin/payment-accounts/9/reject").contentType("application/json").content("{\"reason\":\"Mismatch\"}").header("Authorization","Bearer access")).andExpect(status().isForbidden());
+            mvc.perform(get("/api/v1/admin/payment-accounts/pending").secure(true).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+            mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+            mvc.perform(post("/api/v1/admin/payment-accounts/9/reject").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).contentType("application/json").content("{\"reason\":\"Mismatch\"}").header("Authorization","Bearer access")).andExpect(status().isForbidden());
         }
-        actor(Role.ADMIN,false,false);mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").header("Authorization","Bearer access")).andExpect(status().isForbidden());
-        actor(Role.ADMIN,true,true);mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").header("Authorization","Bearer access")).andExpect(status().isUnauthorized());
+        actor(Role.ADMIN,false,false);mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        actor(Role.ADMIN,true,true);mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isUnauthorized());
         verifyNoInteractions(reviews);
     }
     @Test void rejectsMissingReasonAuthorityFieldsBodiesAndInvalidPagination()throws Exception {
         actor(Role.ADMIN,true,false);
         for(String body:List.of("{}","{\"reason\":\" \"}","{\"reason\":\"Mismatch\",\"reviewedBy\":1}"))
-            mvc.perform(post("/api/v1/admin/payment-accounts/9/reject").contentType("application/json").content(body).header("Authorization","Bearer access")).andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").contentType("application/json").content("{}").header("Authorization","Bearer access")).andExpect(status().isBadRequest());
+            mvc.perform(post("/api/v1/admin/payment-accounts/9/reject").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).contentType("application/json").content(body).header("Authorization","Bearer access")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).contentType("application/json").content("{}").header("Authorization","Bearer access")).andExpect(status().isBadRequest());
         for(String query:List.of("size=101","page=-1","page=0&page=1","teacherId=1"))
-            mvc.perform(get("/api/v1/admin/payment-accounts/pending?"+query).header("Authorization","Bearer access")).andExpect(status().isBadRequest());
+            mvc.perform(get("/api/v1/admin/payment-accounts/pending?"+query).secure(true).header("Authorization","Bearer access")).andExpect(status().isBadRequest());
         verifyNoInteractions(reviews);
     }
     @Test void duplicateDecisionsReturnConflictAndUnknownAccountsReturn404()throws Exception {
         actor(Role.ADMIN,true,false);
         doThrow(new ReceivingFailure(ReceivingFailure.Reason.ALREADY_REVIEWED)).when(reviews).review(2,9,true,null);
         when(reviews.detail(2,99)).thenThrow(new ReceivingFailure(ReceivingFailure.Reason.MISSING));
-        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").header("Authorization","Bearer access")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("RECEIVING_ACCOUNT_ALREADY_REVIEWED"));
-        mvc.perform(get("/api/v1/admin/payment-accounts/99").header("Authorization","Bearer access")).andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("RECEIVING_ACCOUNT_ALREADY_REVIEWED"));
+        mvc.perform(get("/api/v1/admin/payment-accounts/99").secure(true).header("Authorization","Bearer access")).andExpect(status().isNotFound());
     }
     @Test void adminStillCannotConfirmPaymentsActivateEnrollmentOrSwitchAccounts()throws Exception {
         actor(Role.ADMIN,true,false);
         for(String path:List.of("/api/v1/admin/payment-accounts/9/activate","/api/v1/teacher/courses/2/payments/9/confirm-manually","/api/v1/student/enrollments/9/activate"))
-            mvc.perform(post(path).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+            mvc.perform(post(path).secure(true).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer access")).andExpect(status().isForbidden());
         verifyNoInteractions(reviews,receivingRepository,qrStorage);
+    }
+    @Test void bankReviewRequiresCsrf()throws Exception {
+        actor(Role.ADMIN,true,false);
+        mvc.perform(post("/api/v1/admin/payment-accounts/9/approve").secure(true).header("Authorization","Bearer access")).andExpect(status().isForbidden());
+        verifyNoInteractions(reviews);
+    }
+    @Test void historyEndpointRetainsAdminBoundaryAndNoStore()throws Exception {
+        actor(Role.ADMIN,true,false);when(reviews.list(2,0,20,"APPROVED")).thenReturn(new ReceivingAccountReviewService.Page(List.of(),0,20,false));
+        mvc.perform(get("/api/v1/admin/payment-accounts?status=APPROVED").secure(true).header("Authorization","Bearer access")).andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store")).andExpect(jsonPath("$.items.length()").value(0));
+        actor(Role.TEACHER,true,false);
+        mvc.perform(get("/api/v1/admin/payment-accounts?status=APPROVED").secure(true).header("Authorization","Bearer access")).andExpect(status().isForbidden());
     }
 }

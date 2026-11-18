@@ -58,6 +58,55 @@ class EnrollmentPersistenceTests {
         sql("INSERT INTO sessions(course_id,session_number,scheduled_start_at,scheduled_end_at,status,created_at,updated_at) VALUES ("+course+",1,'"+first+"','"+first.plusSeconds(3600)+"','SCHEDULED',now(),now())");
         sql("UPDATE courses SET status='PUBLISHED' WHERE id="+course);
     }
+    @Test void adminDirectoryFiltersLocksAndPreservesTeacherApproval() {
+        var management=context.getBean(com.englishlearning.features.user.service.AdminUserService.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx->{
+            tx.setRollbackOnly();
+            var listed=management.list(admin,0,1,"example.invalid","STUDENT",false);
+            assertEquals(1,listed.items().size());assertTrue(listed.hasNext());
+            assertEquals(student,management.list(admin,0,20,"student@example.invalid",null,null).items().get(0).id().value());
+            assertTrue(management.changeLock(admin,student,true).locked());
+            assertEquals(1,management.list(admin,0,20,"student@example.invalid",null,true).items().size());
+            assertFalse(management.changeLock(admin,student,false).locked());
+            assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.changeLock(admin,admin,true));
+            var reviews=context.getBean(com.englishlearning.features.teacher.service.TeacherApplicationReviewService.class);
+            assertEquals(2,reviews.list(admin,0,20,"APPROVED").items().size());
+            assertTrue(reviews.list(admin,0,20,"REJECTED").items().isEmpty());
+        });
+    }
+    @Test void adminDeletionPreservesBusinessHistoryAndRemovesOnlyDisposableAccount()throws Exception {
+        var management=context.getBean(com.englishlearning.features.user.service.AdminUserService.class);
+        var current=context.getBean(com.englishlearning.features.user.service.CurrentAccountService.class);
+        sql("INSERT INTO users(email,password_hash,full_name,role,email_verified,locked,created_at,updated_at) VALUES ('delete-only@example.invalid','unused','Disposable','STUDENT',false,false,now(),now())");
+        long disposable=count("SELECT id FROM users WHERE email='delete-only@example.invalid'");
+        assertEquals("Updated",management.updateName(admin,disposable,Map.of("fullName","Updated")).fullName());
+        sql("INSERT INTO refresh_sessions(user_id,token_hash,expires_at,created_at) VALUES ("+disposable+",'disposable-refresh-fixture',now()+interval '1 hour',now())");
+        sql("INSERT INTO email_verification_credentials(user_id,purpose,target_email,secret_hash,expires_at,created_at) VALUES ("+disposable+",'INITIAL_VERIFICATION','delete-only@example.invalid','disposable-verification-fixture',now()+interval '1 hour',now())");
+        sql("INSERT INTO password_reset_credentials(user_id,secret_hash,expires_at,created_at) VALUES ("+disposable+",'disposable-reset-fixture',now()+interval '1 hour',now())");
+        management.delete(admin,disposable);
+        for(String table:List.of("refresh_sessions","email_verification_credentials","password_reset_credentials"))assertEquals(0,count("SELECT count(*) FROM "+table+" WHERE user_id="+disposable));
+        var jwt=org.springframework.security.oauth2.jwt.Jwt.withTokenValue("synthetic").header("alg","RS256").subject(Long.toString(disposable)).build();
+        assertThrows(org.springframework.security.authentication.BadCredentialsException.class,()->context.getBean(com.englishlearning.features.auth.security.CurrentAccountAuthenticationConverter.class).convert(jwt));
+        assertEquals(0,count("SELECT count(*) FROM users WHERE id="+disposable));
+        assertTrue(current.findById(disposable).isEmpty());
+        assertEquals(403,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.delete(admin,admin)).status);
+        assertEquals(409,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.delete(admin,teacher)).status);
+        var enrolled=enrollments.create(student,course).enrollment();
+        assertEquals(409,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.delete(admin,student)).status);
+        assertEquals(enrolled,enrollments.get(student,enrolled.id().value()));
+        assertEquals(1,count("SELECT count(*) FROM courses WHERE id="+course));
+    }
+    @Test void adminDeletionRejectsCascadeReminderAndNonForeignKeyOutbox() {
+        var management=context.getBean(com.englishlearning.features.user.service.AdminUserService.class);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx->{
+            tx.setRollbackOnly();var em=java.util.Objects.requireNonNull(org.springframework.orm.jpa.EntityManagerFactoryUtils.getTransactionalEntityManager(context.getBean(jakarta.persistence.EntityManagerFactory.class)));
+            em.createNativeQuery("INSERT INTO student_session_reminders(session_id,student_id,starts_at,schedule_version,due_at,next_attempt) SELECT id,:student,scheduled_start_at,0,now(),now() FROM sessions WHERE course_id=:course").setParameter("student",other).setParameter("course",course).executeUpdate();
+            assertEquals(409,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.delete(admin,other)).status);
+            assertEquals(1,((Number)em.createNativeQuery("SELECT count(*) FROM student_session_reminders WHERE student_id=:student").setParameter("student",other).getSingleResult()).intValue());
+            em.createNativeQuery("INSERT INTO calendar_sync_changes(entity,entity_id) VALUES ('user',:student)").setParameter("student",student).executeUpdate();
+            assertEquals(409,assertThrows(com.englishlearning.features.user.service.AdminUserService.Failure.class,()->management.delete(admin,student)).status);
+        });
+    }
     @Test void pendingDuplicateCancellationAndPrivacy()throws Exception {
         var e=enrollments.create(student,course).enrollment();assertEquals("PENDING",e.status());assertEquals(first,e.seatReservedUntil());
         assertEquals(e,enrollments.create(student,course).enrollment());assertEquals(1,count("SELECT count(*) FROM enrollments"));

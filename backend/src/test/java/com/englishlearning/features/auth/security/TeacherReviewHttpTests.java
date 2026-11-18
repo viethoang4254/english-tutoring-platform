@@ -31,6 +31,12 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
         when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.ADMIN,false,true, false)));
     }
     static final String QUEUE="/api/v1/admin/teacher-applications/pending";
+    @Test void historyListUsesStatusAndNoStore() throws Exception {
+        when(teacherReviews.list(12L,0,20,"APPROVED")).thenReturn(new com.englishlearning.features.teacher.dto.TeacherApplicationQueue(List.of(),0,20,false));
+        mvc.perform(get("/api/v1/admin/teacher-applications?status=APPROVED").header("Authorization","Bearer admin-token"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(0)).andExpect(header().string("Cache-Control","no-store"));
+        mvc.perform(get("/api/v1/admin/teacher-applications?status=APPROVED&status=PENDING").header("Authorization","Bearer admin-token")).andExpect(status().isBadRequest());
+    }
     @Test void pendingQueueUsesDefaultsAndSafeProjection() throws Exception {
         var item=new com.englishlearning.features.teacher.dto.TeacherApplicationQueue.Item(
                 new ApiId(9007199254740993L),new ApiId(9007199254740994L),"PENDING",now);
@@ -113,10 +119,10 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
                 "submittedAt","reviewedBy","reviewedAt","rejectionReason"),fields.propertyNames());
     }
     @Test void approveAndRejectUseAuthenticatedReviewer() throws Exception {
-        mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token"))
+        mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
         verify(teacherReviews).review(12L,9007199254740993L,true,null);
-        mvc.perform(post(BASE+"/reject").header("Authorization","Bearer admin-token")
+        mvc.perform(post(BASE+"/reject").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\" reason \"}"))
                 .andExpect(status().isNoContent());
         verify(teacherReviews).review(12L,9007199254740993L,false," reason ");
@@ -127,7 +133,7 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
                 new AccountSnapshot(12L,Role.ADMIN,true,true, false))) {
             when(accounts.findById(12L)).thenReturn(Optional.of(state));
             for(String suffix:List.of("","/approve","/reject")) {
-                var request=suffix.isEmpty()?get(BASE):post(BASE+suffix);
+                var request=suffix.isEmpty()?get(BASE):post(BASE+suffix).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader());
                 mvc.perform(request.header("Authorization","Bearer admin-token"))
                         .andExpect(status().is(state.locked()?401:403));
             }
@@ -135,7 +141,7 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
         verifyNoInteractions(teacherReviews);
     }
     @Test void authenticationPrecedesInvalidInput() throws Exception {
-        mvc.perform(post(BASE+"/approve").content("bad")).andExpect(status().isUnauthorized());
+        mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).content("bad")).andExpect(status().isUnauthorized());
         when(decoder.decode("bad")).thenThrow(new org.springframework.security.oauth2.jwt.BadJwtException("private"));
         mvc.perform(get(BASE).header("Authorization","Bearer bad")).andExpect(status().isUnauthorized());
         when(accounts.findById(12L)).thenReturn(Optional.empty());
@@ -146,15 +152,15 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
             "{\"reason\":1}","{\"reason\":true}","{\"reason\":[]}","{\"reason\":\"bad\\u0000text\"}",
             "{\"reason\":\"ok\",\"reviewedBy\":\"1\"}","{\"reason\":\"ok\",\"status\":\"APPROVED\"}"})
     void rejectsInvalidAndProtectedBody(String body) throws Exception {
-        mvc.perform(post(BASE+"/reject").header("Authorization","Bearer admin-token")
+        mvc.perform(post(BASE+"/reject").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token")
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
         verifyNoInteractions(teacherReviews);
     }
     @Test void rejectsQueryBodyAndInvalidIdsWithoutMutation() throws Exception {
-        mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token").content("{}"))
+        mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token").content("{}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token").queryParam("role","ADMIN"))
+        mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token").queryParam("role","ADMIN"))
                 .andExpect(status().isBadRequest());
         for(String id:List.of("0","-1","1.5","9223372036854775808"))
             mvc.perform(get("/api/v1/admin/teacher-applications/"+id).header("Authorization","Bearer admin-token"))
@@ -167,17 +173,17 @@ class TeacherReviewHttpTests extends AuthenticationHttpTestSupport {
         int[] statuses={404,409,409};String[] codes={"APPLICATION_NOT_FOUND","APPLICATION_ALREADY_REVIEWED","TEACHER_PROFILE_CONFLICT"};
         for(int i=0;i<reasons.length;i++) {
             doThrow(new TeacherReviewFailure(reasons[i])).when(teacherReviews).review(12L,9007199254740993L,true,null);
-            mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token"))
+            mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token"))
                     .andExpect(status().is(statuses[i])).andExpect(jsonPath("$.code").value(codes[i]));
         }
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("private SQL/password"))
                 .when(teacherReviews).review(12L,9007199254740993L,true,null);
-        mvc.perform(post(BASE+"/approve").header("Authorization","Bearer admin-token"))
+        mvc.perform(post(BASE+"/approve").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf().asHeader()).header("Authorization","Bearer admin-token"))
                 .andExpect(status().isInternalServerError()).andExpect(content().json(
                         "{\"code\":\"INTERNAL_ERROR\",\"message\":\"An unexpected error occurred.\"}",org.springframework.test.json.JsonCompareMode.STRICT));
     }
     @Test void noQueueOrOtherProductionPermission() throws Exception {
-        for(String path:List.of("/api/v1/admin/teacher-applications","/api/v1/teacher/courses","/api/v1/teacher/application"))
+        for(String path:List.of("/api/v1/teacher/courses","/api/v1/teacher/application"))
             mvc.perform(get(path).header("Authorization","Bearer admin-token")).andExpect(status().isForbidden());
     }
 }

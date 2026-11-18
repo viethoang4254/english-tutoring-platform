@@ -39,12 +39,16 @@ public class RegistrationService {
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
     public void register(String email, String password, String fullName, String username, String phone) {
+        register(null, email, password, fullName, username, phone);
+    }
+    public void register(Long admin, String email, String password, String fullName, String username, String phone) {
         String handle = com.englishlearning.features.auth.security.StudentRegistrationInput.username(username);
         String mobile = com.englishlearning.features.auth.security.StudentRegistrationInput.phone(phone);
         PasswordInput.validate(password);
         String canonical = canonical(email);
         String hash = passwords.encode(password);
         committed(() -> {
+            requireProvisioningAdmin(admin);
             Instant now = now();
             users.createStudent(canonical, hash, fullName, handle, mobile, now)
                     .orElseThrow(() -> failure(VerificationFailure.Reason.CONFLICT));
@@ -53,10 +57,15 @@ public class RegistrationService {
     }
     public void registerTeacher(String email, String password, String fullName,
             String specialization, String teachingExperience, String introduction) {
+        registerTeacher(null, email, password, fullName, specialization, teachingExperience, introduction);
+    }
+    public void registerTeacher(Long admin, String email, String password, String fullName,
+            String specialization, String teachingExperience, String introduction) {
         PasswordInput.validate(password);
         String canonical = canonical(email);
         String hash = passwords.encode(password);
         Delivery delivery = committed(() -> {
+            requireProvisioningAdmin(admin);
             Instant now = now();
             Long id = users.createTeacher(canonical, hash, fullName, now)
                     .orElseThrow(() -> failure(VerificationFailure.Reason.CONFLICT));
@@ -128,6 +137,13 @@ public class RegistrationService {
             }
             throw failure(VerificationFailure.Reason.INTERNAL);
         }
+    }
+    private void requireProvisioningAdmin(Long actor) {
+        if (actor == null) return; // Public self-registration uses the original entry points.
+        var account = users.lockAccountById(actor).orElse(null);
+        if (account == null || account.locked() || !account.emailVerified()
+                || account.role() != com.englishlearning.features.user.entity.User.Role.ADMIN)
+            throw failure(VerificationFailure.Reason.DENIED);
     }
     private Instant now() { return clock.instant().truncatedTo(ChronoUnit.MICROS); }
     private static String canonical(String email) { return email.trim().toLowerCase(Locale.ROOT); }

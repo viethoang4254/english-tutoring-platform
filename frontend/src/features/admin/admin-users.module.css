@@ -1,0 +1,23 @@
+.panel {padding:1rem;background:white;border:1px solid #dce3df;border-radius:1rem;min-width:0;overflow-wrap:anywhere}
+.filters,.panel nav {display:flex;flex-wrap:wrap;gap:.75rem;align-items:end;margin-block:1rem}
+.filters label {display:grid;gap:.3rem;min-width:0}
+.panel button,.filters input,.filters select {min-height:44px;padding:.5rem;font:inherit;max-width:100%}
+.panel table {width:100%;border-collapse:collapse;text-align:left;table-layout:fixed}
+.panel td,.panel th {padding:.6rem;border-bottom:1px solid #dce3df;vertical-align:top}
+.panel caption {text-align:left;font-weight:700;padding-block:.7rem}
+@media(max-width:640px){.filters{display:grid}.panel table,.panel tbody,.panel tr,.panel td{display:block;width:auto}.panel thead{position:absolute;clip-path:inset(100%);width:1px;height:1px;overflow:hidden}.panel tr{border:1px solid #dce3df;border-radius:.75rem;margin-block:1rem}.panel td{border:0}.panel td[data-label]::before{content:attr(data-label) ': ';font-weight:600}}
+
+.dialog {width:min(36rem,calc(100% - 2rem));max-height:90dvh;overflow:auto;border:1px solid #dce3df;border-radius:1rem;padding:1.5rem;overflow-wrap:anywhere}
+.dialog::backdrop {background:#10291dcc}
+.dialog label,.form fieldset {display:grid;gap:.5rem;min-width:0}
+.dialog input,.dialog select,.dialog textarea,.dialog button {font:inherit;min-height:44px;max-width:100%;padding:.6rem;box-sizing:border-box}
+.form fieldset {border:0;padding:0;gap:1rem}
+.form footer {display:flex;flex-wrap:wrap;gap:.75rem}
+
+.approvals {min-width:0;overflow-wrap:anywhere}
+.approvals nav {display:flex;flex-wrap:wrap;gap:.5rem;margin-block:1rem}
+.approvals [aria-pressed=true] {background:var(--ui-accent);color:white}
+.approvals ul {list-style:none;padding:0;display:grid;gap:.75rem}
+.approvals li {border:1px solid var(--ui-border);border-radius:.75rem;padding:1rem;min-width:0}
+.approvals input,.approvals textarea {box-sizing:border-box;width:100%;min-height:44px;max-width:100%;font:inherit;padding:.6rem}
+.loading {min-height:4rem;background:linear-gradient(90deg,#f0f5f1,#e5eee8,#f0f5f1);border-radius:.75rem;padding:1rem}

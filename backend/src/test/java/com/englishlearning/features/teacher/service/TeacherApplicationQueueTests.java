@@ -49,4 +49,21 @@ class TeacherApplicationQueueTests {
         }
         verifyNoInteractions(applications);
     }
+    @Test void listsEveryStatusWithStableBoundedPagination() {
+        admin();
+        for(String status:List.of("PENDING","APPROVED","REJECTED")) {
+            var row=mock(TeacherApplicationRepository.PendingRow.class);
+            when(row.getId()).thenReturn(1L);when(row.getTeacherId()).thenReturn(2L);when(row.getStatus()).thenReturn(status);
+            when(applications.findStatus(status,2,3)).thenReturn(List.of(row,row,row));
+            var result=service.list(12L,1,2,status);assertTrue(result.hasNext());assertEquals(2,result.items().size());assertEquals(status,result.items().get(0).status());
+        }
+        assertThrows(TeacherReviewFailure.class,()->service.list(12L,0,20,"UNKNOWN"));
+    }
+    @Test void searchIsNormalizedValidatedAndRoleProtected() {
+        admin();when(applications.searchStatus("PENDING","teacher",0,21)).thenReturn(List.of());
+        assertTrue(service.search(12L,0,20,"PENDING"," Teacher ").items().isEmpty());verify(applications).searchStatus("PENDING","teacher",0,21);
+        assertThrows(TeacherReviewFailure.class,()->service.search(12L,0,20,"PENDING","x".repeat(101)));
+        when(accounts.findById(12L)).thenReturn(Optional.of(new AccountSnapshot(12L,Role.TEACHER,false,true,true)));
+        assertEquals(TeacherReviewFailure.Reason.DENIED,assertThrows(TeacherReviewFailure.class,()->service.search(12L,0,20,"PENDING","")).reason());
+    }
 }

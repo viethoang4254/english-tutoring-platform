@@ -12,6 +12,9 @@ test('owner publishes a draft visible across public and Student catalogs', async
   const adminLogin = await mutation(request,'/auth/login',{email:admin.email,password:admin.password});
   expect(adminLogin.status()).toBe(200);
   const adminHeaders = {Authorization:'Bearer '+(await adminLogin.json()).accessToken};
+  const adminCsrf=await request.get(api+'/admin/csrf',{headers:adminHeaders});
+  expect(adminCsrf.status()).toBe(200);
+  Object.assign(adminHeaders,{'X-XSRF-TOKEN':(await adminCsrf.json()).token});
   const owner = await register(request,true);
   const application = await request.get(api+'/teacher/onboarding',{headers:owner.headers});
   expect(application.status()).toBe(200);

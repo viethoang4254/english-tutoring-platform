@@ -113,6 +113,11 @@ jobs:
         env:
           TASK009_EXPECTED_TESTS: '68'
       - run: python ci/task009/run.py resources
+      - name: Admin user management and approval review (6 cases)
+        run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-management.spec.ts
+        working-directory: frontend
+        env:
+          TASK009_EXPECTED_TESTS: '6'
       - name: Additional feature browser acceptance (108 cases)
         run: npx playwright test --config=playwright.task009.config.ts tests/e2e/admin-categories.spec.ts tests/e2e/admin-dashboard.spec.ts tests/e2e/course-discovery.spec.ts tests/e2e/course-registration.spec.ts tests/e2e/student-dashboard.spec.ts tests/e2e/teacher-dashboard.spec.ts
         working-directory: frontend
@@ -293,6 +298,35 @@ jobs:
         with:
           name: meeting-review-screenshots
           path: ${{ runner.temp }}/meeting-review/*.png
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Capture Admin management with synthetic fixtures
+        id: capture_admin_management
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npx playwright test --config=playwright.task009.config.ts --grep @admin-management
+        env:
+          TASK009_EXPECTED_TESTS: '6'
+          TASK009_UI_IMAGES: ${{ runner.temp }}/admin-management-review
+      - name: Verify Admin management PNGs
+        id: verify_admin_management
+        if: ${{ !cancelled() && steps.capture_admin_management.outcome == 'success' }}
+        shell: python
+        run: |
+          import os, pathlib, struct
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'admin-management-review'
+          for page in ('admin-users', 'admin-teacher-history', 'admin-bank-approval'):
+              for viewport, width in (('desktop', 1440), ('mobile', 390)):
+                  data = (root / f'{page}-{viewport}.png').read_bytes()
+                  assert data[:8] == b'\x89PNG\r\n\x1a\n'
+                  w, h = struct.unpack('>II', data[16:24])
+                  assert w == width and h > 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ !cancelled() && steps.verify_admin_management.outcome == 'success' }}
+        with:
+          name: admin-management-review-screenshots
+          path: ${{ runner.temp }}/admin-management-review/*.png
           retention-days: 7
           if-no-files-found: error
 

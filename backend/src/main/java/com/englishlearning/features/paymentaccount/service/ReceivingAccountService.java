@@ -74,7 +74,7 @@ public class ReceivingAccountService {
         return png;
     }
     private ReceivingAccountRepository.Stored own(long actor,long id){var r=rows.get(id).orElseThrow(()->fail(MISSING));if(r.teacher()!=actor)throw fail(MISSING);return r;}
-    private static ReceivingAccount mask(ReceivingAccount r) {
+    static ReceivingAccount mask(ReceivingAccount r) {
         String n=r.accountNumber();String masked=n.length()<=4?"****":"****"+n.substring(n.length()-4);
         return new ReceivingAccount(r.id(),r.bankBin(),r.bankCode(),r.bankName(),r.holderName(),masked,r.reviewStatus(),r.selectionStatus(),r.hasQrImage(),r.createdAt());
     }

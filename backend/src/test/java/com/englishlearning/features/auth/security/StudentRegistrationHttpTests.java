@@ -89,8 +89,8 @@ class StudentRegistrationHttpTests extends AuthenticationHttpTestSupport {
         verify(registration).verify(token); verify(registration).resend("person@example.invalid");
     }
     @Test void safeTypedErrorsNeverExposeCredentialsAndDoNotSetRefreshCookie() throws Exception {
-        int[] statuses={409,400,429,503,503,503,500};
-        String[] codes={"REGISTRATION_CONFLICT","INVALID_VERIFICATION_CREDENTIAL","VERIFICATION_RATE_LIMITED",
+        int[] statuses={403,409,400,429,503,503,503,500};
+        String[] codes={"ACCESS_DENIED","REGISTRATION_CONFLICT","INVALID_VERIFICATION_CREDENTIAL","VERIFICATION_RATE_LIMITED",
                 "VERIFICATION_DELIVERY_UNAVAILABLE","AUTHENTICATION_UNAVAILABLE","AUTHENTICATION_OUTCOME_UNKNOWN","INTERNAL_ERROR"};
         int i=0;
         for (var reason : VerificationFailure.Reason.values()) {

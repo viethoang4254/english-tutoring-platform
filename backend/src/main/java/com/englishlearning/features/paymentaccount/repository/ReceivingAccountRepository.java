@@ -26,6 +26,9 @@ public class ReceivingAccountRepository {
     public Optional<Stored> lock(long id) {
         return ((List<?>)em.createNativeQuery(SELECT+" WHERE id=:id FOR UPDATE").setParameter("id",id).getResultList()).stream().map(this::row).findFirst();
     }
+    public List<Stored> statusPage(String status,int page,int size) {
+        return ((List<?>)em.createNativeQuery(SELECT+" WHERE review_status=:status ORDER BY created_at,id").setParameter("status",status).setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(this::row).toList();
+    }
     public List<Stored> pendingPage(int page,int size) {
         return ((List<?>)em.createNativeQuery(SELECT+" WHERE review_status='PENDING' ORDER BY created_at,id")
             .setFirstResult(Math.multiplyExact(page,size)).setMaxResults(size+1).getResultList()).stream().map(this::row).toList();

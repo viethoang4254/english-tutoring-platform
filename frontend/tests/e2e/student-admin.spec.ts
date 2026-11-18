@@ -28,7 +28,7 @@ async function login(page: Page) {
   await expect(page.getByLabel("Mật khẩu",{exact:true})).toHaveCount(0);
 }
 async function openDetail(page: Page) {
-  await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await login(page); await accountPanel(page, "Xét duyệt gia sư");
   await page.getByRole("button", { name: `Xem hồ sơ ${applicationId}` }).click();
 }
 async function studentForm(page: Page, password = " password ") {
@@ -77,14 +77,14 @@ test("Admin sees safe detail and approves with an empty POST exactly once", asyn
   await page.getByRole("button", { name: "Phê duyệt hồ sơ" }).evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
   await expect(page.getByText("Đã phê duyệt hồ sơ.", { exact: true })).toBeVisible();
   const requests = calls.filter(c => c.path.endsWith("/approve")); expect(requests).toHaveLength(1);
-  expect(requests[0]).toMatchObject({ method: "POST", body: null, authorization: "Bearer test-token" });
+  expect(requests[0]).toMatchObject({ method: "POST", body: null, authorization: "Bearer test-token", csrf: "csrf-test" });
   await expect.poll(() => calls.filter(c => c.path.includes("/pending?")).length).toBe(2);
 });
 
 test("Admin rejects with exact preserved reason and rejects blank input", async ({ page }) => {
   const calls = await backend(page); await openDetail(page);
   await page.getByLabel("Lý do từ chối", { exact: true }).fill("   "); await page.getByRole("button", { name: "Từ chối hồ sơ" }).click();
-  await expect(page.getByRole("status").first()).toContainText("Vui lòng kiểm tra thông tin đã nhập"); expect(calls.some(c => c.path.endsWith("/reject"))).toBe(false);
+  await expect(page.getByRole("alert").first()).toContainText("Vui lòng kiểm tra thông tin đã nhập"); expect(calls.some(c => c.path.endsWith("/reject"))).toBe(false);
   await page.getByLabel("Lý do từ chối", { exact: true }).fill(" More experience needed. "); await page.getByRole("button", { name: "Từ chối hồ sơ" }).click();
   await expect(page.getByText("Đã từ chối hồ sơ.", { exact: true })).toBeVisible();
   expect(calls.find(c => c.path.endsWith("/reject"))?.body).toEqual({ reason: " More experience needed. " });
@@ -97,7 +97,7 @@ test("queue pagination and empty results use approved fixed-size query", async (
     const index = Number(url.searchParams.get("page"));
     await route.fulfill({ json: { items: [], page: index, size: 20, hasNext: index === 0 } });
   });
-  await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await login(page); await accountPanel(page, "Xét duyệt gia sư");
   await expect(page.getByText("Không có hồ sơ chờ xét duyệt trên trang này.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Trang trước" })).toBeDisabled();
   await page.getByRole("button", { name: "Trang sau" }).click(); await expect(page.getByText("Trang 2", { exact: true })).toBeVisible();
@@ -120,7 +120,7 @@ test("concurrent review conflict refreshes immutable detail without replay", asy
     await route.fulfill({ status: 409, json: { code: "APPLICATION_ALREADY_REVIEWED", message: "PRIVATE" } });
   });
   await page.getByRole("button", { name: "Phê duyệt hồ sơ" }).click();
-  await expect(page.getByRole("status").first()).toContainText("Hồ sơ này đã được xét duyệt");
+  await expect(page.getByRole("alert").first()).toContainText("Hồ sơ này đã được xét duyệt");
   await expect(page.getByRole("region", { name: "Chi tiết hồ sơ" }).getByText("Đã phê duyệt", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Phê duyệt hồ sơ" })).toHaveCount(0); expect(reviews).toBe(1);
 });
@@ -132,15 +132,15 @@ test("uncertain review with failed reconciliation removes mutation controls", as
     await route.abort();
   });
   await page.getByRole("button", { name: "Phê duyệt hồ sơ" }).click();
-  await expect(page.getByRole("status").first()).toContainText("tạm thời không khả dụng");
+  await expect(page.getByRole("alert").first()).toContainText("tạm thời không khả dụng");
   await expect(page.getByRole("button", { name: "Phê duyệt hồ sơ" })).toHaveCount(0); expect(requests).toBe(1);
 });
 
 for (const status of [401, 403, 404, 500, 503]) test(`Admin detail ${status} removes stale review controls`, async ({ page }) => {
-  await backend(page); await login(page); await accountPanel(page, "Xét duyệt gia sư"); await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
+  await backend(page); await login(page); await accountPanel(page, "Xét duyệt gia sư");
   await page.route(`**/teacher-applications/${applicationId}`, route => route.fulfill({ status, json: { code: "ERROR", message: "PRIVATE" } }));
   await page.getByRole("button", { name: `Xem hồ sơ ${applicationId}` }).click();
-  await expect(page.getByRole("status").first()).not.toBeEmpty(); await expect(page.getByText("PRIVATE")).toHaveCount(0);
+  await expect(page.getByRole("alert").first()).not.toBeEmpty(); await expect(page.getByText("PRIVATE")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Phê duyệt hồ sơ" })).toHaveCount(0);
 });
 

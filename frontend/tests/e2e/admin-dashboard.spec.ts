@@ -33,7 +33,6 @@ for (const modal of [false, true]) test(`Admin login and protected dashboard (${
   await page.screenshot({ path: info.outputPath("admin-dashboard.png"), fullPage: true });
 
   await page.getByRole("button", { name: "Mở danh sách chờ xét duyệt" }).click();
-  await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
   await expect(page.getByText("Không có hồ sơ chờ xét duyệt trên trang này.")).toBeVisible();
   await menu(page);
   await page.getByRole("link", { name: "Quản lý danh mục", exact: true }).click();
@@ -57,9 +56,11 @@ test("Review load failure is visible and can be retried explicitly", async ({ pa
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
   await page.route("**/admin/teacher-applications/pending?*", route => route.fulfill({ status: 503, json: { code: "UNAVAILABLE" } }));
   await page.getByRole("button", { name: "Mở danh sách chờ xét duyệt" }).click();
-  await page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText("Dịch vụ tạm thời không khả dụng");
   await expect(page.getByRole("button", { name: "Cập nhật danh sách chờ xét duyệt" })).toBeEnabled();
+  await page.route("**/admin/teacher-applications/pending?*",route=>route.fulfill({json:{items:[],page:0,size:20,hasNext:false}}));
+  await page.getByRole("button",{name:"Cập nhật danh sách chờ xét duyệt"}).click();
+  await expect(page.getByText("Không có hồ sơ chờ xét duyệt trên trang này.")).toBeVisible();
 });
 for (const role of ["STUDENT", "TEACHER"]) test(`${role} routing is preserved and Admin access denied`, async ({ page }) => {
   await login(page, role);
