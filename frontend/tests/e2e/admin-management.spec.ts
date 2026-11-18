@@ -24,6 +24,19 @@ test("@admin-management User directory filters, pages and confirms lock/unlock",
  });
  await navigate(page,"Quản lý người dùng");const panel=page.getByRole("region",{name:"Danh sách người dùng",exact:true});
  await expect(panel.getByText("student@example.invalid",{exact:true})).toBeVisible();
+ const caption=panel.locator("caption");
+ const headingBox=await caption.boundingBox();
+ expect(headingBox).not.toBeNull();
+ expect(headingBox!.width).toBeGreaterThan(200);
+ expect(headingBox!.height).toBeLessThan(80);
+ for(const name of ["Vai tr\u00f2","Tr\u1ea1ng th\u00e1i t\u00e0i kho\u1ea3n"]){
+  const control=panel.getByRole("combobox",{name,exact:true});
+  const box=await control.boundingBox();expect(box!.width).toBeGreaterThan(100);expect(box!.height).toBeGreaterThanOrEqual(44);
+ }
+ if(info.project.name==="desktop"){
+  const email=panel.getByText("student@example.invalid",{exact:true});
+  expect(await email.evaluate(e=>{const range=document.createRange();range.selectNodeContents(e);return range.getClientRects().length;})).toBe(1);
+ }
  await captureReview(page,info,"admin-users");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await panel.getByRole("button",{name:"Chi tiết",exact:true}).click();await expect(page.getByRole("region",{name:"Chi tiết người dùng"})).toContainText("Email chưa xác minh");await page.getByRole("button",{name:"Đóng chi tiết"}).click();
  for(const name of ["Khóa","Mở khóa"]){await panel.getByRole("button",{name,exact:true}).click();expect(writes).toBe(name==="Khóa"?0:1);await panel.getByRole("button",{name:"Xác nhận",exact:true}).click();await expect(panel.getByText(name==="Khóa"?"Đã khóa tài khoản.":"Đã mở khóa tài khoản.",{exact:true})).toBeVisible();}
@@ -48,6 +61,9 @@ test("@admin-management Teacher history and applicant details",async({page},info
  await page.route("**/admin/teacher-applications**",r=>{const u=new URL(r.request().url()),status=u.searchParams.get("status")??"PENDING";return r.fulfill({json:u.pathname.endsWith("/2")?{id:"2",teacherId:"3",status:"APPROVED",specialization:"Tiếng Anh",teachingExperience:"3 năm",introduction:"Gia sư kiểm thử",submittedAt:"2026-01-01T00:00:00Z",reviewedBy:"1",reviewedAt:"2026-01-02T00:00:00Z",rejectionReason:null}:{items:status==="REJECTED"?[]:[{id:"2",teacherId:"3",status,submittedAt:"2026-01-01T00:00:00Z"}],page:0,size:20,hasNext:false}});});
  await page.route("**/admin/users/3",r=>r.fulfill({json:{id:"3",fullName:"Gia sư kiểm thử",email:"teacher@example.invalid",role:"TEACHER",locked:false,emailVerified:false}}));
  await navigate(page,"Xét duyệt gia sư");await expect(page.getByRole("button",{name:"Xem hồ sơ 2",exact:true})).toBeVisible();await page.getByRole("button",{name:"Đã duyệt",exact:true}).click();await page.getByRole("button",{name:"Xem hồ sơ 2",exact:true}).click();await page.getByRole("button",{name:"Xem tài khoản ứng viên"}).click();await expect(page.getByText(/teacher@example.invalid/)).toBeVisible();await expect(page.getByRole("button",{name:"Phê duyệt hồ sơ",exact:true})).toHaveCount(0);
+ const details=page.getByRole("region",{name:"Chi ti\u1ebft h\u1ed3 s\u01a1"}).locator("dl");
+ await expect(details.locator("dd")).toHaveCount(9);
+ expect(await details.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
  await captureReview(page,info,"admin-teacher-history");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.getByRole("button",{name:"Đã từ chối",exact:true}).click();await expect(page.getByText("Không có hồ sơ trên trang này.")).toBeVisible();
 });

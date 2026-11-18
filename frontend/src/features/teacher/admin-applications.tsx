@@ -3,7 +3,7 @@
 import ui from "../admin/admin-users.module.css";
 import { adminMutation } from "../admin/admin-api";
 import { useCallback, useEffect, useState } from "react";
-import { statusLabels, formatDate } from "../../lib/vi";
+import { statusLabels } from "../../lib/vi";
 import { ApiRequestError } from "../../lib/api";
 import { authorized, type Session } from "../auth/browser-api";
 
@@ -13,6 +13,12 @@ type Detail = Omit<Item, "status"> & {
   status: "PENDING" | "APPROVED" | "REJECTED";
   specialization: string; teachingExperience: string; introduction: string;
   reviewedBy: string | null; reviewedAt: string | null; rejectionReason: string | null;
+};
+const formatDate = (value:string) => {
+  const date=new Date(value);
+  return Number.isNaN(date.getTime()) ? "Kh\u00f4ng x\u00e1c \u0111\u1ecbnh" : new Intl.DateTimeFormat("vi-VN", {
+    day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Ho_Chi_Minh",
+  }).format(date) + " (GMT+7)";
 };
 const root = "/admin/teacher-applications";
 const id = (value: string) => typeof value === "string" && /^[1-9][0-9]*$/.test(value);
@@ -89,7 +95,7 @@ export function AdminApplications({ session, busy, run }: {
       <h3>Hồ sơ {detail.id}</h3>
       <button disabled={busy} onClick={()=>void run(async()=>{setApplicant(null);const value=await authorized<{id:string;fullName:string;email:string}>(session.accessToken,`/admin/users/${detail.teacherId}`);if(!value||value.id!==detail.teacherId)throw new Error("Invalid applicant");setApplicant(value);})}>Xem tài khoản ứng viên</button>
       {applicant&&<p>{applicant.fullName} · {applicant.email}</p>}
-      <dl className="review-reason">
+      <dl className={ui.details}>
         <dt>Mã gia sư</dt><dd>{detail.teacherId}</dd>
         <dt>Trạng thái</dt><dd>{statusLabels[detail.status]}</dd>
         <dt>Chuyên môn</dt><dd>{detail.specialization}</dd>

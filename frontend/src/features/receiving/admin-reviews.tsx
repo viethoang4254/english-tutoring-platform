@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ui from "../admin/admin-users.module.css";
 import {useCallback, useEffect, useRef, useState} from "react";
 import {adminMutation} from "../admin/admin-api";
 import {type Session} from "../auth/browser-api";
@@ -22,7 +23,7 @@ function Queue({token,handle}:{token:string;handle:(e:unknown)=>void}) {
     return read<Page<QueueItem>>(token,status==="PENDING"?`${adminPath}/pending?page=${page}&size=20`:`${adminPath}?status=${status}&page=${page}&size=20`,signal);
   },[token,page,status]);
   const result=useLoad(load,handle,version);
-  return <section className={styles.panel}><h2>{status==="PENDING"?"Hồ sơ chờ xét duyệt":"Lịch sử xét duyệt tài khoản nhận tiền"}</h2>
+  return <section className={`${styles.panel} ${ui.bankQueue}`}><h2>{status==="PENDING"?"Hồ sơ chờ xét duyệt":"Lịch sử xét duyệt tài khoản nhận tiền"}</h2>
     <nav aria-label="Trạng thái xét duyệt ngân hàng">{[["PENDING","Chờ duyệt"],["APPROVED","Đã duyệt"],["REJECTED","Đã từ chối"]].map(([value,label])=><button key={value} aria-pressed={status===value} onClick={()=>{setStatus(value);setPage(0);}}>{label}</button>)}</nav>
     <button onClick={()=>setVersion(v=>v+1)}>Cập nhật danh sách</button>
     {!result?<p role="status">Đang tải danh sách…</p>:result.error?<p role="alert">{result.error}</p>:<>

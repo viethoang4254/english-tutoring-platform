@@ -2,10 +2,12 @@
 .filters,.panel nav {display:flex;flex-wrap:wrap;gap:.75rem;align-items:end;margin-block:1rem}
 .filters label {display:grid;gap:.3rem;min-width:0}
 .panel button,.filters input,.filters select {min-height:44px;padding:.5rem;font:inherit;max-width:100%}
-.panel table {width:100%;border-collapse:collapse;text-align:left;table-layout:fixed}
+.panel table {width:100%;border-collapse:collapse;text-align:left;table-layout:auto}
 .panel td,.panel th {padding:.6rem;border-bottom:1px solid #dce3df;vertical-align:top}
+.panel td:last-child {width:19rem}
+.actions {display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
 .panel caption {text-align:left;font-weight:700;padding-block:.7rem}
-@media(max-width:640px){.filters{display:grid}.panel table,.panel tbody,.panel tr,.panel td{display:block;width:auto}.panel thead{position:absolute;clip-path:inset(100%);width:1px;height:1px;overflow:hidden}.panel tr{border:1px solid #dce3df;border-radius:.75rem;margin-block:1rem}.panel td{border:0}.panel td[data-label]::before{content:attr(data-label) ': ';font-weight:600}}
+@media(max-width:640px){.filters{display:grid}.panel table,.panel caption,.panel tbody,.panel tr,.panel td{display:block;width:100%;box-sizing:border-box}.panel caption{min-width:0;overflow-wrap:normal}.panel td:last-child{width:auto}.panel thead{position:absolute;clip-path:inset(100%);width:1px;height:1px;overflow:hidden}.panel tr{border:1px solid #dce3df;border-radius:.75rem;margin-block:1rem}.panel td{border:0}.panel td[data-label]::before{content:attr(data-label) ': ';font-weight:600}}
 
 .dialog {width:min(36rem,calc(100% - 2rem));max-height:90dvh;overflow:auto;border:1px solid #dce3df;border-radius:1rem;padding:1.5rem;overflow-wrap:anywhere}
 .dialog::backdrop {background:#10291dcc}
@@ -21,3 +23,12 @@
 .approvals li {border:1px solid var(--ui-border);border-radius:.75rem;padding:1rem;min-width:0}
 .approvals input,.approvals textarea {box-sizing:border-box;width:100%;min-height:44px;max-width:100%;font:inherit;padding:.6rem}
 .loading {min-height:4rem;background:linear-gradient(90deg,#f0f5f1,#e5eee8,#f0f5f1);border-radius:.75rem;padding:1rem}
+
+.filters input,.filters select {box-sizing:border-box;width:100%;min-width:0}
+.filters label {flex:1 1 10rem}
+.details {display:grid;grid-template-columns:minmax(8rem,1fr) minmax(0,2fr);gap:.6rem 1rem;margin-block:1rem}
+.details dt {font-weight:600}
+.details dd {margin:0;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.bankQueue nav {display:flex;flex-wrap:wrap;gap:.5rem}
+.bankQueue button,.bankQueue a {min-height:44px;display:inline-flex;align-items:center}
+@media(max-width:640px){.details{grid-template-columns:minmax(0,1fr);gap:.25rem}.details dd{margin-bottom:.75rem}.filters{grid-template-columns:minmax(0,1fr)}.actions button{flex:1 1 auto}}
