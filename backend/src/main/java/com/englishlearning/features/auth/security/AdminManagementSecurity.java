@@ -46,7 +46,7 @@ public class AdminManagementSecurity {
         http.addFilterAt(filter,BearerTokenAuthenticationFilter.class);
         return http.build();
     }
-    private static org.springframework.security.authorization.AuthorizationDecision admin(java.util.function.Supplier<org.springframework.security.core.Authentication> auth, org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
+    private static org.springframework.security.authorization.AuthorizationDecision admin(java.util.function.Supplier<? extends org.springframework.security.core.Authentication> auth, org.springframework.security.web.access.intercept.RequestAuthorizationContext context) {
         var principal=auth.get().getPrincipal();
         return new org.springframework.security.authorization.AuthorizationDecision(principal instanceof AccountPrincipal a && a.role()==com.englishlearning.features.user.entity.User.Role.ADMIN && a.emailVerified());
     }
