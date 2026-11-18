@@ -57,8 +57,8 @@ function AdminView({initialSection,reviewId}:{initialSection:Section;reviewId?:s
       {message && <p role="alert" className={styles.notice}>{message}</p>}
       {busy && <p role="status">Đang xử lý…</p>}
       {section === "overview" && <>
-        <section className={styles.card}><span className={styles.badge}>Đã kết nối chức năng</span><h2>Xét duyệt hồ sơ gia sư</h2><p>Xem hồ sơ, phê duyệt hoặc từ chối qua hệ thống xét duyệt hiện có.</p><button className="auth-primary" onClick={() => setSection("reviews")}>Mở danh sách chờ xét duyệt</button></section>
         <AdminAnalytics session={session}/>
+        <section className={styles.card}><span className={styles.badge}>Đã kết nối chức năng</span><h2>Xét duyệt hồ sơ gia sư</h2><p>Xem hồ sơ, phê duyệt hoặc từ chối qua hệ thống xét duyệt hiện có.</p><button className="auth-primary" onClick={() => setSection("reviews")}>Mở danh sách chờ xét duyệt</button></section>
       </>}
       {section === "account" && <AccountWorkspace embeddedPanel="settings" dashboardPanel="password"/>}
       {section === "reviews" && <div className={`${styles.card} account-workspace`}><AdminApplications session={session} busy={busy} run={run} /></div>}

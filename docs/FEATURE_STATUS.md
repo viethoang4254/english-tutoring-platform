@@ -1650,3 +1650,15 @@ hard deletion. Approved Teachers are not a count of presently eligible Teachers.
 Recorded confirmed tuition is not bank reconciliation, net income or platform funds.
 All-time aggregation scans existing tables; no speculative indexes/caching were added.
 Production-scale query cost requires hosted/staging measurement before optimization.
+
+### Admin Batch 3 reference-layout follow-up (hosted validation pending)
+
+Overview reuses platform theme tokens, shell and icons: five primary KPIs, two SVG
+status donuts and a daily activity table/line chart. Existing API and money logic are
+unchanged. Course distribution uses published/draft counts plus the exact remainder
+labelled Khác (completed/cancelled/archived are not separately exposed). All-time
+labels and zero-data states are explicit. No growth comparisons are fabricated.
+Daily chart plots only returned dates; omitted days are not invented. Supplementary
+KPIs/definitions remain expandable; payment statistics remain expanded by default.
+Mobile caption fix and all four analytics screenshot captures are retained. Hosted
+checks cover totals, percentages, zero data, plotted values, filters and readability.
